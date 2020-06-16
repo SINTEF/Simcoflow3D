@@ -93,63 +93,75 @@ Module PredictorUV
       Call DiffusiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,      &
                                          DFTB,EDFTB,0,0,1)
     ! Step 3: Calculate source term coefficient as wall function
-      Do i = 1,Imax-1
-        Do j = 1,Jmax
-          Do k = 1,Kmax
+      do i = 1,Imax-1
+        do j = 1,Jmax
+          do k = 1,Kmax
           ! U Cell
-            If(UCell%Cell_Type(i,j,k)/=2) then
+            if(UCell%Cell_Type(i,j,k)/=2) then
               Fe = CFEW(i+1,j,k,1)
               Fw = CFEW(i,j,k,1)
               Fn = CFNS(i,j+1,k,1)
               Fs = CFNS(i,j,k,1)
               Ft = CFTB(i,j,k+1,1)
               Fb = CFTB(i,j,k,1)
-              FluxDiv(i,j,k,1) = Fe-Fw+Fn-Fs+Ft-Fb
-            End if
-            If(UCell%Cell_Type(i,j,k)/=2) then
-              UFric(i,j,k) = 1.d0/Rey*UCell%WlLh(i,j,k)/UCell%delh(i,j,k)!*dabs(UCell%ny(i,j))
-            Else
+              FluxDiv(i,j,k,1)=(Fe-Fw+Fn-Fs+Ft-Fb)/UCell%vof(i,j,k)
+            end if
+            if(UCell%Cell_Type(i,j,k)/=2) then
+              UFric(i,j,k)=(UCell%vofL(i,j,k)/UCell%vof(i,j,k)*nuw/nuref+      &
+                     (1.d0-UCell%vofL(i,j,k)/UCell%vof(i,j,k))*nua/nuref)/Rey* &
+                     UCell%WlLh(i,j,k)/UCell%delh(i,j,k)/UCell%vof(i,j,k)
+            else
               UFric(i,j,k) = 0.d0
-            End if
-            If(isnan(Fluxdiv(i,j,k,1)).or.dabs(Fluxdiv(i,j,k,1))>1.d5) then
-              print*,i,j,k,Pred%u(i,j,k)
+            end if
+            if(i==68.and.j==46.and.k==46) then
+              print*, 'Test the flux for computing the flux difference'
+              print*, Fe,Fw
+              print*, Fn,Fs
+              print*, Ft,Fb
+              print*, FluxDiv(i,j,k,1),UCell%vof(i,j,k)
+              print*, (Fe-Fw+Fn-Fs+Ft-Fb)/UCell%vof(i,j,k)
+              print*, '+++++++++++++++++++++++++++++++++++++++++++++++'
+            end if
+            if(isnan(Fluxdiv(i,j,k,1)).or.dabs(Fluxdiv(i,j,k,1))>1.d5) then
+              print*, i,j,k,Pred%u(i,j,k)
               print*, fluxdiv(i,j,k,1),i,j,k
               print*, fe,fw,fn,fs,ft,fb
               pause 'predictoruv 114'
-            End if
-          End do
-        End do
-      End do
+            end if
+          end do
+        end do
+      end do
+      print*, 'Flux after computing the totall flux'
+      print*, FluxDiv(68,48,46,1)
       Do i = 1,Imax
         Do j = 1,Jmax-1
           Do k = 1,Kmax
-            If(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
+            If(VCell%Cell_Type(i,j,k)/=2) then ! for V Cell
               Fe = CFEW(i+1,j,k,2)
               Fw = CFEW(i,j,k,2)
               Fn = CFNS(i,j+1,k,2)
               Fs = CFNS(i,j,k,2)
               Ft = CFTB(i,j,k+1,2)
               Fb = CFTB(i,j,k,2)
-              FluxDiv(i,j,k,2) = Fe-Fw+Fn-Fs+Ft-Fb
+              FluxDiv(i,j,k,2)=(Fe-Fw+Fn-Fs+Ft-Fb)/VCell%vof(i,j,k)
             End if
-            if(i==59.and.j==48.and.k==48) then
-              print*, 'Test V velocity'
-              print*, Fluxdiv(i,j,k,2)/VCell%vof(i,j,k)
-              print*, Fe,DFEW(i,j,k,2)
-              print*, Fw,DFEW(i-1,j,k,2)
-              print*, Fn,DFNS(i,j,k,2)
-              print*, Fs,DFNS(i,j-1,k,2)
-              print*, Fb,DFTB(i,j,k,2)
-              print*, Ft,DFTB(i,j,k-1,2)
-              print*, '                   '
-              print*, pred%v(i,j,k)
-            end if
           ! V Cell
             If(VCell%Cell_Type(i,j,k)/=2) then
-              VFric(i,j,k) = 1.d0/Rey*VCell%WlLh(i,j,k)/VCell%delh(i,j,k)
+              VFric(i,j,k)=(VCell%vofL(i,j,k)/VCell%vof(i,j,k)*nuw/nuref+      &
+                     (1.d0-VCell%vofL(i,j,k)/VCell%vof(i,j,k))*nua/nuref)/Rey* &
+                     VCell%WlLh(i,j,k)/VCell%delh(i,j,k)/VCell%vof(i,j,k)
             Else
               VFric(i,j,k)=0.d0
             End if
+            if(i==66.and.j==48.and.k==46) then
+              print*, 'Test the flux for computing the flux difference'
+              print*, Fe,Fw
+              print*, Fn,Fs
+              print*, Ft,Fb
+              print*, FluxDiv(i,j,k,2),UCell%vof(i,j,k)
+              print*, (Fe-Fw+Fn-Fs+Ft-Fb)/UCell%vof(i,j,k)
+              print*, '+++++++++++++++++++++++++++++++++++++++++++++++'
+            end if
             If(isnan(Fluxdiv(i,j,k,2)).or.dabs(Fluxdiv(i,j,k,2))>1.d5) then
               print*,i,j,k,pred%v(i,j,k)
               print*,Fe,Fw,Fn,Fs,Ft,Fb
@@ -158,7 +170,8 @@ Module PredictorUV
           End do
         End do
       End do
-
+      print*, 'Flux after computing the total flux'
+      print*, FluxDiv(68,46,46,2)
       Do i = 1,Imax
         Do j = 1,Jmax
           Do k = 1,Kmax-1
@@ -169,14 +182,25 @@ Module PredictorUV
               Fs = CFNS(i,j,k,3)
               Ft = CFTB(i,j,k+1,3)
               Fb = CFTB(i,j,k,3)
-              FluxDiv(i,j,k,3) = Fe-Fw+Fn-Fs+Ft-Fb
+              FluxDiv(i,j,k,3)=(Fe-Fw+Fn-Fs+Ft-Fb)/WCell%vof(i,j,k)
             End if
           ! W Cell
             If(WCell%Cell_Type(i,j,k)/=2) then
-              WFric(i,j,k) = 1.d0/Rey*WCell%WlLh(i,j,k)/WCell%delh(i,j,k)
+              WFric(i,j,k)=(WCell%vofL(i,j,k)/WCell%vof(i,j,k)*nuw/nuref+      &
+                   (1.d0-WCell%vofL(i,j,k)/WCell%vof(i,j,k))*nua/nuref)/Rey*   &
+                     WCell%WlLh(i,j,k)/WCell%delh(i,j,k)/WCell%vof(i,j,k)
             Else
               WFric(i,j,k) = 0.d0
             End if
+            if(i==68.and.j==46.and.k==33) then
+              print*, 'Test the flux for computing the flux difference'
+              print*, Fe,Fw
+              print*, Fn,Fs
+              print*, Ft,Fb
+              print*, FluxDiv(i,j,k,3)
+              print*, (Fe-Fw+Fn-Fs+Ft-Fb)/UCell%vof(i,j,k)
+              print*, '+++++++++++++++++++++++++++++++++++++++++++++++'
+            end if
             If(isnan(Fluxdiv(i,j,k,3)).or.dabs(Fluxdiv(i,j,k,3))>1.d5) then
               print*,i,j,k,pred%w(i,j,k)
               print*,Fe,Fw,Fn,Fs,Ft,Fb
@@ -185,6 +209,8 @@ Module PredictorUV
           End do
         End do
       End do
+      
+      
     !  print*,Fluxdiv(1,20,20,1),UGrid%dz(1,20,20)
     !  print*,Fluxdiv(1,20,20,1)/UGrid%dz(1,20,20)
     !  print*,
@@ -340,59 +366,72 @@ Module PredictorUV
         Call HYPRE_IJMatrixSetObjectType(A,HYPRE_PARCSR,ierr)
         Call HYPRE_IJMatrixInitialize(A,ierr)
         MaxDiff=0.d0
-        Do i = 1,Imax-iu
-          Do j = 1,Jmax-iv
-            Do k = 1,Kmax-iw
-            !  If(i==1) j = Jmax-iv-j
-              If(TCell%Cell_Type(i,j,k)/=2) then
+        do i = 1,Imax-iu
+          do j = 1,Jmax-iv
+            do k = 1,Kmax-iw
+              PUVW%Dp(i,j,k)=dt ! It is used to avoid the bug causing by vof=0
+              ! If(i==1) j = Jmax-iv-j
+              if(TCell%Cell_Type(i,j,k)/=2) then
                 Dfe=0.d0;Dfw=0.d0;Dfn=0.d0;Dfs=0.d0;Dft=0.d0;Dfb=0.d0
                 Fep=0.d0;Fem=0.d0;Fwp=0.d0;Fwm=0.d0;Fnp=0.d0;Fnm=0.d0
                 Fsp=0.d0;Fsm=0.d0;Ftp=0.d0;Ftm=0.d0;Fbp=0.d0;Fbm=0.d0
-
+                
               ! For UCell,VCell,WCell
-                Dfe = DFEW(i+1,j,k,iu+2*iv+3*iw)
-                Dfw = DFEW(i,j,k,iu+2*iv+3*iw)
-                Dfn = DFNS(i,j+1,k,iu+2*iv+3*iw)
-                Dfs = DFNS(i,j,k,iu+2*iv+3*iw)
-                Dft = DFTB(i,j,k+1,iu+2*iv+3*iw)
-                Dfb = DFTB(i,j,k,iu+2*iv+3*iw)
-
-                if(dabs(MaxDiff)<dabs(Dfe)) then
+                Dfe = DFEW(i+1,j,k,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                Dfw = DFEW(i,j,k,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                Dfn = DFNS(i,j+1,k,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                Dfs = DFNS(i,j,k,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                Dft = DFTB(i,j,k+1,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                Dfb = DFTB(i,j,k,iu+2*iv+3*iw)/TCell%Vof(i,j,k)
+                
+                if(dabs(MaxDiff)<dabs(DFEW(i+1,j,k,iu+2*iv+3*iw))) then
                   MaxDiff = DFEW(i+1,j,k,iu+2*iv+3*iw)
-                  ii = i
+                  ii = i+1
                   jj = j
                   kk = k
-                end if
+                end if 
+                
+                Fep = EDFEW(i+1,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaE(i,j,k))/    &
+                      TCell%Vof(i,j,k)
+                Fem = EDFEW(i+1,j,k,iu+2*iv+3*iw)*TCell%EtaE(i,j,k)/	       &
+                      TCell%Vof(i,j,k)		
+                Fwp = EDFEW(i,j,k,iu+2*iv+3*iw)*TCell%EtaE(i-1,j,k)/	       &
+                      TCell%Vof(i,j,k) 	
+                Fwm = EDFEW(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaE(i-1,j,k))/    &
+                      TCell%Vof(i,j,k) 	
+                Fnp = EDFNS(i,j+1,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaN(i,j,k))/    &
+                      TCell%Vof(i,j,k)
+                Fnm = EDFNS(i,j+1,k,iu+2*iv+3*iw)*TCell%EtaN(i,j,k)/           &
+                      TCell%Vof(i,j,k)
+                Fsp = EDFNS(i,j,k,iu+2*iv+3*iw)*TCell%EtaN(i,j-1,k)/           &
+                      TCell%Vof(i,j,k) 
+                Fsm = EDFNS(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaN(i,j-1,k))/    &
+                      TCell%Vof(i,j,k)
+                Ftp = EDFTB(i,j,k+1,iu+2*iv+3*iw)*(1.d0-TCell%EtaT(i,j,k))/    &
+                      TCell%Vof(i,j,k)
+                Ftm = EDFTB(i,j,k+1,iu+2*iv+3*iw)*TCell%EtaT(i,j,k)/           &
+                      TCell%Vof(i,j,k)
+                Fbp = EDFTB(i,j,k,iu+2*iv+3*iw)*TCell%EtaT(i,j,k-1)/           &
+                      TCell%Vof(i,j,k)
+                Fbm = EDFTB(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaT(i,j,k-1))/    &
+                      TCell%Vof(i,j,k)
 
-                Fep = EDFEW(i+1,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaE(i,j,k))
-                Fem = EDFEW(i+1,j,k,iu+2*iv+3*iw)*TCell%EtaE(i,j,k)
-                Fwp = EDFEW(i,j,k,iu+2*iv+3*iw)*TCell%EtaE(i-1,j,k)
-                Fwm = EDFEW(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaE(i-1,j,k))
-                Fnp = EDFNS(i,j+1,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaN(i,j,k))
-                Fnm = EDFNS(i,j+1,k,iu+2*iv+3*iw)*TCell%EtaN(i,j,k)
-                Fsp = EDFNS(i,j,k,iu+2*iv+3*iw)*TCell%EtaN(i,j-1,k)
-                Fsm = EDFNS(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaN(i,j-1,k))
-                Ftp = EDFTB(i,j,k+1,iu+2*iv+3*iw)*(1.d0-TCell%EtaT(i,j,k))
-                Ftm = EDFTB(i,j,k+1,iu+2*iv+3*iw)*TCell%EtaT(i,j,k)
-                Fbp = EDFTB(i,j,k,iu+2*iv+3*iw)*TCell%EtaT(i,j,k-1)
-                Fbm = EDFTB(i,j,k,iu+2*iv+3*iw)*(1.d0-TCell%EtaT(i,j,k-1))
-
-                If(i==Imax-iu) Dfe = 0.d0
-                If(j==iu.or.j==iw) Dfs = 0.d0
-                If(j==Jmax+1-iu.or.j==Jmax+1-iw) Dfn = 0.d0
-                If(k==iu.or.k==iv) Dfb = 0.d0
-                If(k==Kmax+1-iu.or.k==Kmax+1-iv) Dft = 0.d0
+                if(i==Imax-iu) Dfe = 0.d0
+                if(j==iu.or.j==iw) Dfs = 0.d0
+                if(j==Jmax+1-iu.or.j==Jmax+1-iw) Dfn = 0.d0
+                if(k==iu.or.k==iv) Dfb = 0.d0
+                if(k==Kmax+1-iu.or.k==Kmax+1-iv) Dft = 0.d0
                 aE = Dfe;aW = Dfw;aN = Dfn;aS = Dfs;aT = Dft;aB = Dfb
-
-                If(i==1)CWE(j,k,1) = aW
-                If(i==Imax-iu)CWE(j,k,2) = aE
-                If(j==1)CSN(i,k,1) = aS
-                If(j==Jmax-iv)CSN(i,k,2) = aN
-                If(k==1)CBT(i,j,1) = aB
-                If(k==Kmax-iw)CBT(i,j,2) = aT
+		
+                if(i==1)CWE(j,k,1) = aW
+                if(i==Imax-iu)CWE(j,k,2) = aE
+                if(j==1)CSN(i,k,1) = aS
+                if(j==Jmax-iv)CSN(i,k,2) = aN
+                if(k==1)CBT(i,j,1) = aB
+                if(k==Kmax-iw)CBT(i,j,2) = aT
                 Sp = Fric(i,j,k)
-                aP = TCell%vof(i,j,k)*TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*         &
-                                      TGrid%dz(i,j,k)/dt+aE+aW+aN+aS+aT+aB+Sp
+                aP = TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*         		       &
+                                      TGrid%dz(i,j,k)/dt+aE+aW+aN+aS+aT+aB+Sp                  
                 aP = aP+Fep-Fwp+Fnp-Fsp+Ftp-Fbp
                 aE = aE-Fem
                 aW = aW+Fwm
@@ -400,35 +439,32 @@ Module PredictorUV
                 aS = aS+Fsm
                 aT = aT-Ftm
                 aB = aB+Fbm
-                PUVW%Dp(i,j,k) = 1.d0/(aP-aE-aW-aN-aS-aT-aB)!dt/(TCell%vof(i,j,k)*TGrid%dx(i,j,k)*         &
-                                      !TGrid%dy(i,j,k)*TGrid%dz(i,j,k))!
-                if(i==59.and.j==48.and.k==48.and.iv==1) then
-              	  print*, 'Test V Parameter for computing predictor V'
-                  print*, aP/TCell%vof(i,j,k)
-              	  print*, aE/TCell%vof(i,j,k)
-                  print*, aW/TCell%vof(i,j,k)
-                  print*, aN/TCell%vof(i,j,k)
-                  print*, aS/TCell%vof(i,j,k)
-                  print*, aT/TCell%vof(i,j,k)
-              	  print*, aB/TCell%vof(i,j,k)
-           	  print*, '                   '
-            	  print*, PUVW%Dp(i,j,k)
-            	end if
-                ictr = Tcell%Posnu(i,j,k)
-                nnz = 0
-                values = 0.d0
-                cols = 0
+                PUVW%Dp(i,j,k)=TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/&
+                               (aP-aE-aW-aN-aS-aT-aB)
+                if(aP<0.d0) then
+                  print*, 'Negative central coefficient'
+                  print*, aE,aW
+                  print*, aN,aS
+                  print*, aT,aB
+                  print*, '++++++++++++++++++++++++++++'
+                  print*, Fep,Fwp
+                  print*, Fnp,Fsp
+                  print*, Ftp,Fbp
+                end if                 
                 if(isnan(PUVW%Dp(i,j,k))) then
-                  print*, aP
-                  print*, aE
-                  print*, aW
-                  print*, aN
-                  print*, aS
-                  print*, aT
-                  print*, aB
-                  print*, 'Test problem with nan in velocity coefficient'
+                  print*,'Test compute the velocity velocity'
+                  print*,PUVW%Dp(i,j,k)
+                  print*,aE,aW
+                  print*,aN,aS
+                  print*,aT,aB
+                  print*,'----------------------------------'
                 end if
                 If(dabs(aw)+dabs(ae)+dabs(as)+dabs(an)+dabs(ab)+dabs(at)>dabs(ap)) then
+                  print*, 'undominant coefficient'
+                  print*,i,j,k
+                  print*,iu,iv,iw
+                  print*, '------------------------------------'
+                  print*,TCell%vof(i,j,k)
                   print*,ap,aw,ae,as,an,ab,sp
                   print*,fep,fem,TCell%EEArea(i,j,k),TCell%EtaE(i,j,k)
                   print*,fwp,fwm,TCell%EEArea(i-1,j,k),TCell%EtaE(i-1,j,k)
@@ -437,67 +473,73 @@ Module PredictorUV
                   print*,ftp,ftm,TCell%TEArea(i,j,k),TCell%EtaT(i,j,k)
                   print*,fbp,fbm,TCEll%TEArea(i,j,k-1),TCell%EtaT(i,j,k-1)
                   print*,i,j,k,iu,iv,iw
+                  pause
                   print*,'+++++++++++++++++++++++++++++++++++++'
                 End if
+                ictr=Tcell%Posnu(i,j,k)
+                nnz=0
+                values=0.d0
+                cols=0
               ! West of current cell
-                If(i>1) then
-                  If(TCell%Posnu(i-1,j,k)/=-1) then
+                if(i>1) then
+                  if(TCell%Posnu(i-1,j,k)/=-1) then
                     cols(nnz) = TCell%Posnu(i-1,j,k)
                     values(nnz) = -aW
                     nnz = nnz+1
-                  End if
-                End if
+                  end if
+                end if
               ! South of current cell
-                If(j>1) then
-                  If(TCell%Posnu(i,j-1,k)/=-1) then
+                if(j>1) then
+                  if(TCell%Posnu(i,j-1,k)/=-1) then
                     cols(nnz) = TCell%Posnu(i,j-1,k)
                     values(nnz) = -aS
                     nnz = nnz+1
-                  End if
-                End if
+                  end if
+                end if
               ! Bottom of current
-                If(k>1) then
-                  If(TCell%Posnu(i,j,k-1)/=-1) then
+                if(k>1) then
+                  if(TCell%Posnu(i,j,k-1)/=-1) then
                     cols(nnz) = TCell%Posnu(i,j,k-1)
                     values(nnz) = -aB
                     nnz = nnz+1
-                  End if
-                End if
+                  end if
+                end if
               ! Set the diagonal cell
                 cols(nnz) = TCell%Posnu(i,j,k)
                 values(nnz) = aP
                 nnz = nnz+1
               ! East of current cell
-                If(i<Imax-iu) then
-                  If(TCell%Posnu(i+1,j,k)/=-1) then
+                if(i<Imax-iu) then
+                  if(TCell%Posnu(i+1,j,k)/=-1) then
                     cols(nnz) = TCell%Posnu(i+1,j,k)
                     values(nnz) = -aE
                     nnz = nnz+1
-                  End if
-                End if
+                  end if
+                end if
               ! North of current cell
-                If(j<Jmax-iv) then
-                  If(TCell%Posnu(i,j+1,k)/=-1) then
+                if(j<Jmax-iv) then
+                  if(TCell%Posnu(i,j+1,k)/=-1) then
                     cols(nnz) = TCell%Posnu(i,j+1,k)
                     values(nnz) = -aN
                     nnz = nnz+1
-                  End if
-                End if
+                  end if
+                end if
               ! Top of current cell
-                If(k<Kmax-iw) then
-                  If(TCell%Posnu(i,j,k+1)/=-1) then
+                if(k<Kmax-iw) then
+                  if(TCell%Posnu(i,j,k+1)/=-1) then
                     cols(nnz) = TCell%Posnu(i,j,k+1)
                     values(nnz) = -aT
                     nnz = nnz+1
-                  End if
-                End if
-                Call HYPRE_IJMatrixSetValues(A,1,nnz,ictr,cols,values,ierr)
-              End if
-            End do
-          End do
-        End do
-     !   print*,'Test the maximum diffusive coefficient'
-     !   print*,MaxDiff
+                  end if
+                end if
+                call HYPRE_IJMatrixSetValues(A,1,nnz,ictr,cols,values,ierr)
+              end if
+            end do
+          end do
+        end do
+     !   print*,'Test maximum diffusive coefficient'
+     !   print*, MaxDiff
+     !   print*, iu,iv,iw
      !   print*, ii,jj,kk
         Call HYPRE_IJMatrixAssemble(A,ierr)
         Call HYPRE_IJMatrixGetObject(A,parcsr_A,ierr)
@@ -524,7 +566,6 @@ Module PredictorUV
         local_size = iupper-ilower+1 ! the number of rows
         ! In here, we apply boundary condition for deltaP with its values is 0 at
         ! all boundary. therefore, we do not need to set boundary in vector b
-        MaxVect=0.d0
         Allocate(rhs(0:TCell%ExtCell))
         Allocate(xval(0:TCell%ExtCell))
         Allocate(rows(0:TCell%ExtCell))
@@ -535,79 +576,65 @@ Module PredictorUV
         Call HYPRE_IJVectorSetObjectType(x,HYPRE_PARCSR,ierr)
         Call HYPRE_IJVectorInitialize(x,ierr)
         rhs(:) = 0.d0
+        imp=1
+        jmp=1
+        kmp=1
         Do i = 1,Imax-iu
           Do j = 1,Jmax-iv
             Do k = 1,Kmax-iw
               If(TCell%Cell_Type(i,j,k)/=2) then
-                ictr = TCell%PosNu(i,j,k)
-                rhs(ictr) = (iu*TVar_n%u(i,j,k)+iv*TVar_n%v(i,j,k)+            &
-                             iw*TVar_n%w(i,j,k))*TCell%vof(i,j,k)*             &
-                             TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt
+                ictr=TCell%PosNu(i,j,k)
+                rhs(ictr)=(dble(iu)*TVar_n%u(i,j,k)+dble(iv)*TVar_n%v(i,j,k)+  &
+                           dble(iw)*TVar_n%w(i,j,k))*TGrid%dx(i,j,k)*	       &
+                           TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt
+                           
+                rhs(ictr)=rhs(ictr)-IJKFlux(i,j,k)
+                
                 if(MaxVect<dabs(rhs(ictr))) then
                   MaxVect=rhs(ictr)
                   imp=i
                   jmp=j
                   kmp=k
                 end if
-                If(TCell%MoExCell(i,j,k)/=1) then
-                !  rhs(ictr) = rhs(ictr)-TCell%vof(i,j,k)*TGrid%dx(i,j,k)*      &
-                !             TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*(p(i+iu,j+iv,k+iw)&
-                !             -p(i,j,k))/(dble(iu)*TGrid%dx(i,j,k)+dble(iv)*    &
-                !                      TGrid%dy(i,j,k)+dble(iw)*TGrid%dz(i,j,k))
-                  PUVW%Dp(i,j,k) = TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
-                                   TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*  &
-                                   TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+   &
-                                   dble(iw)*TGrid%dz(i,j,k))*PUVW%Dp(i,j,k)
-                Else
-                  ii = TCell%MsCe(i,j,k,1)
-                  jj = TCell%MsCe(i,j,k,2)
-                  kk = TCell%MsCe(i,j,k,3)
-              !    rhs(ictr) = rhs(ictr)-TCell%vof(i,j,k)*TGrid%dx(i,j,k)*      &
-              !            TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*(p(ii+iu,jj+iv,kk+iw)&
-              !            -p(ii,jj,kk))/(dble(iu)*TGrid%dx(i,j,k)+dble(iv)*    &
-              !                       TGrid%dy(i,j,k)+dble(iw)*TGrid%dz(i,j,k))
-                  PUVW%Dp(i,j,k) = TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
-                                   TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*  &
-                                   TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+   &
-                                   dble(iw)*TGrid%dz(i,j,k))*PUVW%Dp(i,j,k)
-                End if
-                rhs(ictr) = rhs(ictr)-IJKFlux(i,j,k)
-
-                If(i==1)rhs(ictr) = rhs(ictr)+CWE(j,k,1)*(iu*TVar_n%u(i-1,j,k)+&
+                if(i==120.and.j==1.and.k==1) then
+                  print*, rhs(ictr)
+                  print*, (iu*TVar_n%u(i,j,k)+iv*TVar_n%v(i,j,k)+              &
+                           iw*TVar_n%w(i,j,k))*TGrid%dx(i,j,k)*		       &
+                           TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt
+                  print*, iu,iv,iw, dt
+                  print*, TGrid%dx(i,j,k),TGrid%dy(i,j,k),TGrid%dz(i,j,k)
+                  print*, TVar_n%u(i,j,k),TVar_n%v(i,j,k),TVar_n%w(i,j,k)
+                end if
+                
+                If(i==1)rhs(ictr)=rhs(ictr)+CWE(j,k,1)*(iu*TVar_n%u(i-1,j,k)+  &
                              iv*TVar_n%v(i-1,j,k)+iw*TVar_n%w(i-1,j,k))
-                If(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*(iu*TVar_n%u(i+1,j,k)+&
-                             iv*TVar_n%v(i+1,j,k)+iw*TVar_n%w(i+1,j,k))
-                If(j==1)rhs(ictr) = rhs(ictr)+CSN(i,k,1)*(iu*TVar_n%u(i,j-1,k)+&
-                             iv*TVar_n%v(i,j-1,k)+iw*TVar_n%w(i,j-1,k))
-                If(j==Jmax-iv)rhs(ictr)=rhs(ictr)+CSN(i,k,2)*(iu*TVar_n%u(i,j+1,k)+&
-                             iv*TVar_n%v(i,j+1,k)+iw*TVar_n%w(i,j+1,k))
-                If(k==1)rhs(ictr)=rhs(ictr)+CBT(i,j,1)*(iu*TVar_n%u(i,j,k-1)+  &
-                             iv*TVar_n%v(i,j,k-1)+iw*TVar_n%w(i,j,k-1))
-                If(k==Kmax-iw)rhs(ictr)=rhs(ictr)+CBT(i,j,2)*(iu*TVar_n%u(i,j,k+1)+&
-                             iv*TVar_n%v(i,j,k+1)+iw*TVar_n%w(i,j,k+1))
-                If(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
-                  print*,i,j,k,TCell%vof(i,j,k),TCell%MoExCell(i,j,k)
-                  print*,TCell%WePr(i,j,k)
-                  pause 'predictoruv_459'
-                End if
+                If(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*                  &
+                  (iu*TVar_n%u(i+1,j,k)+iv*TVar_n%v(i+1,j,k)+iw*TVar_n%w(i+1,j,k))
+                If(j==1)rhs(ictr)=rhs(ictr)+CSN(i,k,1)*                        &
+                  (iu*TVar_n%u(i,j-1,k)+iv*TVar_n%v(i,j-1,k)+iw*TVar_n%w(i,j-1,k))
+                If(j==Jmax-iv)rhs(ictr)=rhs(ictr)+CSN(i,k,2)*                  &
+                  (iu*TVar_n%u(i,j+1,k)+iv*TVar_n%v(i,j+1,k)+iw*TVar_n%w(i,j+1,k))
+                If(k==1)rhs(ictr)=rhs(ictr)+CBT(i,j,1)*                        &
+                  (iu*TVar_n%u(i,j,k-1)+iv*TVar_n%v(i,j,k-1)+iw*TVar_n%w(i,j,k-1))
+                If(k==Kmax-iw)rhs(ictr)=rhs(ictr)+CBT(i,j,2)*                  &
+                  (iu*TVar_n%u(i,j,k+1)+iv*TVar_n%v(i,j,k+1)+iw*TVar_n%w(i,j,k+1))
                 xval(ictr) = 0.d0
                 rows(ictr) = ilower+ictr
-                if(i==59.and.j==48.and.k==48.and.iv==1) then
-                  print*, 'Test vector for V computing'
-                  print*,rhs(ictr)
-                end if
               End if
             End do
           End do
         End do
         print*,'Test maximum vector'
         print*, MaxVect
-        print*,imp,jmp,kmp
+        print*, imp,jmp,kmp
+        print*, TVar_n%u(imp,jmp,kmp),TVar_n%v(imp,jmp,kmp),TVar_n%w(imp,jmp,kmp)
+        print*, IJKFlux(imp,jmp,kmp),CWE(jmp,kmp,2)
+        print*, '==============================================================='
         Call HYPRE_IJVectorSetValues(b,local_size,rows,rhs,ierr)
         Call HYPRE_IJVectorSetValues(x,local_size,rows,xval,ierr)
         Call HYPRE_IJVectorAssemble(b,ierr)
         Call HYPRE_IJVectorAssemble(x,ierr)
-! get the x and b objects
+	! get the x and b objects
         Call HYPRE_IJVectorGetObject(b,par_b,ierr)
         Call HYPRE_IJVectorGetObject(x,par_x,ierr)
         Deallocate(rhs)
