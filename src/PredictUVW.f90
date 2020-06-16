@@ -148,7 +148,7 @@ Module PredictorUV
             end if
           ! V Cell
             If(VCell%Cell_Type(i,j,k)/=2) then
-              VFric(i,j,k)=VCell%vofL(i,j,k)/VCell%vof(i,j,k)*nuw/nuref+       &
+              VFric(i,j,k)=(VCell%vofL(i,j,k)/VCell%vof(i,j,k)*nuw/nuref+       &
                      (1.d0-VCell%vofL(i,j,k)/VCell%vof(i,j,k))*nua/nuref)/Rey* &
                      VCell%WlLh(i,j,k)/VCell%delh(i,j,k)
             Else
