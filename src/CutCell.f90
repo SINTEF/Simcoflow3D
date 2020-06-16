@@ -4,7 +4,7 @@ Module Cutcell
     USE StateVariables, only : ight,jght,R1,xc,yc,pi
     Implicit none
     Private
-    Real(kind=dp),parameter:: epsi = 1.d-5
+    Real(kind=dp),parameter,public :: epsi = 1.d-3
     Type,public:: Cell
       Integer(kind=it4b),dimension(:,:,:),allocatable   :: Cell_Type
                           ! CellType: 0 fluid cell and not target cell
@@ -54,7 +54,7 @@ Module Cutcell
         Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
         Integer(kind=it8b),intent(in):: itt
         Integer(kind=it4b):: i,j,k
-        Real(kind=dp):: Face(3)
+        Real(kind=dp):: Face(3),minVof,CellFaceArea
         Call DefineCell(PCell)
         Call DefineCell(UCell)
         Call DefineCell(VCell)
@@ -63,7 +63,7 @@ Module Cutcell
         Call CellGeoCal(UGrid,UCell)
         Call CellGeoCal(VGrid,VCell)
         Call CellGeoCal(WGrid,WCell)
-        
+        minVof=1.d0
         Do j = 1,Jmax
           Do k = 1,Kmax
             Do i = 1,Imax-1
@@ -73,13 +73,16 @@ Module Cutcell
                   UCell%FCN(i,j,k,1) = 0.d0
                   UCell%FCT(i,j,k,1) = 0.d0
                 End if
+
               End if
+              if(minVof>UCell%vof(i,j,k).and.UCell%Cell_Type(i,j,k)==1) minVof=UCell%vof(i,j,k)
             End do
             UCell%FCN(Imax,j,k,1) = 0.d0
             UCell%FCT(Imax,j,k,1) = 0.d0
           End do
         End do
-        
+        print*, 'smallest fluid volume fraction for UCell:',minVof
+        minVof=1.d0
         Do i = 1,Imax
           Do k = 1,Kmax
             Do j = 1,Jmax-1
@@ -90,12 +93,13 @@ Module Cutcell
                   VCell%FCT(i,j,k,2) = 0.d0
                 End if
               End if
+              if(minVof>VCell%vof(i,j,k).and.VCell%Cell_Type(i,j,k)==1) minVof=VCell%vof(i,j,k)
             End do
             VCell%FCE(i,Jmax,k,2) = 0.d0
             VCell%FCT(i,Jmax,k,2) = 0.d0
           End do
         End do
-        
+        print*, 'smallest fluid volume fraction for VCell:',minVof
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax-1
@@ -106,12 +110,13 @@ Module Cutcell
                   WCell%FCN(i,j,k,3) = 0.d0
                 End if
               End if
+              if(minVof>WCell%vof(i,j,k).and.WCell%Cell_Type(i,j,k)==1) minVof=WCell%vof(i,j,k)
             End do
             WCell%FCE(i,j,Kmax,3) = 0.d0
             WCell%FCN(i,j,Kmax,3) = 0.d0
           End do
         End do
-
+	print*, 'smallest fluid volume fraction for WCell:',minVof
       ! Correct Cell Center of U,V,W Cell
         Do i = 1,Imax
           Do j = 1,Jmax
@@ -170,7 +175,7 @@ Module Cutcell
                 Call FaceGeoCal(UGrid%dy(i,j,k),UGrid%dz(i,j,k),UCell%ny(i,j,k),&
                                 UCell%nz(i,j,k),UCell%nx(i,j,k),               &
                                 0.d0,UCell%phi(i,j,k),                         &
-                                PCell%EEArea(i,j,k),FaCe)
+                                CellFaceArea,FaCe)
                 PCell%FCE(i,j,k,1) = FaCe(3)+PGrid%dx(i,j,k)/2.d0
                 PCell%FCE(i,j,k,2) = FaCe(1);PCell%FCE(i,j,k,3) = FaCe(2)
                 UCell%Cell_Cent(i,j,k,1) = FaCe(3)
@@ -192,7 +197,7 @@ Module Cutcell
                 Call FaceGeoCal(VGrid%dz(i,j,k),VGrid%dx(i,j,k),VCell%nz(i,j,k),&
                                 VCell%nx(i,j,k),VCell%ny(i,j,k),               &
                                 0.d0,VCell%phi(i,j,k),                         &
-                                PCell%NEArea(i,j,k),FaCe)
+                                CellFaceArea,FaCe)
                 PCell%FCN(i,j,k,1) = FaCe(2);PCell%FCN(i,j,k,3) = FaCe(1)
                 PCell%FCN(i,j,k,2) = FaCe(3)+PGrid%dy(i,j,k)/2.d0
                 VCell%Cell_Cent(i,j,k,1) = FaCe(2)
@@ -213,7 +218,7 @@ Module Cutcell
                 Call FaceGeoCal(WGrid%dx(i,j,k),WGrid%dy(i,j,k),WCell%nx(i,j,k),&
                                 WCell%ny(i,j,k),WCell%nz(i,j,k),               &
                                 0.d0,WCell%phi(i,j,k),                         &
-                                PCell%TEArea(i,j,k),FaCe)
+                                CellFaceArea,FaCe)
                 PCell%FCT(i,j,k,1) = FaCe(1);PCell%FCT(i,j,k,2) = FaCe(2)
                 PCell%FCT(i,j,k,3) = FaCe(3)+PGrid%dz(i,j,k)/2.d0
                 WCell%Cell_Cent(i,j,k,1) = FaCe(1)
@@ -242,8 +247,15 @@ Module Cutcell
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax
-              If(TCell%vof(i,j,k)>=1.d0-epsi)TCell%Cell_Type(i,j,k) = 0  ! External cell
-              If(TCell%vof(i,j,k)<=epsi)TCell%Cell_Type(i,j,k) = 2  ! Internal Cell
+              if(TCell%vof(i,j,k)>=1.d0-epsi) then
+                TCell%Cell_Type(i,j,k) = 0  ! External cell
+                TCell%vof(i,j,k)=1.d0
+              end if  
+              If(TCell%vof(i,j,k)<=epsi) then 
+                TCell%Cell_Type(i,j,k) = 2  ! Internal Cell
+                TCell%vof(i,j,k)=0.d0
+                TCell%vofL(i,j,k)=0.d0
+              End if
               If(TCell%vof(i,j,k)>=epsi.and.TCell%vof(i,j,k)<=1.d0-epsi)       &
                                           TCell%Cell_Type(i,j,k) = 1  ! Cutcell
             End do
@@ -397,36 +409,40 @@ Module Cutcell
                               TCell%NEArea(i,j-1,k),TCell%NEArea(i,j,k),       &
                               TCell%TEArea(i,j,k-1),TCell%TEArea(i,j,k))
               If(.not.allocated(TCell%MoExCell)) then
-              If(MaxFace<1.d-2) TCell%Cell_Type(i,j,k)=2
+                If(MaxFace<1.d-2) TCell%Cell_Type(i,j,k)=2
               End if
             End do
           End do
         End do
 
-        Do i = 1,Imax
-          Do j = 1,Jmax
-            Do k = 1,Kmax
-              If(TCell%Cell_Type(i,j,k)==1) then
-                If(i+1<=Imax) then
-                  If(TCell%Cell_Type(i+1,j,k)==2) then
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+              if(TCell%Cell_Type(i,j,k)==2) then ! Set every cell face of solid cell to 0
+                TCell%EEArea(i-1,j,k)=0.d0; TCell%EEArea(i,j,k)=0.d0
+                TCell%NEArea(i,j-1,k)=0.d0; TCell%NEArea(i,j,k)=0.d0
+                TCell%TEArea(i,j,k-1)=0.d0; TCell%TEArea(i,j,k)=0.d0
+              end if
+              if(TCell%Cell_Type(i,j,k)==1) then
+                if(i+1<=Imax) then
+                  if(TCell%Cell_Type(i+1,j,k)==2) then
                     TCell%EEArea(i,j,k) = 0.d0
-                  End if
-                End if
-                If(j+1<=Jmax) then
-                  If(TCell%Cell_Type(i,j+1,k)==2) then
+                  end if
+                end if
+                if(j+1<=Jmax) then
+                  if(TCell%Cell_Type(i,j+1,k)==2) then
                     TCell%NEArea(i,j,k) = 0.d0
-                  End if
-                End if
-                If(k+1<=Kmax) then
-                  If(TCell%Cell_Type(i,j,k+1)==2) then
+                  end if
+                end if
+                if(k+1<=Kmax) then
+                  if(TCell%Cell_Type(i,j,k+1)==2) then
                     TCell%TEArea(i,j,k) = 0.d0
-                  End if
-                End if
-              End if
-            End do
-          End do
-        End do
-
+                  end if
+                end if
+              end if
+            end do
+          end do
+        end do
         TCell%FCE(0,:,:,1) = TCell%FCE(1,:,:,1)
         TCell%FCE(0,:,:,2) = TCell%FCE(1,:,:,2)
         TCell%FCE(0,:,:,3) = TCell%FCE(1,:,:,3)
@@ -471,7 +487,8 @@ Module Cutcell
         Do i = 2,Imax
           Do j = 2,Jmax
             Do k = 2,Kmax
-              If(dabs(TCell%vof(i,j,k)-1.d0)<tol) then
+              If(dabs(TCell%vof(i,j,k)-1.d0)<epsi) then 
+              ! When the cell is normal but one of its cell face is 0.  
                 If(TCell%EEArea(i-1,j,k)==0.d0.or.TCell%EEArea(i,j,k)==0.d0)   &
                                                                            then
                   TCell%WlLh(i,j,k) = TGrid%dy(i,j,k)*TGrid%dz(i,j,k)
@@ -568,9 +585,6 @@ Module Cutcell
         Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
         Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
         Integer(kind=it4b):: i,j,k
-        Real(kind=dp):: tol,tol1
-        tol = 1.d-20
-        tol1 = 1.d-14
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax
@@ -612,7 +626,6 @@ Module Cutcell
             End do
           End do
         End do
-        tol1 = 0.d0
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax
@@ -625,7 +638,6 @@ Module Cutcell
               WCell%delh(i,j,k)=dabs(WCell%Cell_Cent(i,j,k,1)*WCell%nx(i,j,k)+ &
                            WCell%Cell_Cent(i,j,k,2)*WCell%ny(i,j,k)+           &
                       WCell%Cell_Cent(i,j,k,3)*WCell%nz(i,j,k)+WCell%phi(i,j,k))
-              tol1 = tol1+UCell%WlLh(i,j,k)
             End do
           End do
         End do
@@ -730,45 +742,55 @@ Module Cutcell
         Do j = 1,Jmax
           Do k = 1,Kmax
             Do i = 1,Imax-1
-              TCell%SxE(i,j,k) = TCell%Cell_Cent(i+1,j,k,1)+BGrid%dx(i+iu,j,k)-&
-                                 TCell%Cell_Cent(i,j,k,1)
-              Sy = TCell%Cell_Cent(i+1,j,k,2)-TCell%Cell_Cent(i,j,k,2)
-              Sz = TCell%Cell_Cent(i+1,j,k,3)-TCell%Cell_Cent(i,j,k,3)
-              TCell%EtaE(i,j,k) = dabs((TCell%FCE(i,j,k,1)-                    &
+              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i+1,j,k)/=-1) then
+                TCell%SxE(i,j,k) = TCell%Cell_Cent(i+1,j,k,1)+BGrid%dx(i+iu,j,k)-&
+                                   TCell%Cell_Cent(i,j,k,1)
+                Sy = TCell%Cell_Cent(i+1,j,k,2)-TCell%Cell_Cent(i,j,k,2)
+                Sz = TCell%Cell_Cent(i+1,j,k,3)-TCell%Cell_Cent(i,j,k,3)
+                TCell%EtaE(i,j,k) = dabs((TCell%FCE(i,j,k,1)-                    &
                                 TCell%Cell_Cent(i,j,k,1))/TCell%SxE(i,j,k))
-              If(TCell%EtaE(i,j,k)>1.d0) TCell%EtaE(i,j,k) = 0.5d0
-              xf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
+                If(TCell%EtaE(i,j,k)>1.d0) TCell%EtaE(i,j,k) = 0.5d0
+                xf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
                          TCell%EtaE(i,j,k)*(TCell%Cell_Cent(i+1,j,k,1)+        &
                                                           BGrid%dx(i+iu,j,k))
-              yf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
+                yf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
                          TCell%EtaE(i,j,k)*TCell%Cell_Cent(i+1,j,k,2)
-              zf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
+                zf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
                          TCell%EtaE(i,j,k)*TCell%Cell_Cent(i+1,j,k,3)
-              If(dabs(Sy)>1.d-4*TGrid%dy(i,j,k).or.                            &
+                If(dabs(Sy)>1.d-4*TGrid%dy(i,j,k).or.                            &
                                        dabs(Sz)>1.d-4*TGrid%dz(i,j,k)) then
-                nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i+1,j,k))
-                nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i+1,j,k))
-                nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i+1,j,k))
-                delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
+                  nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i+1,j,k))
+                  nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i+1,j,k))
+                  nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i+1,j,k))
+                  delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
                                             zf*TCell%nz(i,j,k)+TCell%phi(i,j,k)
-                delh2 = (xf-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)+             &
+                  delh2 = (xf-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)+             &
                          yf*TCell%ny(i+1,j,k)+zf*TCell%nz(i+1,j,k)+            &
                                                              TCell%phi(i+1,j,k)
-                delh = 0.5d0*(delh1+delh2)
+                  delh = 0.5d0*(delh1+delh2)
 
-                delhec1 = TCell%FCE(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCE(i,j,k,2)&
+                  delhec1 = TCell%FCE(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCE(i,j,k,2)&
                          *TCell%ny(i,j,k)+TCell%FCE(i,j,k,3)*TCell%nz(i,j,k)+  &
                                                              TCell%phi(i,j,k)
-                delhec2=(TCell%FCE(i,j,k,1)-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)&
+                  delhec2=(TCell%FCE(i,j,k,1)-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)&
                        +TCell%FCE(i,j,k,2)*TCell%ny(i+1,j,k)+TCell%FCE(i,j,k,3)&
                                        *TCell%nz(i+1,j,k)+TCell%phi(i+1,j,k)
-                delhec = 0.5d0*(delhec1+delhec2)
-                TCell%AlE(i,j,k) = dabs(delhec)/dabs(delh)
-                TCell%DAlE(i,j,k) = (Sy*nyf+Sz*nzf)/(TCell%SxE(i,j,k)*dabs(delh))
-              Else
-                TCell%DAlE(i,j,k) = 0.d0
-                TCell%AlE(i,j,k) = 1.d0
-              End if
+                  delhec = 0.5d0*(delhec1+delhec2)
+                  if(delh<epsi.and.TCell%EEArea(i,j,k)>0.d0) then
+                    delh=delhec
+                  end if
+                  TCell%AlE(i,j,k) = dabs(delhec)/dabs(delh)
+                  TCell%DAlE(i,j,k) = (Sy*nyf+Sz*nzf)/(TCell%SxE(i,j,k)*dabs(delh))
+                Else
+                  TCell%DAlE(i,j,k) = 0.d0
+                  TCell%AlE(i,j,k) = 1.d0
+                End if
+              else
+                TCell%AlE(i,j,k)=1.d0
+                TCell%DalE(i,j,k)=0.d0
+                TCell%SxE(i,j,k)=BGrid%dx(i+iu,j,k)
+                TCell%EtaE(i,j,k)=0.5d0
+              end if  
             End do
             TCell%SxE(i,j,k) = TCell%SxE(i-1,j,k)
             TCell%EtaE(i,j,k) = TCell%EtaE(i-1,j,k)
@@ -790,58 +812,65 @@ Module Cutcell
         Integer:: i,j,k
         Real(kind=dp):: Sx,Sz,xf,yf,zf,nxf,nyf,nzf
         Real(kind=dp):: delh,delh1,delh2,delhec,delhec1,delhec2
-        Do i = 1,Imax
-          Do k = 1,Kmax
-            Do j = 1,Jmax-1
-              TCell%SyN(i,j,k)=TCell%Cell_Cent(i,j+1,k,2)+BGrid%dy(i,j+iv,k)-  &
-                               TCell%Cell_Cent(i,j,k,2)
-              Sx = TCell%Cell_Cent(i,j+1,k,1)-TCell%Cell_Cent(i,j,k,1)
-              Sz = TCell%Cell_Cent(i,j+1,k,3)-TCell%Cell_Cent(i,j,k,3)
-              TCell%EtaN(i,j,k) = dabs((TCell%FCN(i,j,k,2)-                    &
-                                  TCell%Cell_Cent(i,j,k,2))/TCell%SyN(i,j,k))
-              If(TCell%EtaN(i,j,k)>1.d0) TCell%EtaN(i,j,k) = 0.5d0
-              xf = (1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
+        do i = 1,Imax
+          do k = 1,Kmax
+            do j = 1,Jmax-1
+              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i,j+1,k)/=-1) then
+                TCell%SyN(i,j,k)=TCell%Cell_Cent(i,j+1,k,2)+BGrid%dy(i,j+iv,k)-&
+                                 TCell%Cell_Cent(i,j,k,2)
+                Sx = TCell%Cell_Cent(i,j+1,k,1)-TCell%Cell_Cent(i,j,k,1)
+                Sz = TCell%Cell_Cent(i,j+1,k,3)-TCell%Cell_Cent(i,j,k,3)
+                TCell%EtaN(i,j,k) = dabs((TCell%FCN(i,j,k,2)-                  &
+                                    TCell%Cell_Cent(i,j,k,2))/TCell%SyN(i,j,k))
+                if(TCell%EtaN(i,j,k)>1.d0) TCell%EtaN(i,j,k) = 0.5d0
+                xf=(1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
                          TCell%EtaN(i,j,k)*TCell%Cell_Cent(i,j+1,k,1)
-              yf = (1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
+                yf=(1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
                          TCell%EtaN(i,j,k)*(TCell%Cell_Cent(i,j+1,k,2)+        &
                                                            BGrid%dy(i,j+iv,k))
-              zf = (1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
+                zf=(1.d0-TCell%EtaN(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
                          TCell%EtaN(i,j,k)*TCell%Cell_Cent(i,j+1,k,3)
-              If(dabs(Sx)>=1.d-4*TGrid%dx(i,j,k).or.dabs(Sz)>=1.d-4*           &
+                if(dabs(Sx)>=1.d-4*TGrid%dx(i,j,k).or.dabs(Sz)>=1.d-4*         &
                                                          TGrid%dz(i,j,k)) then
-                nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i,j+1,k))
-                nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i,j+1,k))
-                nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i,j+1,k))
-                delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
+                  nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i,j+1,k))
+                  nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i,j+1,k))
+                  nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i,j+1,k))
+                  delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+               &
                         zf*TCell%nz(i,j,k)+TCell%phi(i,j,k)
-                delh2 = xf*TCell%nx(i,j+1,k)+(yf-BGrid%dy(i,j+iv,k))*          &
+                  delh2 = xf*TCell%nx(i,j+1,k)+(yf-BGrid%dy(i,j+iv,k))*        &
                            TCell%ny(i,j+1,k)+zf*TCell%nz(i,j+1,k)+             &
                                                             TCell%phi(i,j+1,k)
-                delh = 0.5d0*(delh1+delh2)
-                delhec1 = TCell%FCN(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCN(i,j,k,2)&
+                  delh = 0.5d0*(delh1+delh2)
+                  delhec1=TCell%FCN(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCN(i,j,k,2)&
                          *TCell%ny(i,j,k)+TCell%nz(i,j,k)*TCell%FCN(i,j,k,3)+  &
                           TCell%phi(i,j,k)
-                delhec2=TCell%FCN(i,j,k,1)*TCell%nx(i,j+1,k)+(TCell%FCN(i,j,k,2)&
+                  delhec2=TCell%FCN(i,j,k,1)*TCell%nx(i,j+1,k)+(TCell%FCN(i,j,k,2)&
                        -BGrid%dy(i,j+1,k))*TCell%ny(i,j+1,k)+TCell%nz(i,j+1,k)*&
                                          TCell%FCN(i,j,k,3)+TCell%phi(i,j+1,k)
-                delhec = 0.5d0*(delhec1+delhec2)
+                  delhec = 0.5d0*(delhec1+delhec2)
 
-                If(delh<1.d-5.and.TCell%NEArea(i,j,k)>0.d0) then
-                  delh = delhec
-                End if
-                TCell%AlN(i,j,k) = dabs(delhec)/dabs(delh)
-                TCell%DAlN(i,j,k) = (Sx*nxf+Sz*nzf)/(TCell%SyN(i,j,k)*dabs(delh))
-              Else
-                TCell%DAlN(i,j,k) = 0.d0
-                TCell%AlN(i,j,k) = 1.d0
-              End if
-            End do
+                  if(delh<epsi.and.TCell%NEArea(i,j,k)>0.d0) then
+                    delh = delhec
+                  end if
+                  TCell%AlN(i,j,k) = dabs(delhec)/dabs(delh)
+                  TCell%DAlN(i,j,k) = (Sx*nxf+Sz*nzf)/(TCell%SyN(i,j,k)*dabs(delh))
+                else
+                  TCell%DAlN(i,j,k) = 0.d0
+                  TCell%AlN(i,j,k) = 1.d0
+                end if
+              else
+                TCell%EtaN(i,j,k)=0.5d0
+                TCell%AlN(i,j,k)=1.d0
+                TCell%DAlN(i,j,k)=0.d0
+                TCell%SyN(i,j,k)=BGrid%dy(i,j+iv,k)
+              end if
+            end do
             TCell%SyN(i,j,k) = TCell%SyN(i,j-1,k)
             TCell%EtaN(i,j,k) = TCell%EtaN(i,j-1,k)
             TCell%AlN(i,j,k) = TCell%AlN(i,j-1,k)
             TCell%DAlN(i,j,k) = TCell%DAlN(i,j-1,k)
-          End do
-        End do
+          end do
+        end do
         TCell%SyN(:,0,:) = TCell%SyN(:,1,:)
         TCell%EtaN(:,0,:) = TCell%EtaN(:,1,:)
         TCell%AlN(:,0,:) = TCell%AlN(:,1,:)
@@ -859,55 +888,62 @@ Module Cutcell
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax-1
-              Sx = TCell%Cell_Cent(i,j,k+1,1)-TCell%Cell_Cent(i,j,k,1)
-              Sy = TCell%Cell_Cent(i,j,k+1,2)-TCell%Cell_Cent(i,j,k,2)
-              TCell%SzT(i,j,k)=TCell%Cell_Cent(i,j,k+1,3)+BGrid%dz(i,j,k+iw)-  &
-                               TCell%Cell_Cent(i,j,k,3)
-              TCell%EtaT(i,j,k) = dabs((TCell%FCT(i,j,k,3)-                    &
-                                  TCell%Cell_Cent(i,j,k,3))/TCell%SzT(i,j,k))
-              If(TCell%EtaT(i,j,k)>1.d0) TCell%EtaT(i,j,k) = 0.5d0
-              xf = (1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
+              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i,j,k+1)/=-1) then
+                Sx = TCell%Cell_Cent(i,j,k+1,1)-TCell%Cell_Cent(i,j,k,1)
+                Sy = TCell%Cell_Cent(i,j,k+1,2)-TCell%Cell_Cent(i,j,k,2)
+                TCell%SzT(i,j,k)=TCell%Cell_Cent(i,j,k+1,3)+BGrid%dz(i,j,k+iw)-&
+                                 TCell%Cell_Cent(i,j,k,3)
+                TCell%EtaT(i,j,k)=dabs((TCell%FCT(i,j,k,3)-                    &
+                                 TCell%Cell_Cent(i,j,k,3))/TCell%SzT(i,j,k))
+                if(TCell%EtaT(i,j,k)>1.d0) TCell%EtaT(i,j,k)=0.5d0
+                xf=(1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
                          TCell%EtaT(i,j,k)*TCell%Cell_Cent(i,j,k+1,1)
-              yf = (1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
+                yf=(1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
                          TCell%EtaT(i,j,k)*TCell%Cell_Cent(i,j,k+1,2)
-              zf = (1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
+                zf=(1.d0-TCell%EtaT(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
                          TCell%EtaT(i,j,k)*(TCell%Cell_Cent(i,j,k+1,3)+        &
-                                                           BGrid%dz(i,j,k+iw))
-              If(dabs(Sx)>=1.d-4*TGrid%dx(i,j,k).or.dabs(Sy)>=1.d-4*           &
+                                                  BGrid%dz(i,j,k+iw))
+                if(dabs(Sx)>=1.d-4*TGrid%dx(i,j,k).or.dabs(Sy)>=1.d-4*         &
                                                          TGrid%dy(i,j,k)) then
-                nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i,j,k+1))
-                nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i,j,k+1))
-                nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i,j,k+1))
-                delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
+                  nxf=0.5d0*(TCell%nx(i,j,k)+TCell%nx(i,j,k+1))
+                  nyf=0.5d0*(TCell%ny(i,j,k)+TCell%ny(i,j,k+1))
+                  nzf=0.5d0*(TCell%nz(i,j,k)+TCell%nz(i,j,k+1))
+                  delh1=xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
                         zf*TCell%nz(i,j,k)+TCell%phi(i,j,k)
-                delh2 = xf*TCell%nx(i,j,k+1)+yf*TCell%ny(i,j,k+1)+             &
+                  delh2=xf*TCell%nx(i,j,k+1)+yf*TCell%ny(i,j,k+1)+             &
                        (zf-BGrid%dz(i,j,k+iw))*TCell%nz(i,j,k+1)+              &
                                                             TCell%phi(i,j,k+1)
-                delh = 0.5d0*(delh1+delh2)
-                delhec1 = TCell%FCT(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCT(i,j,k,2)&
+                  delh=0.5d0*(delh1+delh2)
+                  delhec1=TCell%FCT(i,j,k,1)*TCell%nx(i,j,k)+TCell%FCT(i,j,k,2)&
                          *TCell%ny(i,j,k)+TCell%nz(i,j,k)*TCell%FCT(i,j,k,3)+  &
                           TCell%phi(i,j,k)
-                delhec2 = TCell%FCT(i,j,k,1)*TCell%nx(i,j,k+1)+TCell%FCT(i,j,k,2)&
+                  delhec2=TCell%FCT(i,j,k,1)*TCell%nx(i,j,k+1)+TCell%FCT(i,j,k,2)&
                        *TCell%ny(i,j,k+1)+TCell%nz(i,j,k+1)*(TCell%FCT(i,j,k,3)&
-                         -BGrid%dz(i,j,k+iw))+TCell%phi(i,j,k+1)
-                delhec = 0.5d0*(delhec1+delhec2)
+                       -BGrid%dz(i,j,k+iw))+TCell%phi(i,j,k+1)
+                  delhec = 0.5d0*(delhec1+delhec2)
 
-                If(delh<1.d-5.and.TCell%TEArea(i,j,k)>0.d0) then
-                  delh = delhec
-                End if
-                TCell%AlT(i,j,k) = dabs(delhec)/dabs(delh)
-                TCell%DAlT(i,j,k) = (Sx*nxf+Sy*nyf)/(TCell%SzT(i,j,k)*dabs(delh))
-              Else
-                TCell%DAlT(i,j,k) = 0.d0
-                TCell%AlT(i,j,k) = 1.d0
-              End if
-            End do
+                  if(delh<epsi.and.TCell%TEArea(i,j,k)>0.d0) then
+                    delh = delhec
+                  end if
+                  TCell%AlT(i,j,k)=dabs(delhec)/dabs(delh)
+                  TCell%DAlT(i,j,k)=(Sx*nxf+Sy*nyf)/(TCell%SzT(i,j,k)*dabs(delh))
+                else
+                  TCell%DAlT(i,j,k) = 0.d0
+                  TCell%AlT(i,j,k) = 1.d0
+                end if
+              else
+                TCell%EtaT(i,j,k)=0.5d0
+                TCell%AlT(i,j,k)=1.d0
+                TCell%DAlT(i,j,k)=0.d0
+                TCell%SzT(i,j,k)=BGrid%dz(i,j,k+iw)
+              end if  
+            end do
             TCell%SzT(i,j,k) = TCell%SzT(i,j,k-1)
             TCell%EtaT(i,j,k) = TCell%EtaT(i,j,k-1)
             TCell%DAlT(i,j,k) = TCell%DAlT(i,j,k-1)
             TCell%AlT(i,j,k) = TCell%AlT(i,j,k-1)
-          End do
-        End do
+          end do
+        end do
       End Subroutine TopFaceInterpolationInf
 
       Subroutine CellLinking(TGrid,TCell,i,j,k)

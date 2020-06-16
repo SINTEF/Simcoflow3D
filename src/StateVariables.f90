@@ -8,6 +8,7 @@ Module StateVariables
     Real(kind=dp),parameter:: nu = 1.0034d-6,kT = 0.0271d0,kTw = 0.0271d0
     Real(kind=dp),parameter:: nuw=1.0034d-6,nua=1.506d-5,                &
                               roa=1.225d0,row=998.2d0 !
+    Real(kind=dp),public :: nuref
     Real(kind=dp):: Rey,wa,Ta,xc,yc,zc,R1 = 0.5d0, R2 = 4.d0
 
     Type :: Variables
@@ -15,14 +16,19 @@ Module StateVariables
                                                    vres,wres,pres,mres
       Real(kind=dp):: Uint,Vint,Wint,Pint,Tint,Uref,Roref,Pref,Tref
     End Type
+    
     Public:: InitialVar,BoundaryConditionVar
+    
     Interface InitialVar
       Module procedure InitialVar
     End interface InitialVar
+    
     Interface BoundaryConditionVar
       Module procedure BoundaryConditionVar
     End interface BoundaryConditionVar
+    
     Contains
+    
     Subroutine InitialVar(Vari,Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref)
       Real(kind=dp),intent(in):: Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref
       Type(Variables),intent(inout):: Vari
@@ -36,6 +42,7 @@ Module StateVariables
       Vari%Roref = Roref
       Vari%Pref = Roref*Uref**2.d0
       Vari%Tref = Tref
+      nuref = nu
       Do i = 1,Imax
         Do j = 1,Jmax
           Do k = 1,Kmax
@@ -53,7 +60,7 @@ Module StateVariables
       End do
       Open(unit=5,file='Convergence.dat')
       close(5,status='delete')
-      Rey = Uref*Lref/nu
+      Rey = Uref*Lref/nuref
       Print*, Rey
       Call BoundaryConditionVar(Vari)
     End subroutine InitialVar

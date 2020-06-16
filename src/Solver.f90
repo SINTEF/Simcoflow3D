@@ -21,12 +21,16 @@ Module Solver
     Real(kind=dp),parameter:: Twall = 400.d0
     Real(kind=dp):: Tref,Prn
     Real(dp),dimension(:,:,:),pointer:: Tem,u,v,w
-    Public:: IterationSolution
-    Interface IterationSolution
-        Module Procedure IterationSolution
-    End Interface IterationSolution
-    Contains
-    Subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
+    
+    public:: IterationSolution
+    
+    interface IterationSolution
+      module Procedure IterationSolution
+    end Interface IterationSolution
+    
+    contains
+    
+    subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
                                                              WCell,TVar,iprint)
         Implicit none
         Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
@@ -43,31 +47,34 @@ Module Solver
         Allocate(TVar_n%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%w(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(GraP(Imax,Jmax,Kmax))
+        
         Time%iter = 10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.5d0
-        Do itt = 1,Time%iter
-          Call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
+        
+        do itt = 1,Time%iter
+          call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
                      WCell,TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
           Time%NondiT = Time%NondiT+Time%dt
           Time%PhysT = Time%Nondit*PGrid%Lref/TVar%URef
-          Call PrintHistory(itt,Uconv)
-          Call PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
-                                                  VCell,WCell,itt,Time%NondiT)
+          call PrintHistory(itt,Uconv)
+          call PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
+                                 VCell,WCell,itt,Time%NondiT)
           ite = itt
-          print*, itt
-          If(mod(itt,iprint)==0)then
-            Write(*,*), itt,Time%PhysT,Time%NondiT
+          ! print*, itt
+          if(mod(itt,iprint)==0)then
+            write(*,*), itt,Time%PhysT,Time%NondiT
             call PrintResultVTK(PGrid,TVar,PCell,itt)
-          !  call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
-          !  call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
-          !  call PrintResultTecplotUCent(UGrid,TVar,UCell,itt)
-          !  call PrintResultTecplotVCent(VGrid,TVar,VCell,itt)
-          !  call PrintResultTecplotWCent(WGrid,TVar,WCell,itt)
-          End if
-        End do
-        Deallocate(GraP,TVar_n%p,TVar_n%u,Tvar_n%v)
-    End Subroutine IterationSolution
+            call PrintResultVTR3D(PGrid,TVar,PCell,itt)
+          ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
+          ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
+          ! call PrintResultTecplotUCent(UGrid,TVar,UCell,itt)
+          ! call PrintResultTecplotVCent(VGrid,TVar,VCell,itt)
+          ! call PrintResultTecplotWCent(WGrid,TVar,WCell,itt)
+          end if
+        end do
+        deallocate(GraP,TVar_n%p,TVar_n%u,Tvar_n%v)
+    end subroutine IterationSolution
 
     Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
                      WCell,TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
@@ -87,13 +94,13 @@ Module Solver
         TVar_n%v(:,:,:) = TVar%v(:,:,:)
         TVar_n%w(:,:,:) = TVar%w(:,:,:)
         dt = Time%dt!/3.d0
-      ! First Runge-Kutta substep
+     !  First Runge-Kutta substep
         Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
                                                             TVar,dt,itt)
-  !      Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
-  !                                                          TVar,dt,itt)
+     !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
+     !                                                          TVar,dt,itt)
         Call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
-  !      print*, TVar%u(20,jbeg)
+        ! print*, TVar%u(20,jbeg)
         ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
         Call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)

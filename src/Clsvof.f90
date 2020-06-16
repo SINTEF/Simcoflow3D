@@ -38,29 +38,29 @@ Module Clsvof
       real(kind=dp)		      :: tol
       
       tol = 1.d-20
-      epsi = 1.d-30
+      epsi = 1.d-40
       vflF => TCell%vof
       phiF => TCell%phi
       nxF => TCell%nx
       nyF => TCell%ny
       nzF => TCell%nz
       Radius = 0.5d0/TGrid%Lref
-      do i = 1,Imax
-        do j = 1,Jmax
-          do k = 1,Kmax
-            dx = TGrid%x(i,j,k)!-100.d0
-            dy = TGrid%y(i,j,k)
-            dz = TGrid%z(i,j,k)
-            dis = dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
-            nxF(i,j,k) = dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            nyF(i,j,k) = dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            nzF(i,j,k) = dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            s = dis+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+dabs(nyF(i,j,k))*    &
-                         TGrid%dy(i,j,k)+dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
+      do i=1,Imax
+        do j=1,Jmax
+          do k=1,Kmax
+            dx=TGrid%x(i,j,k)!-100.d0
+            dy=TGrid%y(i,j,k)
+            dz=TGrid%z(i,j,k)
+            dis=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
+            nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
+            nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
+            nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
+            s=dis+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+dabs(nyF(i,j,k))*      &
+                       TGrid%dy(i,j,k)+dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
             call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),         &
                  TGrid%dz(i,j,k),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
-            vflF(i,j,k) = vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
-            phiF(i,j,k) = dis
+            vflF(i,j,k)=vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
+            phiF(i,j,k)=dis
           end do
         end do
       end do
@@ -89,6 +89,7 @@ Module Clsvof
         do j=1,Jmax
           do k=1,Kmax
             vfl(i,j,k)=1.d0*TCell%vof(i,j,k)
+            phi(i,j,k)=-1.d3
             nxF(i,j,k)=0.d0
             nyF(i,j,k)=0.d0
             nzF(i,j,k)=1.d0

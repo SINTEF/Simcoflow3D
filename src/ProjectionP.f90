@@ -14,7 +14,7 @@ Module ProjectionP
     Private
     Real(kind=dp),dimension(:,:,:),pointer :: p,u,v,w
     Real(kind=dp),parameter :: amp = 1.d0, tol = 1.d-30
-    Real(kind=dp),parameter :: alp = 0.4d0, bet = 0.5d0, epsi = 1.d-5
+    Real(kind=dp),parameter :: alp = 0.4d0, bet = 0.5d0
     
     Type,public :: Projection
       Real(dp),dimension(:,:,:),allocatable :: Pp
@@ -29,7 +29,7 @@ Module ProjectionP
     Contains
     
     subroutine PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,      &
-                                     VCell,WCell,TVar,TPred,PU,PV,PW,Proj,dt)
+                               VCell,WCell,TVar,TPred,PU,PV,PW,PoCoef,Proj,dt)
         implicit none
         type(Grid),intent(in)		      :: PGrid,UGrid,VGrid,WGrid
         type(Cell),intent(in)		      :: PCell,UCell,VCell,WCell
@@ -43,10 +43,8 @@ Module ProjectionP
         integer*8			      :: solver,precond
         integer(kind=it4b)		      :: num_iterations
         real(kind=dp)			      :: final_res_norm,tol
-        real(kind=dp),dimension(:,:,:,:),allocatable :: PoCoef,HJump   ! the coefficient for Poisson solving
+        real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: PoCoef   ! the coefficient for Poisson solving
         
-        allocate(PoCoef(Imax,JMax,KMax,6)) ! The order of the face : W-1,S-2,B-3,E-4,N-5,T-6
-        allocate(HJump(Imax,JMax,KMax,6))  
         call Compute1DGFMCoefficient(PGrid,PCell,UGrid,UCell,PU,row,	       &
                                                    1,0,0,0,0,0,PoCoef(:,:,:,1))
         call Compute1DGFMCoefficient(PGrid,PCell,VGrid,VCell,PV,row,	       &
@@ -80,7 +78,6 @@ Module ProjectionP
         Call HYPRE_IJVectorDestroy(x,ierr)
         call HYPRE_BoomerAMGDestroy(precond,ierr)
         call HYPRE_ParCSRPCGDestroy(solver,ierr)
-        deallocate(PoCoef,HJump)
         Nullify(p)
         Nullify(u)
         Nullify(v)
@@ -99,7 +96,7 @@ Module ProjectionP
       real(kind=dp)				   :: BetaW,BetaD
       integer(kind=it4b)			   :: i,j,k
       integer(kind=it4b)		  	   :: ii,jj,kk,im,jm,km
-      real(kind=dp)			  	   :: SArea,DGrid
+      real(kind=dp)			  	   :: DGrid
       
       BetaP = 1.d0/(row/Roref)
       BetaM = 1.d0/(roa/Roref)
@@ -112,72 +109,65 @@ Module ProjectionP
             im = i-ium
             jm = j-jvm
             km = k-kwm
-            SArea = dble(ium+iup)*PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+           &
-                    dble(jvm+jvp)*PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+           &
-                    dble(kwm+kwp)*PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
-            DGrid = dble(ium+iup)*TGrid%dx(im,jm,km)+                        &
-                    dble(jvm+jvp)*TGrid%dy(im,jm,km)+		             &
+            DGrid = dble(ium+iup)*TGrid%dx(im,jm,km)+                          &
+                    dble(jvm+jvp)*TGrid%dy(im,jm,km)+		               &
                     dble(kwm+kwp)*TGrid%dz(im,jm,km)
                     
-            Lamda=dabs(PCell%phi(i,j,k))/(dabs(PCell%phi(i,j,k))+            &
-                        dabs(PCell%phi(ii,jj,kk))+tol)                 
-            if((PCell%vofL(i,j,k)>=0.5d0.and.				     &
-                PCell%vof(i,j,k)>1.d0-epsi).or.      			     &
-               (PCell%phiL(i,j,k)<0.d0.and.				     &
-                PCell%vof(i,j,k)<=1.d0-epsi)) then     				 ! The cell is in liquid and it is assigned wet cell 
-              if((PCell%vofL(ii,jj,kk)<0.5d0.and.        		     &
-                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		     &
-                 (PCell%phiL(ii,jj,kk)>=0.d0.and.        		     &
-                  PCell%vof(ii,jj,kk)<=1.d0-epsi))then                           ! The neighbour cell is in gas and assigned dry cell            
+            Lamda=dabs(PCell%phi(i,j,k))/(dabs(PCell%phi(i,j,k))+              &
+                                          dabs(PCell%phi(ii,jj,kk))+tol)                  
+            if((PCell%vofL(i,j,k)>=0.5d0.and.				       &
+                PCell%vof(i,j,k)>1.d0-epsi).or.      			       &
+               (PCell%phiL(i,j,k)<0.d0.and.				       &
+                PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then 	 ! The cell is in liquid and it is assigned wet cell 
+              if((PCell%vofL(ii,jj,kk)<0.5d0.and.        		       &
+                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		       &
+                 (PCell%phiL(ii,jj,kk)>=0.d0.and.        		       &
+                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell            
                 BetaW=Lamda*BetaM+(1.d0-Lamda)*BetaP           
-              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.   		     &
-                      PCell%vof(ii,jj,kk)>1.d0-epsi).or.    		     &
-                     (PCell%phiL(ii,jj,kk)<0.d0.and.     		     &
-                      PCell%vof(ii,jj,kk)<=1.d0-epsi))then                       ! The neighbour cell is in liquid and assigned wet cell
+              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.   		       &
+                      PCell%vof(ii,jj,kk)>1.d0-epsi).or.    		       &
+                     (PCell%phiL(ii,jj,kk)<0.d0.and.     		       &
+                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then ! The neighbour cell is in liquid and assigned wet cell
                 BetaW=BetaM
               end if
-              TPoCoef(i,j,k)=PVel%Dp(im,jm,km)*SArea/DGrid*BetaP*BetaM/BetaW
-              if(dabs(TPoCoef(i,j,k))>1.d10) then
-                print*,'--------------------------------------------------141'
-                print*,TPoCoef(i,j,k)
-                print*,'00000000000000000000000000000000000000000000000000000'
-                print*,PVel%Dp(im,jm,km)
-                print*,SArea,DGrid
-                print*,BetaP,BetaM
-                print*,BetaW
+              TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaW
+              if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
+                print*,Lamda
                 print*,i,j,k
-                print*,'Projection 149'
-                pause 
-              end if
-            elseif((PCell%vofL(i,j,k)<0.5d0.and.			     &
-                    PCell%vof(i,j,k)>1.d0-epsi).or.   			     &
-                   (PCell%phiL(i,j,k)>=0.d0.and.			     &
-                    PCell%vof(i,j,k)<=1.d0-epsi)) then 			         ! The cell is in gas and it is assigned dry cell
-              if((PCell%vofL(ii,jj,kk)>=0.5d0.and.        		     &
-                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		     &
-                 (PCell%phiL(ii,jj,kk)<0.d0.and.        		     &
-                  PCell%vof(ii,jj,kk)<=1.d0-epsi))then      
+                print*,ii,jj,kk
+                print*,'++++++++'
+                print*,BetaD,TPoCoef(i,j,k),PVel%Dp(im,jm,km)
+                print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
+                print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
+                pause 'Test Lamda 142'
+              end if  
+            elseif((PCell%vofL(i,j,k)<0.5d0.and.			       &
+                    PCell%vof(i,j,k)>1.d0-epsi).or.   			       &
+                   (PCell%phiL(i,j,k)>=0.d0.and.			       &
+                    PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then  ! The cell is in gas and it is assigned dry cell
+              if((PCell%vofL(ii,jj,kk)>=0.5d0.and.        		       &
+                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		       &
+                 (PCell%phiL(ii,jj,kk)<0.d0.and.        		       &
+                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in liquid and assigned wet cell     
                 BetaD=Lamda*BetaP+(1.d0-Lamda)*BetaM
-              elseif((PCell%vofL(ii,jj,kk)<0.5d0.and.        		     &
-                      PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     	     &
-                     (PCell%phiL(ii,jj,kk)>=0.d0.and.        		     &
-                      PCell%vof(ii,jj,kk)<=1.d0-epsi))then  
+              elseif((PCell%vofL(ii,jj,kk)<0.5d0.and.        		       &
+                      PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     	       &
+                     (PCell%phiL(ii,jj,kk)>=0.d0.and.        		       &
+                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell    
                 BetaD=BetaP
               end if     
-              TPoCoef(i,j,k)=PVel%Dp(im,jm,km)*SArea/DGrid*BetaP*BetaM/BetaD  
-              if(dabs(TPoCoef(i,j,k))>1.d10) then
-                print*,'--------------------------------------------------141'
-                print*,TPoCoef(i,j,k)
-                print*,'11111111111111111111111111111111111111111111111111111'
-                print*,PVel%Dp(im,jm,km)
-                print*,SArea,DGrid
-                print*,BetaP,BetaM
-                print*,BetaW
+              TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaD 
+              if(isnan(betaD).or.isnan(TPoCoef(i,j,k))) then
+                print*,Lamda
                 print*,i,j,k
-                print*,'Projection 177'
-                pause 
-              end if
-            end if
+                print*,ii,jj,kk
+                print*,'++++++++'
+                print*,BetaD,TPoCoef(i,j,k)
+                print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
+                print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
+                pause 'Test Lamda 168'
+              end if  
+            end if   
           end do
         end do
       end do    
@@ -232,7 +222,7 @@ Module ProjectionP
         Integer(kind=it4b)                 	  :: nnz,ictr,ilower,iupper,cols(0:6)
         Integer(kind=it4b)		   	  :: i,j,k
         Real(kind=dp)			          :: values(0:6)
-        Real(kind=dp)			          :: dx,dy,dz
+        Real(kind=dp)			          :: dx,dy,dz,mp,mp1,mp2,mp3,mp4,mp5,mp6
         
         ilower = 0
         iupper = PCell%ExtCell
@@ -249,10 +239,17 @@ Module ProjectionP
       !
       ! Note that here we are setting one row at a time, though
       ! one could set all the rows together (see the User's Manual).
-        Do i = 1,Imax
-          Do j = 1,Jmax
-            Do k = 1,Kmax
-              If(PCell%Cell_Type(i,j,k)/=2) then
+        
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+              if(PCell%Cell_Type(i,j,k)/=2) then
+                mp1=0.d0
+        	mp2=0.d0
+       		mp3=0.d0
+        	mp4=0.d0
+        	mp5=0.d0
+        	mp6=0.d0
                 dx = PGrid%dx(i,j,k)
                 dy = PGrid%dy(i,j,k)
                 dz = PGrid%dz(i,j,k)
@@ -261,37 +258,50 @@ Module ProjectionP
                 values = 0.d0
                 cols = 0
               ! West of current cell
-                If(i>1) then
-                  If(PCell%Posnu(i-1,j,k)/=-1) then
-                    cols(nnz) = PCell%Posnu(i-1,j,k)
-                    values(nnz) = -PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)
-                    nnz = nnz+1
-                  End if
-                End if
+                if(i>1) then
+                  if(PCell%Posnu(i-1,j,k)/=-1) then
+                    cols(nnz)=PCell%Posnu(i-1,j,k)
+                    values(nnz)=-PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*        &
+                                 PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
+                    mp1=dabs(values(nnz))
+                    nnz=nnz+1
+                  end if
+                end if
               ! South of current cell
-                If(j>1) then
-                  If(PCell%Posnu(i,j-1,k)/=-1) then
-                    cols(nnz) = PCell%Posnu(i,j-1,k)
-                    values(nnz) = -PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)
-                    nnz = nnz+1
-                  End if
-                End if
+                if(j>1) then
+                  if(PCell%Posnu(i,j-1,k)/=-1) then
+                    cols(nnz)=PCell%Posnu(i,j-1,k)
+                    values(nnz)=-PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*        &
+                                 PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
+                    mp2=dabs(values(nnz))             
+                    nnz=nnz+1
+                  end if
+                end if
               ! Bottom of current cell
-                If(k>1) then
-                  If(PCell%Posnu(i,j,k-1)/=-1) then
-                    cols(nnz) = PCell%Posnu(i,j,k-1)
-                    values(nnz) = -PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)
-                    nnz = nnz+1
-                  End if
-                End if
+                if(k>1) then
+                  if(PCell%Posnu(i,j,k-1)/=-1) then
+                    cols(nnz)=PCell%Posnu(i,j,k-1)
+                    values(nnz)=-PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*	       &
+                                 PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
+                    mp3=dabs(values(nnz))	
+                    nnz=nnz+1
+                  end if
+                end if
               ! Set the diagonal cell
-                cols(nnz) = PCell%Posnu(i,j,k)
-                values(nnz) = PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)+           &
-                              PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)+           &
-                              PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)+           &
-			      PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)+             &
-                              PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)+             & 
-                              PoCoef(i,j,k,6)*PCell%TEArea(i,j,k) 
+                cols(nnz)=PCell%Posnu(i,j,k)
+                values(nnz)=PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*             &
+                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*             &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)+                   &
+			    PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
+			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   & 
+                            PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k) 
+                mp=dabs(values(nnz))
                 If(isnan(values(nnz)).or.dabs(values(nnz))>1.d10) then
                   print*,'000000000000000000000000000000000000000000000000000000'
                   print*,values(nnz)
@@ -308,53 +318,108 @@ Module ProjectionP
               ! If(i==Imax) values(nnz) = values(nnz)+1.d30
               ! Apply boundary condition for matrix
                 If(WB==1.and.i==1) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*&
+                              PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
                 End if
                 If(SB==1.and.j==1) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*&
+                              PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
                 End if
                 If(BB==1.and.k==1) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*&
+                              PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
                 End if
                 If(EB==1.and.i==Imax) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*  &
+                              PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
                 End if
                 If(NB==1.and.j==Jmax) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*  &
+                              PGrid%dx(i,j,k)*PGrid%dz(i,j,k) 
                 End if
                 If(TB==1.and.k==Kmax) then
-                  values(nnz) = values(nnz)-PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)
+                  values(nnz)=values(nnz)-PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*  &
+                              PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
                 End if                 
                 nnz = nnz+1
               ! East of current cell
                 If(i<Imax) then
                   If(PCell%Posnu(i+1,j,k)/=-1) then
-                    cols(nnz) = PCell%Posnu(i+1,j,k)
-                    values(nnz) = -PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)
+                    cols(nnz)=PCell%Posnu(i+1,j,k)
+                    values(nnz)=-PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*	       &
+                                 PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
+                    mp4=dabs(values(nnz))             	
                     nnz = nnz+1
                   End if
                 End if
               ! North of current cell
                 If(j<Jmax) then
                   If(PCell%Posnu(i,j+1,k)/=-1) then
-                    cols(nnz) = PCell%Posnu(i,j+1,k)
-                    values(nnz) = -PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)
+                    cols(nnz)=PCell%Posnu(i,j+1,k)
+                    values(nnz)=-PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*	       &
+                                 PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
+                    if(i==2.and.j==81.and.k==3) then
+                      print*,values(nnz)
+                      print*,PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*	       &
+                                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
+                    end if
+                    mp5=dabs(values(nnz))              	
                     nnz = nnz+1
                   End if
                 End if
               ! Top of current cell
                 If(k<Kmax) then
                   If(PCell%Posnu(i,j,k+1)/=-1) then
-                    cols(nnz) = PCell%Posnu(i,j,k+1)
-                    values(nnz) = -PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)
-                    nnz = nnz+1
+                    cols(nnz)=PCell%Posnu(i,j,k+1)
+                    values(nnz)=-PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*	       &
+                                 PGrid%dx(i,j,k)*PGrid%dy(i,j,k)	
+                    mp6=dabs(values(nnz))
+                    nnz=nnz+1
                   End if
                 End if
                 Call HYPRE_IJMatrixSetValues(A,1,nnz,ictr,cols,values,ierr)
+                if(mp<mp1+mp2+mp3+mp4+mp5+mp6.and.i>1.and.j>1.and.k>1) then
+                  print*,'undominant coefficient'
+                  print*, mp1,mp2,mp3
+                  print*, mp4,mp5,mp6
+                  print*, mp1+mp2+mp3+mp4+mp5+mp6
+                  print*, mp
+                  print*, i,j,k
+                  print*, 'tttttttttttttttttttt'
+                  print*, PoCoef(i,j,k,1),PoCoef(i,j,k,2),PoCoef(i,j,k,3)
+                  print*, PoCoef(i,j,k,4),PoCoef(i,j,k,5),PoCoef(i,j,k,6)
+                  print*, PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*             &
+                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*             &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)+                   &
+			    PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
+			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   & 
+                            PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k) 
+                  print*, '2222222222222222222222222'          
+                  print*,PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*             &
+                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
+                  print*,PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*             &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
+                  print*,PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
+                  print*,PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
+			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
+		  print*,PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
+                  print*,PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
+                  pause 
+                end if
               End if
             End do
           End do
         End do
+        
         Call HYPRE_IJMatrixAssemble(A,ierr)
         Call HYPRE_IJMatrixGetObject(A,parcsr_A,ierr)
     End subroutine SetPoissonMatrix

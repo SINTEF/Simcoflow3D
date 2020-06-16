@@ -36,7 +36,7 @@ Program Main
     xc = 0.d0
     yc = 0.d0
     zc = 0.d0
-    vel = dble(Rey*nu/Lref)
+    vel = dble(Rey*nuw/Lref)
     NI = Imax+1
     NJ = Jmax+1
     NK = Kmax+1
@@ -77,8 +77,11 @@ Program Main
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
     Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
+    Call PrintResultVTR3D(PGrid,Var,PCell,INT8(0))
+    
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
     Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
+    
     Call NumberExternalCell(PCell,0,0,0)
     Call NumberExternalCell(UCell,1,0,0)
     Call NumberExternalCell(VCell,0,1,0)
