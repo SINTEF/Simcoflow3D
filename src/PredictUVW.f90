@@ -413,7 +413,7 @@ Module PredictorUV
                   print*,ftp,ftm,TCell%TEArea(i,j,k),TCell%EtaT(i,j,k)
                   print*,fbp,fbm,TCEll%TEArea(i,j,k-1),TCell%EtaT(i,j,k-1)
                   print*,i,j,k,iu,iv,iw
-                  print*,'+++++++++++++++++++++++++++++++++++++'
+                  pause 'Predictuvw 416'
                 End if
               ! West of current cell
                 If(i>1) then
@@ -919,7 +919,7 @@ Module PredictorUV
                   print*, PCell%TEArea(i,j,k-1),PCell%TEArea(i+1,j,k-1)
                   print*,delhec1,delhec2,delh,wb,delhec/delh,i,j,k
                   print*,wbp,wbn,UCell%TEArea(i,j,k-1),WCell%SxE(i,j,k-1)
-                  print*,'+++++++++++++++++++++++++++++++++++++++++++++++++++++'
+                  pause '++++++++++++++Predictuvw 922'
                 End if
              ! Convective velocity: w, scalar advective: v
               End if
@@ -1027,17 +1027,17 @@ Module PredictorUV
                 ! Compute the mixing viscosity for U-Cell
                 NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
                     (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref 
-                flux(i,j,k,1) = UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*           &
+                flux(i,j,k,1)=UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*NuF*         &
                               UGrid%dz(i,j,k)/PGrid%dx(i,j,k)/Rey
                 ! Compute the mixing viscosity for V-Cell  
                 NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
                     (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*           &
+                flux(i,j,k,2)=VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*nuF*         &
                                    VGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
                 ! Compute the mixing viscosity for W-Celll
                 NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
                     (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,3) = WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*           &
+                flux(i,j,k,3)=WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*nuF*         &
                                    WGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
               Else
                 Sx=UCell%SxE(i-1,j,k)
