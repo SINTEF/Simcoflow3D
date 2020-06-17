@@ -134,18 +134,6 @@ Module PredictorUV
               Fb = CFTB(i,j,k,2)
               FluxDiv(i,j,k,2) = Fe-Fw+Fn-Fs+Ft-Fb
             End if
-            if(i==59.and.j==48.and.k==48) then
-              print*, 'Test V velocity'
-              print*, Fluxdiv(i,j,k,2)/VCell%vof(i,j,k)
-              print*, Fe,DFEW(i,j,k,2)
-              print*, Fw,DFEW(i-1,j,k,2)
-              print*, Fn,DFNS(i,j,k,2)
-              print*, Fs,DFNS(i,j-1,k,2)
-              print*, Fb,DFTB(i,j,k,2)
-              print*, Ft,DFTB(i,j,k-1,2)
-              print*, '                   '
-              print*, pred%v(i,j,k)
-            end if
           ! V Cell
             If(VCell%Cell_Type(i,j,k)/=2) then
               VFric(i,j,k)=(VCell%vofL(i,j,k)/VCell%vof(i,j,k)*nuw/nuref+       &
@@ -191,9 +179,6 @@ Module PredictorUV
           End do
         End do
       End do
-    !  print*,Fluxdiv(1,20,20,1),UGrid%dz(1,20,20)
-    !  print*,Fluxdiv(1,20,20,1)/UGrid%dz(1,20,20)
-    !  print*,
     ! Solving for UCell
       Call SetBasicSolver(solver,precond)
     ! call SetBasicSolver(solver=solver,ierr=ierr)
@@ -212,8 +197,6 @@ Module PredictorUV
       Call HYPRE_IJVectorDestroy(x,ierr)
       Call HYPRE_BoomerAMGDestroy(precond,ierr)
       Call HYPRE_ParCSRPCGDestroy(solver,ierr)
-      print*, 'After solving equations'
-      print*, Pred%u(59,48,48)
     ! For VCell
       Call SetBasicSolver(solver,precond)
       Call SetMatrix(A,parcsr_A,VGrid,VCell,DFEW,DFNS,DFTB,EDFEW,EDFNS,EDFTB,  &
@@ -231,7 +214,6 @@ Module PredictorUV
       Call HYPRE_IJVectorDestroy(x,ierr)
       Call HYPRE_BoomerAMGDestroy(precond,ierr)
       Call HYPRE_ParCSRPCGDestroy(solver,ierr)
-      print*, Pred%v(59,48,48)
     ! For WCell
       Call SetBasicSolver(solver,precond)
       Call SetMatrix(A,parcsr_A,WGrid,WCell,DFEW,DFNS,DFTB,EDFEW,EDFNS,EDFTB,  &
@@ -408,18 +390,6 @@ Module PredictorUV
                 aB = aB+Fbm
                 PUVW%Dp(i,j,k) = 1.d0/(aP-aE-aW-aN-aS-aT-aB)!dt/(TCell%vof(i,j,k)*TGrid%dx(i,j,k)*         &
                                       !TGrid%dy(i,j,k)*TGrid%dz(i,j,k))!
-                if(i==59.and.j==48.and.k==48.and.iv==1) then
-              	  print*, 'Test V Parameter for computing predictor V'
-                  print*, aP/TCell%vof(i,j,k)
-              	  print*, aE/TCell%vof(i,j,k)
-                  print*, aW/TCell%vof(i,j,k)
-                  print*, aN/TCell%vof(i,j,k)
-                  print*, aS/TCell%vof(i,j,k)
-                  print*, aT/TCell%vof(i,j,k)
-              	  print*, aB/TCell%vof(i,j,k)
-           	  print*, '                   '
-            	  print*, PUVW%Dp(i,j,k)
-            	end if
                 ictr = Tcell%Posnu(i,j,k)
                 nnz = 0
                 values = 0.d0
@@ -598,10 +568,6 @@ Module PredictorUV
                 End if
                 xval(ictr) = 0.d0
                 rows(ictr) = ilower+ictr
-                if(i==59.and.j==48.and.k==48.and.iv==1) then
-                  print*, 'Test vector for V computing'
-                  print*,rhs(ictr)
-                end if
               End if
             End do
           End do
@@ -1097,12 +1063,7 @@ Module PredictorUV
                    VCell%EtaE(i,j,k)*VCell%vofL(i+1,j,k)/(VCell%vof(i+1,j,k)+tol)
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref  
                 flux(i,j,k,2)=VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)*NuF*       &
-                                                      VGrid%dz(i,j,k)/Sx/Rey
-             !   print*,'+++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-             !   print*, VCell%vofL(i,j,k),VCell%vofL(i+1,j,k)
-             !   print*, VflF,VCell%EtaE(i,j,k)
-             !   print*, NuF,nuw/nuref,nua/nuref
-             !   pause 'Test 123456789'                                      
+                                                      VGrid%dz(i,j,k)/Sx/Rey                                    
                 If(dabs(Sy)>1.d-4*VGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          VGrid%dz(i,j,k)) then
                   EFlux(i,j,k,2)=VCell%DAlE(i-1,j,k)*VCell%EEArea(i-1,j,k)*    &
@@ -1279,24 +1240,6 @@ Module PredictorUV
                 End if
               End if
             End if
-            if(dabs(flux(i,j,k,1))>1.d10) then
-              print*, 'That la chan truong 1'
-              print*, NuF
-              print*, VflF
-              pause
-            end if
-            if(dabs(flux(i,j,k,2))>1.d10) then
-              print*, 'That la chan truong 2'
-              print*, NuF
-              print*, VflF
-              pause
-            end if
-            if(dabs(flux(i,j,k,3))>1.d10) then
-              print*, 'That la chan truong 3'
-              print*, NuF
-              print*, VflF
-              pause
-            end if  
           End do
         End do
       End do

@@ -47,7 +47,9 @@ list(APPEND SRC_LIST
     ProjectionP.f90 
     ComputePUVW.f90
     StateVariables.f90
-    Main.f90)
+    Main.f90
+    VTK_mod.f90
+    VTR_mod.f90)
 set (LINK_LIBS ${LINK_LIBS} 
     ${MPI_Fortran_LIBRARIES}
     ${HYPRE_LIBRARIES}
