@@ -1,2 +1,26 @@
 *.f90~
 *.txt~
+.CMakeLists.txt.swp
+.gitignore.swp
+Convergence.dat
+CutCell3DGFMCLSVOF
+CutCell3DGFMCLSVOF.depend
+CutCell3DGFMCLSVOF.layout
+DragLiftCoef.dat
+GeoCal
+Precision
+PrintoutP
+Problem
+Problem~
+Result/
+StateVariables
+bin/
+./
+first order upwind 
+new file
+obj/
+src/CodeNew.f90
+src/Diffusiveflux
+src/Diffusiveflux~
+src/PredictUVW2.f90
+first order upwind 
