@@ -73,15 +73,12 @@ Module Cutcell
                   UCell%FCN(i,j,k,1) = 0.d0
                   UCell%FCT(i,j,k,1) = 0.d0
                 End if
-
               End if
-              if(minVof>UCell%vof(i,j,k).and.UCell%Cell_Type(i,j,k)==1) minVof=UCell%vof(i,j,k)
             End do
             UCell%FCN(Imax,j,k,1) = 0.d0
             UCell%FCT(Imax,j,k,1) = 0.d0
           End do
         End do
-        print*, 'smallest fluid volume fraction for UCell:',minVof
         minVof=1.d0
         Do i = 1,Imax
           Do k = 1,Kmax
@@ -93,13 +90,11 @@ Module Cutcell
                   VCell%FCT(i,j,k,2) = 0.d0
                 End if
               End if
-              if(minVof>VCell%vof(i,j,k).and.VCell%Cell_Type(i,j,k)==1) minVof=VCell%vof(i,j,k)
             End do
             VCell%FCE(i,Jmax,k,2) = 0.d0
             VCell%FCT(i,Jmax,k,2) = 0.d0
           End do
         End do
-        print*, 'smallest fluid volume fraction for VCell:',minVof
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax-1
@@ -110,13 +105,11 @@ Module Cutcell
                   WCell%FCN(i,j,k,3) = 0.d0
                 End if
               End if
-              if(minVof>WCell%vof(i,j,k).and.WCell%Cell_Type(i,j,k)==1) minVof=WCell%vof(i,j,k)
             End do
             WCell%FCE(i,j,Kmax,3) = 0.d0
             WCell%FCN(i,j,Kmax,3) = 0.d0
           End do
         End do
-	print*, 'smallest fluid volume fraction for WCell:',minVof
       ! Correct Cell Center of U,V,W Cell
         Do i = 1,Imax
           Do j = 1,Jmax
@@ -249,6 +242,7 @@ Module Cutcell
             Do k = 1,Kmax
               if(TCell%vof(i,j,k)>=1.d0-epsi) then
                 TCell%Cell_Type(i,j,k) = 0  ! External cell
+                TCell%vofL(i,j,k)=TCell%VofL(i,j,k)/TCell%vof(i,j,k)
                 TCell%vof(i,j,k)=1.d0
               end if  
               If(TCell%vof(i,j,k)<=epsi) then 

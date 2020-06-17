@@ -88,7 +88,7 @@ Program Main
     Call NumberExternalCell(WCell,0,0,1)
     Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
     Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                                                                    Var,1)
+                                                                    Var,100)
     Pause
 End program main
 
