@@ -1008,234 +1008,145 @@ Module PredictorUV
           Do k = 1,Kmax+iw
             If(iu==1) then
               If(i==Imax+iu) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref 
-                flux(i,j,k,1) = UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*NuF*   &
+                flux(i,j,k,1) = UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*       &
                                 UGrid%dz(i-1,j,k)/PGrid%dx(i-1,j,k)/Rey
-                ! Compute the mixing viscosity for V-Cell                 
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*NuF*   &
-                                VGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
-                ! Compute the mixing viscosity for W-Celll
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,3) = WCell%EEArea(i-1,j,k)*WGrid%dy(i-1,j,k)*NuF*   &
-                                WGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
+                flux(i,j,k,2) = VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*       &
+                                     VGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
+                flux(i,j,k,3) = WCell%EEArea(i-1,j,k)*WGrid%dy(i-1,j,k)*       &
+                                     WGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
               Elseif(i==1) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref 
-                flux(i,j,k,1)=UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*NuF*         &
+                flux(i,j,k,1) = UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*           &
                               UGrid%dz(i,j,k)/PGrid%dx(i,j,k)/Rey
-                ! Compute the mixing viscosity for V-Cell  
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2)=VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*nuF*         &
+                flux(i,j,k,2) = VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*           &
                                    VGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
-                ! Compute the mixing viscosity for W-Celll
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,3)=WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*nuF*         &
+                flux(i,j,k,3) = WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*           &
                                    WGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
               Else
-                Sx=UCell%SxE(i-1,j,k)
-                Sy=UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i-1,j,k,2)
-                Sz=UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i-1,j,k,3)
-                VflF=(1.d0-UCell%EtaE(i,j,k))*				       &
-                   UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                   UCell%EtaE(i,j,k)*UCell%vofL(i+1,j,k)/(UCell%vof(i+1,j,k)+tol)
-                
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                flux(i,j,k,1)=UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)*NuF*       &
+                Sx = UCell%SxE(i-1,j,k)
+                Sy = UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i-1,j,k,2)
+                Sz = UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i-1,j,k,3)
+                flux(i,j,k,1) = UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)*         &
                                                       UGrid%dz(i,j,k)/Sx/Rey
                 If(dabs(Sy)>1.d-4*UGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          UGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,1)=UCell%DAlE(i-1,j,k)*UCell%EEArea(i-1,j,k)*    &
-                                 NuF*UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)/Rey
+                  EFlux(i,j,k,1) = UCell%DAlE(i-1,j,k)*UCell%EEArea(i-1,j,k)*  &
+                                        UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)/Rey
                 End if
-                Sx=VCell%SxE(i-1,j,k)
-                Sy=VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i-1,j,k,2)
-                Sz=VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i-1,j,k,3)
-                VflF=(1.d0-VCell%EtaE(i,j,k))*				       &
-                   VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                   VCell%EtaE(i,j,k)*VCell%vofL(i+1,j,k)/(VCell%vof(i+1,j,k)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref  
-                flux(i,j,k,2)=VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)*NuF*       &
-                                                      VGrid%dz(i,j,k)/Sx/Rey                                    
+                Sx = VCell%SxE(i-1,j,k)
+                Sy = VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i-1,j,k,2)
+                Sz = VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i-1,j,k,3)
+                flux(i,j,k,2) = VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)*         &
+                                                      VGrid%dz(i,j,k)/Sx/Rey
                 If(dabs(Sy)>1.d-4*VGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          VGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,2)=VCell%DAlE(i-1,j,k)*VCell%EEArea(i-1,j,k)*    &
-                                 NuF*VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)/Rey
+                  EFlux(i,j,k,2) = VCell%DAlE(i-1,j,k)*VCell%EEArea(i-1,j,k)*  &
+                                        VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)/Rey
                 End if
-                Sx=WCell%SxE(i-1,j,k)
-                Sy=WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i-1,j,k,2)
-                Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i-1,j,k,3)
-                flux(i,j,k,3)=WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)*NuF*       &
+                Sx = WCell%SxE(i-1,j,k)
+                Sy = WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i-1,j,k,2)
+                Sz = WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i-1,j,k,3)
+                flux(i,j,k,3) = WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)*         &
                                                       WGrid%dz(i,j,k)/Sx/Rey
                 If(dabs(Sy)>1.d-4*WGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          WGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,3)=WCell%DAlE(i-1,j,k)*WCell%EEArea(i-1,j,k)*    &
-                                   NuF*WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)/Rey
+                  EFlux(i,j,k,3) = WCell%DAlE(i-1,j,k)*WCell%EEArea(i-1,j,k)*  &
+                                        WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)/Rey
                 End if
               End if
             End if
             If(iv==1) then
               If(j==Jmax+iv) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref  
-                flux(i,j,k,1) = UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*NuF*   &
+                flux(i,j,k,1) = UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*       &
                                      UGrid%dz(i,j-1,k)/VGrid%dy(i,j-1,k)/Rey
-                ! Compute the mixing viscosity for V-Cell                 
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*NuF*   &
+                flux(i,j,k,2) = VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*       &
                                      VGrid%dz(i,j-1,k)/PGrid%dy(i,j-1,k)/Rey
-                ! Compute the mixing viscosity for W-Cell
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,3) = WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*NuF*   &
+                flux(i,j,k,3) = WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*       &
                                      WGrid%dz(i,j-1,k)/VGrid%dy(i,j-1,k)/Rey
               Elseif(j==1) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref 
-                flux(i,j,k,1) = UCell%NEArea(i,j,k)*UGrid%dx(i,j,k)*NuF*        &
+                flux(i,j,k,1) = UCell%NEArea(i,j,k)*UGrid%dx(i,j,k)*           &
                                      UGrid%dz(i,j,k)/VGrid%dy(i,j,k)/Rey
-                ! Compute the mixing viscosity for V-Cell                 
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%NEArea(i,j,k)*VGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,2) = VCell%NEArea(i,j,k)*VGrid%dx(i,j,k)*           &
                                      VGrid%dz(i,j,k)/PGrid%dy(i,j,k)/Rey
-                ! Compute the mixing viscosity for W-Cell
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref                     
-                flux(i,j,k,3) = WCell%NEArea(i,j,k)*WGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,3) = WCell%NEArea(i,j,k)*WGrid%dx(i,j,k)*           &
                                      WGrid%dz(i,j,k)/VGrid%dy(i,j,k)/Rey
               Else
                 Sx = UCell%Cell_Cent(i,j,k,1)-UCell%Cell_Cent(i,j-1,k,1)
                 Sy = UCell%SyN(i,j-1,k)
                 Sz = UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i,j-1,k,3)
-                VflF=(1.d0-UCell%EtaN(i,j,k))*				       &
-                   UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                   UCell%EtaN(i,j,k)*UCell%vofL(i,j+1,k)/(UCell%vof(i,j+1,k)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref   
-                flux(i,j,k,1)=UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,1) = UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*         &
                                                       UGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*UGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          UGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,1)=UCell%DAlN(i,j-1,k)*UCell%NEArea(i,j-1,k)*NuF*&
-                                 UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)/Rey
+                  EFlux(i,j,k,1) = UCell%DAlN(i,j-1,k)*UCell%NEArea(i,j-1,k)*  &
+                                   UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)/Rey
                 End if
                 Sx = VCell%Cell_Cent(i,j,k,1)-VCell%Cell_Cent(i,j-1,k,1)
                 Sy = VCell%SyN(i,j-1,k)
                 Sz = VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i,j-1,k,3)
-                VflF=(1.d0-VCell%EtaN(i,j,k))*				       &
-                   VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                   VCell%EtaN(i,j,k)*VCell%vofL(i,j+1,k)/(VCell%vof(i,j+1,k)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                flux(i,j,k,2)=VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,2) = VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*         &
                                                       VGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*VGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          VGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,2)=VCell%DAlN(i,j-1,k)*VCell%NEArea(i,j-1,k)*NuF*&
+                  EFlux(i,j,k,2) = VCell%DAlN(i,j-1,k)*VCell%NEArea(i,j-1,k)*  &
                                    VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)/Rey
                 End if
-                Sx=WCell%Cell_Cent(i,j,k,1)-WCell%Cell_Cent(i,j-1,k,1)
-                Sy=WCell%SyN(i,j-1,k)
-                Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i,j-1,k,3)
-                VflF=(1.d0-WCell%EtaN(i,j,k))*				       &
-                   WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
-                   WCell%EtaN(i,j,k)*WCell%vofL(i,j+1,k)/(WCell%vof(i,j+1,k)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                flux(i,j,k,3)=WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*NuF*       &
+                Sx = WCell%Cell_Cent(i,j,k,1)-WCell%Cell_Cent(i,j-1,k,1)
+                Sy = WCell%SyN(i,j-1,k)
+                Sz = WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i,j-1,k,3)
+                flux(i,j,k,3) = WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*         &
                                                       WGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*WGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
                                                          WGrid%dz(i,j,k)) then
-                  EFlux(i,j,k,3)=WCell%DAlN(i,j-1,k)*WCell%NEArea(i,j-1,k)*NuF*&
+                  EFlux(i,j,k,3) = WCell%DAlN(i,j-1,k)*WCell%NEArea(i,j-1,k)*  &
                                    WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)/Rey
                 End if
               End if
             End if
             If(iw==1) then
               If(k==Kmax+iw) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref 
-                flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k-1)*NuF*   &
+                flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k-1)*       &
                                      UGrid%dy(i,j,k-1)/WGrid%dz(i,j,k-1)/Rey
-                ! Compute the mixing viscosity for V-Cell                 
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*NuF*   &
+                flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*       &
                                      VGrid%dy(i,j,k-1)/WGrid%dz(i,j,k-1)/Rey
-                ! Compute the mixing viscosity for W-Cell                 
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,3) = WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k-1)*NuF*   &
+                flux(i,j,k,3) = WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k-1)*       &
                                      WGrid%dy(i,j,k-1)/PGrid%dz(i,j,k-1)/Rey
               Elseif(k==1) then
-                ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,1) = UCell%TEArea(i,j,k)*UGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,1) = UCell%TEArea(i,j,k)*UGrid%dx(i,j,k)*           &
                                      UGrid%dy(i,j,k)/WGrid%dz(i,j,k)/Rey
-                ! Compute the mixing viscosity for V-Cell                 
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
-                flux(i,j,k,2) = VCell%TEArea(i,j,k)*VGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,2) = VCell%TEArea(i,j,k)*VGrid%dx(i,j,k)*           &
                                      VGrid%dy(i,j,k)/WGrid%dz(i,j,k)/Rey
-                ! Compute the mixing viscosity for W-Cell                 
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref                     
-                flux(i,j,k,3) = WCell%TEArea(i,j,k)*WGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,3) = WCell%TEArea(i,j,k)*WGrid%dx(i,j,k)*           &
                                      WGrid%dy(i,j,k)/PGrid%dz(i,j,k)/Rey
               Else
                 Sx = UCell%Cell_Cent(i,j,k,1)-UCell%Cell_Cent(i,j,k-1,1)
                 Sy = UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i,j,k-1,2)
                 Sz = UCell%SzT(i,j,k-1)
-                VflF=(1.d0-UCell%EtaT(i,j,k))*				       &
-                   UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                   UCell%EtaT(i,j,k)*UCell%vofL(i,j,k+1)/(UCell%vof(i,j,k+1)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                   
-                flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*NuF*     &
+                flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*         &
                                                       UGrid%dy(i,j,k)/Sz/Rey
                 If(dabs(Sx)>1.d-4*UGrid%dx(i,j,k).or.dabs(Sy)>1.d-4*           &
                                                          UGrid%dy(i,j,k)) then
-                  EFlux(i,j,k,1)=UCell%DAlT(i,j,k-1)*UCell%TEArea(i,j,k-1)*NuF*&
+                  EFlux(i,j,k,1) = UCell%DAlT(i,j,k-1)*UCell%TEArea(i,j,k-1)*  &
                                    UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)/Rey
                 End if
 
                 Sx = VCell%Cell_Cent(i,j,k,1)-VCell%Cell_Cent(i,j,k-1,1)
                 Sy = VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i,j,k-1,2)
                 Sz = VCell%SzT(i,j,k-1)
-                VflF=(1.d0-VCell%EtaT(i,j,k))*				       &
-                   VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                   VCell%EtaT(i,j,k)*VCell%vofL(i,j,k+1)/(VCell%vof(i,j,k+1)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*NuF*     &
-                                                      VGrid%dy(i,j,k)/Sz/Rey                                      
+                flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*         &
+                                                      VGrid%dy(i,j,k)/Sz/Rey
                 If(dabs(Sx)>1.d-4*VGrid%dx(i,j,k).or.dabs(Sy)>1.d-4*           &
                                                          VGrid%dy(i,j,k)) then
-                  EFlux(i,j,k,2)=VCell%DAlT(i,j,k-1)*VCell%TEArea(i,j,k-1)*NuF*&
-                                 VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)/Rey
+                  EFlux(i,j,k,2) = VCell%DAlT(i,j,k-1)*VCell%TEArea(i,j,k-1)*  &
+                                   VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)/Rey
                 End if
                 Sx = WCell%Cell_Cent(i,j,k,1)-WCell%Cell_Cent(i,j,k-1,1)
                 Sy = WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i,j,k-1,2)
                 Sz = WCell%SzT(i,j,k-1)
-                VflF=(1.d0-WCell%EtaT(i,j,k))*				       &
-                   WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
-                   WCell%EtaT(i,j,k)*WCell%vofL(i,j,k+1)/(WCell%vof(i,j,k+1)+tol)
-                NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-                flux(i,j,k,3)=WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*NuF*       &
+                flux(i,j,k,3) = WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*         &
                                                       WGrid%dy(i,j,k)/Sz/Rey
-                
                 If(dabs(Sx)>1.d-4*WGrid%dx(i,j,k).or.dabs(Sy)>1.d-4*           &
                                                          WGrid%dy(i,j,k)) then
-                  EFlux(i,j,k,3)=WCell%DAlT(i,j,k-1)*WCell%TEArea(i,j,k-1)*NuF*&
+                  EFlux(i,j,k,3) = WCell%DAlT(i,j,k-1)*WCell%TEArea(i,j,k-1)*  &
                                    WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)/Rey
                 End if
               End if
