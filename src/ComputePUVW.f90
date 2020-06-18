@@ -5,6 +5,9 @@ Module ComputePUV
     USE StateVariables
     USE PredictorUV
     USE ProjectionP
+    use BoundaryInterface
+    use BoundaryFunction
+    
     Implicit none
     Private
     Public:: UpdatePUV

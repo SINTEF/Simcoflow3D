@@ -5,7 +5,7 @@ module Boundaryinterface
   private
 
   type :: BCBase
-    character(len=16)                        :: flag(6)
+    integer(kind=it4b)                        :: flag(6)
     !
     real(kind=dp),dimension(:),allocatable   :: Const
     real(kind=dp),dimension(:,:),allocatable :: VarW,VarE,VarS,VarN,VarB,VarT 
@@ -22,11 +22,11 @@ module Boundaryinterface
   
   abstract interface
      
-     subroutine BCinterface(this,xin,yin,dxin,dyin,pin,uin,vin,vofin,lvsin,time)
+     subroutine BCinterface(this,xin,yin,zin,dxin,dyin,dzin,pin,uin,vin,win,vofin,lvsin,time)
         import :: dp, BCBase
-        class(BCBase2),intent(inout)            :: this
+        class(BCBase),intent(inout)             :: this
         real(kind=dp),dimension(:,:),intent(in) :: xin,yin,zin,dxin,dyin,dzin
-        real(kind=dp),dimension(:,:),intent(in) :: pin,uin,vin
+        real(kind=dp),dimension(:,:),intent(in) :: pin,uin,vin,win
         real(kind=dp),dimension(:,:),intent(in) :: vofin,lvsin
         real(kind=dp),               intent(in) :: time 
      
@@ -49,6 +49,6 @@ module Boundaryinterface
      end subroutine SetConstant
   end interface
 
-  public :: BCBase2
+  public :: BCBase
 
 end module Boundaryinterface

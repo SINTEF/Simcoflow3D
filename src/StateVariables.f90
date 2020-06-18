@@ -77,6 +77,16 @@ Module StateVariables
     !  wall________________________
     !             dp/dn = 0.d0, u,v = 0.d0
     !*******************************************************
+    
+    subroutine BoundaryConditionVarNew(Vari)
+      type(Grid), intent(in)  	      :: PGrid
+      type(Cell), intent(in)  	      :: PCell
+      type(TVariables), intent(inout) :: Vari
+      type(BCBase), intent(inout)     :: BCu, BCv, BCw, BCp  	
+      real(kind=dp), intent(in)       :: Time
+      integer(kind=it4b)              :: i,j
+    end subroutine BoundaryConditionVarNew
+    
     Subroutine BoundaryConditionVar(Vari)
       Type(Variables),intent(inout):: Vari
       Integer(kind=it4b):: i,j,k

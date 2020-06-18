@@ -20,13 +20,21 @@ Program Main
     USE PrintResult
     USE MPI
     USE Solver
+    USE BoundaryInterface
+    USE BoundaryFunction
+    
     Implicit none
-    Type(Grid):: UGrid,VGrid,WGrid,PGrid
-    Type(Cell):: UCell,VCell,WCell,PCell
-    Type(Point):: SPoint,EPoint,ReS,ReE
-    Type(Variables):: Var
-    Integer(kind=it4b):: Irec,Jrec,Krec,NI,NJ,NK,iprint
-    Real(kind=dp):: Lref,vel
+    
+    Type(Grid)      :: UGrid,VGrid,WGrid,PGrid
+    Type(Cell)      :: UCell,VCell,WCell,PCell
+    Type(Point)     :: SPoint,EPoint,ReS,ReE
+    Type(Variables) :: Var
+    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs
+    
+    Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
+    Real(kind=dp)      :: Lref,vel,Constin(6)
+    
+    
     Open(unit=5,file='input.dat',action='read')
     Read(5,*),
     Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
@@ -55,6 +63,77 @@ Program Main
     ReE%x = 1.d0
     ReE%y = 1.d0
     ReE%z = 1.d0
+    
+    BCp = BCBase(IMax,Jmax,Kmax)
+    BCu = BCBase(Imax,Jmax,Kmax)
+    BCv = BCBase(Imax,Jmax,Kmax)
+    BCw = BCBase(Imax,Jmax,Kmax)
+    BCvof = BCBase(Imax,Jmax,Kmax)
+    BClvs = BCBase(Imax,Jmax,Kmax)
+    
+    ! For flow over sphere
+    BCp%SetDN(1,0,1,1,1,1)
+    BCu%SetDN(0,1,0,0,0,0)
+    BCv%SetDN(0,1,0,0,0,0)
+    BCw%SetDN(0,1,0,0,0,0)
+    BCVof%SetDN(0,0,1,1,1,1)
+    BCLvs%SetDN(0,0,1,1,1,1)
+    ! Set Constant for boundary condition
+    Constin(1) = vel
+    Constin(2:6) = 0.d0
+    call BCu%SetConstant(Constin)    
+    Constin(:) = 0.d0
+    call BCv%SetConstant(Constin)
+    call BCw%SetConstant(Constin)
+    call BCp%SetConstant(Constin)
+    Constin(1)=1.d0
+    Constin(2)=1.d0
+    call BCVof%SetConstant(Constin)
+    Constin(1)=-1.d3
+    Constin(2)=-1.d3
+    call BCLvs%SetConstant(Constin)
+    BCu%West   => BCUW
+    BCu%East   => BCUE
+    BCu%South  => BCUS
+    BCu%North  => BCUN
+    BCu%Bottom => BCUB
+    BCu%Top    => BCUT
+    
+    BCv%West   => BCVW
+    BCv%East   => BCVE
+    BCv%South  => BCVS
+    BCv%North  => BCVN
+    BCv%Bottom => BCVB
+    BCv%Top    => BCVT
+    
+    BCw%West   => BCWW
+    BCw%East   => BCWE
+    BCw%South  => BCWS
+    BCw%North  => BCWN
+    BCw%Bottom => BCWB
+    BCw%Top    => BCWT
+    
+    BCp%West   => BCPW
+    BCp%East   => BCPE
+    BCp%South  => BCPS
+    BCp%North  => BCPN
+    BCp%Bottom => BCPB
+    BCp%Top    => BCPT
+    
+    BCVof%West   => BCVofW
+    BCVof%East   => BCVofE
+    BCVof%South  => BCVofS
+    BCVof%North  => BCVofN
+    BCVof%Bottom => BCVofB
+    BCVof%Top    => BCVofT
+    
+    BCLvs%West   => BCLvsW
+    BCLvs%East   => BCLvsE
+    BCLvs%South  => BCLvsS
+    BCLvs%North  => BCLvsN
+    BCLvs%Bottom => BCLvsB
+    BCLvs%Top    => BCLvsT
+    
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
     Call InitialUVGrid(PGrid,UGrid,0,Lref)
@@ -88,7 +167,7 @@ Program Main
     Call NumberExternalCell(WCell,0,0,1)
     Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
     Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                                                                    Var,100)
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,100)
     Pause
 End program main
 

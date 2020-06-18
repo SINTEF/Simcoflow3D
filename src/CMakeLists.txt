@@ -48,6 +48,9 @@ list(APPEND SRC_LIST
     ComputePUVW.f90
     StateVariables.f90
     Main.f90
+    Constants.f90
+    BoundaryInterface.f90
+    BoundaryFunction.f90
     VTK_mod.f90
     VTR_mod.f90)
 set (LINK_LIBS ${LINK_LIBS} 

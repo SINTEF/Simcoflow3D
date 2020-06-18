@@ -7,6 +7,9 @@ Module Solver
     USE PrintResult
     USE ComputePUV
     USE MPI
+    USE BoundaryInterface
+    USE BoundaryFunction
+    
     Implicit none
     Private
     Type,Public:: SolverTime
@@ -31,17 +34,18 @@ Module Solver
     contains
     
     subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
-                                                             WCell,TVar,iprint)
+                                 WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,iprint)
         Implicit none
-        Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
-        Type(Variables),intent(inout):: TVar
-        Integer(kind=it4b),intent(in):: iprint
-        Real(kind=dp),dimension(:,:,:),allocatable:: GraP
-        Type(SolverTime):: Time
-        Type(SolverConvergence):: UConv,VConv,WConv,PConv
-        Type(Variables):: TVar_n
-        Integer(kind=it8b):: itt
+        Type(Grid),intent(in)         		   :: PGrid,UGrid,VGrid,WGrid
+        Type(Cell),intent(inout)      		   :: PCell,UCell,VCell,WCell
+        Type(Variables),intent(inout) 		   :: TVar
+        type(BCBase),intent(inout)		   :: BCu,BCv,BCw,BCp,BCVof,BCLvs
+        Integer(kind=it4b),intent(in) 		   :: iprint
+        Real(kind=dp),dimension(:,:,:),allocatable :: GraP
+        Type(SolverTime)			   :: Time
+        Type(SolverConvergence)			   :: UConv,VConv,WConv,PConv
+        Type(Variables)				   :: TVar_n
+        Integer(kind=it8b)			   :: itt
         Allocate(TVar_n%p(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
@@ -54,9 +58,11 @@ Module Solver
         
         do itt = 1,Time%iter
           call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-                     WCell,TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
+                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,TVar_n,UConv,      &
+                     VConv,WConv,PConv,Time,itt)
           Time%NondiT = Time%NondiT+Time%dt
           Time%PhysT = Time%Nondit*PGrid%Lref/TVar%URef
+          
           call PrintHistory(itt,Uconv)
           call PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
                                  VCell,WCell,itt,Time%NondiT)
@@ -77,16 +83,18 @@ Module Solver
     end subroutine IterationSolution
 
     Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-                     WCell,TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
+                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,			       &
+                     TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
         Implicit none
-        Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
-        Type(Variables),intent(inout):: TVar,TVar_n
-        Type(SolverTime),intent(inout):: Time
-        Type(SolverConvergence),intent(out):: UConv,VConv,WConv,PConv
-        Integer(kind=it8b),intent(in):: itt
-        Integer(kind=it4b):: i,j,k
-        Real(kind=dp):: dt,mres
+        Type(Grid),intent(in)               :: PGrid,UGrid,VGrid,WGrid
+        Type(Cell),intent(inout)            :: PCell,UCell,VCell,WCell
+        type(BCBase),intent(inout)	    :: BCu,BCv,BCw,BCp,BCVof,BCLvs
+        Type(Variables),intent(inout)       :: TVar,TVar_n
+        Type(SolverTime),intent(inout)      :: Time
+        Type(SolverConvergence),intent(out) :: UConv,VConv,WConv,PConv
+        Integer(kind=it8b),intent(in)       :: itt
+        Integer(kind=it4b)   		    :: i,j,k
+        Real(kind=dp)  			    :: dt,mres
         Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
         dt = Time%dt
         TVar_n%p(:,:,:) = TVar%p(:,:,:)
@@ -95,8 +103,8 @@ Module Solver
         TVar_n%w(:,:,:) = TVar%w(:,:,:)
         dt = Time%dt!/3.d0
      !  First Runge-Kutta substep
-        Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
-                                                            TVar,dt,itt)
+        Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
+                       BCu,BCv,BCw,BCp,BCVof,BCLvsTVar_n,TVar,dt,itt)
      !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
      !                                                          TVar,dt,itt)
         Call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
