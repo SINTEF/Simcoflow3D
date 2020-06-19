@@ -32,9 +32,10 @@ Program Main
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs
     
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
-    Real(kind=dp)      :: Lref,vel,Constin(6)
+    Real(kind=dp)      :: Lref,vel
+    real(kind=dp), dimension(:), allocatable :: Constin
     
-    
+    allocate(Constin(6))
     Open(unit=5,file='input.dat',action='read')
     Read(5,*),
     Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
@@ -72,12 +73,12 @@ Program Main
     BClvs = BCBase(Imax,Jmax,Kmax)
     
     ! For flow over sphere
-    BCp%SetDN(1,0,1,1,1,1)
-    BCu%SetDN(0,1,0,0,0,0)
-    BCv%SetDN(0,1,0,0,0,0)
-    BCw%SetDN(0,1,0,0,0,0)
-    BCVof%SetDN(0,0,1,1,1,1)
-    BCLvs%SetDN(0,0,1,1,1,1)
+    call BCp%SetDN(1,0,1,1,1,1)
+    call BCu%SetDN(0,1,0,0,0,0)
+    call BCv%SetDN(0,1,0,0,0,0)
+    call BCw%SetDN(0,1,0,0,0,0)
+    call BCVof%SetDN(0,0,1,1,1,1)
+    call BCLvs%SetDN(0,0,1,1,1,1)
     ! Set Constant for boundary condition
     Constin(1) = vel
     Constin(2:6) = 0.d0
@@ -133,7 +134,7 @@ Program Main
     BCLvs%North  => BCLvsN
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
-    
+    deallocate(Constin)
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
     Call InitialUVGrid(PGrid,UGrid,0,Lref)

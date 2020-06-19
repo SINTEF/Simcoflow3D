@@ -16,12 +16,13 @@ Module ComputePUV
     End interface
     Contains
     Subroutine UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,      &
-                                                       TVar_n,TVar,dt,itt)
+                         BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar_n,TVar,Time,dt,itt)
       Implicit none
       Type(Grid),intent(in)         :: UGrid,VGrid,WGrid,PGrid
       Type(Cell),intent(inout)      :: UCell,VCell,WCell,PCell
-      Type(Variables),intent(in)    :: TVar_n
-      Type(Variables),intent(inout) :: TVar
+      type(BCBase),intent(inout)    :: BCu,BCv,BCw,BCp,BCVof,BCLvs
+      type(Variables),intent(inout) :: TVar,TVar_n
+      real(kind=dp),intent(in)      :: Time
       Real(dp),intent(in)           :: dt
       Integer(kind=it8b),intent(in) :: itt
       Type(PoissonCoefficient)      :: PU,PV,PW
@@ -91,26 +92,8 @@ Module ComputePUV
           end do
         end do
       end do
-  !    print*, 'Compute the Poisson Coefficient'        
-  !    print*, MaxPoCoef
-  !    print*, Pred%u(ii,jj,kk)
-  !    print*, '------------------------------------'
-  !    print*, TVar%u(63,41,30),TVar%u(64,41,30)
-  !    print*, TVar%v(63,41,30),TVar%v(64,41,30)
-  !    print*, TVar%w(63,41,30),TVar%w(64,41,30)
-  !    print*, ii,jj,kk
-  !    print*,'Print out the maximum coefficient Poisson Coefficient'
-  !    print*,MaxPoCoef
-  !    print*,PoCoef(ii,jj,kk,4)
-  !    print*,PoCoef(ii,jj,kk,1)
-  !    print*,PCell%vof(ii,jj,kk),UCell%vof(ii,jj,kk)
-  !    print*,'test 222222222222222222222222'
-  !    print*,PU%dp(59,48,48)/UGrid%dx(59,48,48)
-  !    print*,UCell%MoExCell(59,48,48)	
-  !    print*,UCell%vof(59,48,48)
-  !    print*,ii,jj,kk
-  !    print*,'1111111111111111'
-      call BoundaryConditionVar(TVar)
+  !    call BoundaryConditionVar(TVar)
+      call BoundaryConditionVarNew(PGrid, PCell, TVar, BCp, BCu, BCv, BCw, Time)
       i = Imax
       do j = 1,Jmax
         do k = 1,Kmax
@@ -133,6 +116,251 @@ Module ComputePUV
       deallocate(PW%Dp)
       deallocate(PoCoef)
     end subroutine UpdatePUV
+    
+    subroutine BoundaryConditionVarNew(PGrid, PCell, Vari, BCp, BCu, BCv, BCw, Time)
+      type(Grid), intent(in)  	     :: PGrid
+      type(Cell), intent(in)  	     :: PCell
+      type(Variables), intent(inout) :: Vari
+      type(BCBase), intent(inout)    :: BCu, BCv, BCw, BCp  	
+      real(kind=dp), intent(in)      :: Time
+      integer(kind=it4b)             :: i,j,k
+      
+      ! For the western boundary 
+      call BCu%west(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, PGrid%y(1,:,:),       &
+                    PGrid%z(1,:,:), PGrid%dx(1,:,:), PGrid%dy(1,:,:), 	       &
+                    PGrid%dz(1,:,:), Vari%p(1,:,:), Vari%u(1,:,:), 	       &
+                    Vari%v(1,:,:), Vari%w(1,:,:), PCell%vof(1,:,:), 	       &
+                    PCell%phi(1,:,:), Time)
+      Vari%u(1-ight,:,:) = BCu%VarW(:,:)
+      
+      ! For the eastern boundary
+      call BCu%east(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0, PGrid%y(Imax,:,:), &
+                    PGrid%z(Imax,:,:), PGrid%dx(Imax,:,:), PGrid%dy(Imax,:,:), &
+                    PGrid%dz(Imax,:,:), Vari%p(Imax,:,:), Vari%u(Imax-1,:,:),  &
+                    Vari%v(Imax,:,:), Vari%w(Imax,:,:), PCell%vof(Imax,:,:),   &
+                    PCell%phi(Imax,:,:), Time)
+      Vari%u(Imax,:,:) = BCu%VarE(:,:) 
+      call ComputeGhostVarBoundary(Vari%u(Imax,:,:),BCu%VarE,BCu%flag(2),      &
+                                                    Vari%u(Imax+ight,:,:))
+      
+      ! For the southern boundary
+      call BCu%South(PGrid%x(:,1,:)+PGrid%dx(:,1,:)/2.d0, 		       &
+                     PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0, PGrid%z(:,1,:),      &
+                     PGrid%dx(:,1,:), PGrid%dy(:,1,:), PGrid%dz(:,1,:),        &
+                     Vari%p(:,1,:), Vari%u(:,1,:), Vari%v(:,1,:), 	       &
+                     Vari%w(:,1,:), PCell%vof(:,1,:), PCell%phi(:,1,:), Time)  
+      call ComputeGhostVarBoundary(Vari%u(:,1,:),BCu%VarS,BCu%flag(3),         &
+                                                 Vari%u(:,1-jght,:))
+      
+      ! For the northern boundary
+      call BCu%North(PGrid%x(:,Jmax,:)+PGrid%dx(:,Jmax,:)/2.d0, 	       &
+                     PGrid%y(:,Jmax,:)-PGrid%dy(:,Jmax,:)/2.d0, 	       &
+                     PGrid%z(:,Jmax,:), PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),&
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),  &
+                     PCell%phi(:,Jmax,:), Time)
+      call ComputeGhostVarBoundary(Vari%u(:,Jmax,:),BCu%VarN,BCu%flag(4),      &
+                                                         Vari%u(:,Jmax+jght,:))
+      
+      ! For the bottom boundary
+      call BCu%Bottom(PGrid%x(:,:,1)+PGrid%dx(:,:,1)/2.d0, PGrid%y(:,:,1),     &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1), 	       &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1), 	       &
+                      PCell%vof(:,:,1), PCell%phi(:,:,1), Time)
+      call ComputeGhostVarBoundary(Vari%u(:,:,1),BCu%VarB,BCu%flag(5),        &
+                                                         Vari%u(:,:,1-kght))
+      
+      ! For the top boundary
+      call BCu%Top(PGrid%x(:,:,Kmax)+PGrid%dx(:,:,Kmax)/2.d0, 		       &
+                  PGrid%y(:,:,Kmax), PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,&
+                  PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax),  &
+                  Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),        &	
+                  Vari%w(:,:,Kmax), PCell%vof(:,:,Kmax), PCell%phi(:,:,Kmax), Time)
+      call ComputeGhostVarBoundary(Vari%u(:,:,Kmax),BCu%VarT,BCu%flag(6),      &
+                                                         Vari%u(:,:,Kmax+kght))  
+           
+      ! For the western boundary 
+      call BCv%west(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, 		       &
+                    PGrid%y(1,:,:)+PGrid%dy(1,:,:)/2.d0,       		       &
+                    PGrid%z(1,:,:), PGrid%dx(1,:,:), PGrid%dy(1,:,:), 	       &
+                    PGrid%dz(1,:,:), Vari%p(1,:,:), Vari%u(1,:,:), 	       &
+                    Vari%v(1,:,:), Vari%w(1,:,:), PCell%vof(1,:,:), 	       &
+                    PCell%phi(1,:,:), Time)
+      call ComputeGhostVarBoundary(Vari%v(1,:,:),BCv%VarW,BCv%flag(1),         &
+                                                 Vari%v(1-ight,:,:)) 
+      
+      ! For the eastern boundary
+      call BCv%east(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0, 		       &
+                    PGrid%y(Imax,:,:)+PGrid%dy(Imax,:,:)/2.d0, 		       &
+                    PGrid%z(Imax,:,:), PGrid%dx(Imax,:,:), PGrid%dy(Imax,:,:), &
+                    PGrid%dz(Imax,:,:), Vari%p(Imax,:,:), Vari%u(Imax-1,:,:),  &
+                    Vari%v(Imax,:,:), Vari%w(Imax,:,:), PCell%vof(Imax,:,:),   &
+                    PCell%phi(Imax,:,:), Time) 
+      call ComputeGhostVarBoundary(Vari%v(Imax,:,:),BCv%VarE,BCv%flag(2),      &
+                                                 Vari%v(Imax+ight,:,:))
+      
+      ! For the southern boundary
+      call BCv%South(PGrid%x(:,1,:), PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0,      &
+                     PGrid%z(:,1,:), PGrid%dx(:,1,:), PGrid%dy(:,1,:), 	       &
+                     PGrid%dz(:,1,:), Vari%p(:,1,:), Vari%u(:,1,:), 	       &
+                     Vari%v(:,1,:), Vari%w(:,1,:), PCell%vof(:,1,:), 	       &
+                     PCell%phi(:,1,:), Time)  
+      Vari%v(:,1-jght,:) = BCv%VarS(:,:)-Vari%u(:,1,:)
+      
+      ! For the northern boundary
+      call BCv%North(PGrid%x(:,Jmax,:), PGrid%y(:,Jmax,:)+PGrid%dy(:,Jmax,:)/2.d0, &
+                     PGrid%z(:,Jmax,:), PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),&
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax-1,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),&
+                     PCell%phi(:,Jmax,:), Time)
+      Vari%v(:,Jmax,:) = BCv%VarN(:,:)
+      call ComputeGhostVarBoundary(Vari%v(:,Jmax,:),BCv%VarN,BCv%flag(4),      &
+                                                         Vari%v(:,Jmax+jght,:))
+      
+      ! For the bottom boundary
+      call BCv%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1)+PGrid%dy(:,:,1)/2.d0,     &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1), 	       &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1), 	       &
+                      PCell%vof(:,:,1), PCell%phi(:,:,1), Time)
+      call ComputeGhostVarBoundary(Vari%v(:,:,1),BCv%VarB,BCv%flag(5),      &
+                                                         Vari%v(:,:,1-kght))
+      
+      ! For the top boundary
+      call BCv%Top(PGrid%x(:,:,Kmax), PGrid%y(:,:,Kmax)+PGrid%dy(:,:,Kmax)/2.d0,&
+                   PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,			&
+                   PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax),  &
+                   Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),        &	
+                   Vari%w(:,:,Kmax), PCell%vof(:,:,Kmax), PCell%phi(:,:,Kmax), Time)
+      call ComputeGhostVarBoundary(Vari%v(:,:,Kmax),BCv%VarT,BCv%flag(6),      &
+                                                         Vari%v(:,:,Kmax+kght))  
+      
+      ! For the western boundary 
+      call BCw%west(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, PGrid%y(1,:,:),       &
+                    PGrid%z(1,:,:)+PGrid%dz(1,:,:)/2.d0, PGrid%dx(1,:,:),      &
+                    PGrid%dy(1,:,:), PGrid%dz(1,:,:), Vari%p(1,:,:), 	       &
+                    Vari%u(1,:,:), Vari%v(1,:,:), Vari%w(1,:,:), 	       &
+                    PCell%vof(1,:,:), PCell%phi(1,:,:), Time)
+      call ComputeGhostVarBoundary(Vari%w(1,:,:),BCw%VarW,BCw%flag(1),         &
+                                                 Vari%w(1-ight,:,:))  
+      
+      ! For the eastern boundary
+      call BCw%east(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0, 		       &
+                    PGrid%y(Imax,:,:),PGrid%z(Imax,:,:)+PGrid%dz(Imax,:,:)/2.d0,&
+                    PGrid%dx(Imax,:,:), PGrid%dy(Imax,:,:), 		       &
+                    PGrid%dz(Imax,:,:), Vari%p(Imax,:,:), Vari%u(Imax-1,:,:),  &
+                    Vari%v(Imax,:,:), Vari%w(Imax,:,:), PCell%vof(Imax,:,:),   &
+                    PCell%phi(Imax,:,:), Time) 
+      call ComputeGhostVarBoundary(Vari%w(Imax,:,:),BCw%VarE,BCw%flag(2),      &
+                                                 Vari%w(Imax+ight,:,:))
+      
+      ! For the southern boundary
+      call BCw%South(PGrid%x(:,1,:), PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0,      &
+                     PGrid%z(:,1,:)+PGrid%dz(:,1,:)/2.d0, PGrid%dx(:,1,:),     &
+                     PGrid%dy(:,1,:), PGrid%dz(:,1,:), Vari%p(:,1,:), 	       &
+                     Vari%u(:,1,:), Vari%v(:,1,:), Vari%w(:,1,:), 	       &
+                     PCell%vof(:,1,:), PCell%phi(:,1,:), Time)  
+      call ComputeGhostVarBoundary(Vari%w(:,1,:),BCw%VarS,BCw%flag(3),         &
+                                                 Vari%w(:,1-jght,:))
+      
+      ! For the northern boundary
+      call BCw%North(PGrid%x(:,Jmax,:), PGrid%y(:,Jmax,:)+PGrid%dy(:,Jmax,:)/2.d0, &
+                     PGrid%z(:,Jmax,:)+PGrid%dz(:,Jmax,:)/2.d0,		       &
+                     PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),                   &
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),  &
+                     PCell%phi(:,Jmax,:), Time)
+      call ComputeGhostVarBoundary(Vari%w(:,Jmax,:),BCw%VarN,BCw%flag(4),      &
+                                                         Vari%w(:,Jmax+jght,:))
+      
+      ! For the bottom boundary
+      call BCw%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1),     		       &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1), 	       &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1), 	       &
+                      PCell%vof(:,:,1), PCell%phi(:,:,1), Time)
+      Vari%w(:,:,1-kght) = BCw%VarB(:,:)
+            
+      ! For the top boundary
+      call BCw%Top(PGrid%x(:,:,Kmax), PGrid%y(:,:,Kmax),		       &
+                   PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,		       &	
+                   PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax), &
+                   Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),       &	
+                   Vari%w(:,:,Kmax-1), PCell%vof(:,:,Kmax), PCell%phi(:,:,Kmax), Time)
+      Vari%w(:,:,Kmax)=BCw%VarT(:,:)
+      call ComputeGhostVarBoundary(Vari%w(:,:,Kmax),BCw%VarT,BCw%flag(6),      &
+                                                         Vari%w(:,:,Kmax+kght))
+      
+      
+      ! For the western boundary 
+      call BCp%west(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, PGrid%y(1,:,:),       &
+                    PGrid%z(1,:,:), PGrid%dx(1,:,:),      		       &
+                    PGrid%dy(1,:,:), PGrid%dz(1,:,:), Vari%p(1,:,:), 	       &
+                    Vari%u(1,:,:), Vari%v(1,:,:), Vari%w(1,:,:), 	       &
+                    PCell%vof(1,:,:), PCell%phi(1,:,:), Time)
+      call ComputeGhostVarBoundary(Vari%p(1,:,:),BCp%VarW,BCp%flag(1),         &
+                                                 Vari%p(1-ight,:,:))
+                                                                                                    
+      ! For the eastern boundary
+      call BCp%east(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0, 		       &
+                   PGrid%y(Imax,:,:), PGrid%z(Imax,:,:),		       &
+                   PGrid%dx(Imax,:,:), PGrid%dy(Imax,:,:), 		       &
+                   PGrid%dz(Imax,:,:), Vari%p(Imax,:,:), Vari%u(Imax-1,:,:),   &
+                   Vari%v(Imax,:,:), Vari%w(Imax,:,:), PCell%vof(Imax,:,:),    &
+                   PCell%phi(Imax,:,:), Time) 
+      call ComputeGhostVarBoundary(Vari%p(Imax,:,:),BCp%VarE,BCp%flag(2),      &
+                                                 Vari%p(Imax+ight,:,:))
+      
+      ! For the southern boundary
+      call BCp%South(PGrid%x(:,1,:), PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0,      &
+                     PGrid%z(:,1,:), PGrid%dx(:,1,:),     		       &
+                     PGrid%dy(:,1,:), PGrid%dz(:,1,:), Vari%p(:,1,:), 	       &
+                     Vari%u(:,1,:), Vari%v(:,1,:), Vari%w(:,1,:), 	       &
+                     PCell%vof(:,1,:), PCell%phi(:,1,:), Time)  
+      call ComputeGhostVarBoundary(Vari%p(:,1,:),BCp%VarS,BCp%flag(3),         &
+                                                 Vari%p(:,1-jght,:))
+      
+      ! For the northern boundary
+      call BCp%North(PGrid%x(:,Jmax,:), PGrid%y(:,Jmax,:)+PGrid%dy(:,Jmax,:)/2.d0, &
+                     PGrid%z(:,Jmax,:),	PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),&
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),  &
+                     PCell%phi(:,Jmax,:), Time)
+      call ComputeGhostVarBoundary(Vari%p(:,Jmax,:),BCp%VarN,BCp%flag(4),      &
+                                                    Vari%p(:,Jmax+jght,:))
+      
+      ! For the bottom boundary
+      call BCp%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1),     		       &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1), 	       &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1), 	       &
+                      PCell%vof(:,:,1), PCell%phi(:,:,1), Time)
+      call ComputeGhostVarBoundary(Vari%p(:,:,1),BCp%VarB,BCp%flag(5),	       &
+      						 Vari%p(:,:,1-ight))	
+            
+      ! For the top boundary
+      call BCp%Top(PGrid%x(:,:,Kmax), PGrid%y(:,:,Kmax),		       &
+                   PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,		       &	
+                   PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax), &
+                   Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),       &	
+                   Vari%w(:,:,Kmax-1), PCell%vof(:,:,Kmax), PCell%phi(:,:,Kmax), Time)
+      Vari%p(:,:,Kmax)=BCp%VarT(:,:)
+      call ComputeGhostVarBoundary(Vari%p(:,:,Kmax),BCp%VarT,BCp%flag(6),      &
+                                                    Vari%p(:,:,Kmax+kght))                                                   
+    end subroutine BoundaryConditionVarNew
+    
+    subroutine ComputeGhostVarBoundary(Varin,BCin,flag,Varout)
+      real(kind=dp), dimension(:,:), intent(in)  :: Varin,BCin
+      real(kind=dp), dimension(:,:), intent(out) :: Varout
+      integer(kind=it4b), intent(in) 		 :: flag
+      
+      if(flag==1) then
+        Varout(:,:) = BCin(:,:)-Varin
+      else
+        Varout(:,:) = 2.d0*BCin(:,:)-Varin(:,:)
+      end if
+    end subroutine ComputeGhostVarBoundary  
 
     subroutine VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
       implicit none

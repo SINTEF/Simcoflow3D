@@ -104,7 +104,7 @@ Module Solver
         dt = Time%dt!/3.d0
      !  First Runge-Kutta substep
         Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
-                       BCu,BCv,BCw,BCp,BCVof,BCLvsTVar_n,TVar,dt,itt)
+                       BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar_n,TVar,Time%NondiT,dt,itt)
      !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
      !                                                          TVar,dt,itt)
         Call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
