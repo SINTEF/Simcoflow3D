@@ -89,7 +89,7 @@ module BoundaryFunction
     Array2D1 = sizeof(this%VarE(:,1))
     Array2D2 = sizeof(this%VarE(1,:))
     ! For simple boundary condition       
-    call TypicalBC(this%VarE, uin, -dxin, this%flag(2), this%const(2), 		&
+    call TypicalBC(this%VarE, uin, -dxin*2.d0, this%flag(2), this%const(2), 	&
            					       Array2D1, Array2D2)
     ! For user defined boundary condition.   
   end subroutine BCUE
@@ -230,7 +230,7 @@ module BoundaryFunction
     Array2D1 = sizeof(this%VarN(:,1))
     Array2D2 = sizeof(this%VarN(1,:))
     ! For simple boundary condition   
-    call TypicalBC(this%VarN, vin, -dyin, this%flag(4), this%const(4), 		&
+    call TypicalBC(this%VarN, vin, -dyin*2.d0, this%flag(4), this%const(4), 	&
     							Array2D1, Array2D2) 
     ! For user defined boundary condition.   
   end subroutine BCVN
@@ -370,7 +370,7 @@ module BoundaryFunction
     Array2D1 = sizeof(this%VarT(:,1))
     Array2D2 = sizeof(this%VarT(1,:))
     ! For simple boundary condition
-    call TypicalBC(this%VarT, win, -dzin, this%flag(6), this%const(6),  	&
+    call TypicalBC(this%VarT, win, -dzin*2.d0, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2) 
   end subroutine BCWT 
     

@@ -11,10 +11,11 @@ Module Clsvof
     integer,parameter			   :: band_width = 4,nv = 6,nl = 6
     real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction 
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
-    real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid level set function
+    real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
     real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14
     
-    public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme
+    public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
+             ComputeUVWLiquidField,volume_fraction_calc
     
     interface InitialClsvofFluidFiel
       module procedure InitialClsvofFluidField
@@ -27,6 +28,14 @@ Module Clsvof
     interface ClsVof_Scheme
       module procedure ClsVof_Scheme
     end interface
+    
+    interface ComputeUVWLiquidField
+      module procedure ComputeUVWLiquidField
+    end interface   
+    
+    interface volume_fraction_calc
+      module procedure volume_fraction_calc
+    end interface   
     
     contains
     
@@ -64,8 +73,8 @@ Module Clsvof
           end do
         end do
       end do
-      nullify(vfl)
-      nullify(phi)
+      nullify(vflF)
+      nullify(phiF)
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
@@ -103,7 +112,66 @@ Module Clsvof
       nullify(nyF)
       nullify(nzF)
     end subroutine InitialClsvofLiquidField
-
+    
+    subroutine ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
+      implicit none
+      type(Grid),intent(in)	:: PGrid
+      type(Cell),intent(in)     :: PCell
+      type(Cell),intent(inout)  :: UCell,VCell,WCell
+      
+      call ComputeVelocityCellLiquidField(PGrid%dx,PCell,UCell,1,0,0)
+      call ComputeVelocityCellLiquidField(PGrid%dy,PCell,VCell,0,1,0)
+      call ComputeVelocityCellLiquidField(PGrid%dz,PCell,WCell,0,0,1)
+    end subroutine ComputeUVWLiquidField
+    
+    subroutine ComputeVelocityCellLiquidField(dxyz,PCell,VelCell,iu,iv,iw)
+      !! The subroutine is used to compute the velocity cell properties such as 
+      !! volume of fluid, level set function, normal vector. The boundary conditions
+      !! are applied later.  
+      implicit none
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in) :: dxyz
+      type(Cell),intent(in)				    :: PCell
+      type(Cell),intent(inout)				    :: VelCell
+      integer(kind=it4b),intent(in)			    :: iu,iv,iw
+      integer(kind=it4b)				    :: i,j,k
+      
+      call DirectionAverageArray(dxyz,PCell%vofL,VelCell%vofL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%phiL,VelCell%phiL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nxL,VelCell%nxL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nyL,VelCell%nyL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nzL,VelCell%nzL,iu,iv,iw)
+      
+      do i=1,Imax
+        do j=1,Jmax
+          do k=1,Kmax
+            if(VelCell%vof(i,j,k)+VelCell%vofL(i,j,k)>1.d0) then
+              VelCell%vofL(i,j,k)=1.d0-VelCell%vof(i,j,k)
+            end if
+          end do
+        end do
+      end do     
+    end subroutine ComputeVelocityCellLiquidField
+    
+    subroutine DirectionAverageArray(dxyz,Varin,Varout,iu,iv,iw)
+      !! The subroutine is used to compute the variables based on centre average.
+      !! More complex interpolation technique can be used later. 
+      implicit none
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)  :: dxyz,Varin
+      real(kind=dp),dimension(:,:,:),allocatable,intent(out) :: Varout
+      integer(kind=it4b),intent(in)			     :: iu,iv,iw
+      real(kind=dp)					     :: lamda
+      integer(kind=it4b)				     :: i,j,k
+      
+      do i=1,Imax-iu
+        do j=1,Jmax-iv
+          do k=1,Kmax-iw
+            lamda=dxyz(i+iu,j+iv,k+iw)/(dxyz(i,j,k)+dxyz(i+iu,j+iv,k+iw))            
+            Varout(i,j,k)=lamda*Varin(i,j,k)+(1.d0-lamda)*Varin(i+iu,j+iv,k+iw)
+          end do
+        end do
+      end do    
+    end subroutine DirectionAverageArray
+    
     subroutine Clsvof_Scheme(PGrid,PCell,UCell,VCell,WCell,TVar,dt,itt)
       implicit none
       type(Grid),intent(in) 		    :: PGrid
@@ -140,6 +208,7 @@ Module Clsvof
       nxF=>PCell%nx
       nyF=>PCell%ny
       nzF=>PCell%nz
+      
       dtv=dt/dble(nv)
       
       do i = 1,imax
@@ -350,6 +419,7 @@ Module Clsvof
         end do 
         call Redistance_Levelset(PGrid,nx,ny,nz,dis)
       end do
+      
       nullify(vfl)
       nullify(phi)
       nullify(vflF)

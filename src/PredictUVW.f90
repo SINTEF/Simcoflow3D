@@ -6,6 +6,8 @@ Module PredictorUV
     USE Matrix
     USE Printresult
     USE MPI
+    use BoundaryInterface
+    use BoundaryFunction
     Implicit none
     Private
     Real(kind=dp),dimension(:,:,:),pointer:: u
@@ -25,17 +27,18 @@ Module PredictorUV
     End interface
     Contains
     Subroutine PredictorUVW(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,  &
-                                              TVar_n,TVar,PU,PV,PW,Pred,dt)
+                            TVar_n,TVar,BCu,BCv,BCw,PU,PV,PW,Pred,dt)
       Implicit none
-      Real(kind=dp),intent(in):: dt
-      Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-      Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
-      Type(Variables),intent(in),target:: TVar
-      Type(Variables),intent(in):: TVar_n
-      Type(Predictor),intent(inout):: Pred
-      Type(PoissonCoefficient),intent(inout):: PU,PV,PW
-      Type(Variables):: TVart
-      Integer(kind=it4b):: i,j,k,ii,jj,kk
+      Real(kind=dp),intent(in)		     :: dt
+      Type(Grid),intent(in)		     :: PGrid,UGrid,VGrid,WGrid
+      Type(Cell),intent(inout)		     :: PCell,UCell,VCell,WCell
+      Type(Variables),intent(in),target      :: TVar
+      Type(Variables),intent(in)             :: TVar_n
+      type(BCBase),intent(inout)             :: BCu,BCv,BCw
+      Type(Predictor),intent(inout)          :: Pred
+      Type(PoissonCoefficient),intent(inout) :: PU,PV,PW
+      Type(Variables)			     :: TVart
+      Integer(kind=it4b)		     :: i,j,k,ii,jj,kk
       Integer*8:: A,parcsr_A,b,par_b,x,par_x,solver,precond
 
       ! Convective flux and Diffusive flux
@@ -517,9 +520,12 @@ Module PredictorUV
             Do k = 1,Kmax-iw
               If(TCell%Cell_Type(i,j,k)/=2) then
                 ictr = TCell%PosNu(i,j,k)
-                rhs(ictr) = (iu*TVar_n%u(i,j,k)+iv*TVar_n%v(i,j,k)+            &
-                             iw*TVar_n%w(i,j,k))*TCell%vof(i,j,k)*             &
-                             TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt
+                rhs(ictr)=(iu*TVar_n%u(i,j,k)+iv*TVar_n%v(i,j,k)+              &
+                           iw*TVar_n%w(i,j,k))*TCell%vof(i,j,k)*               &
+                           TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt+ &
+                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*		       &
+                           TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*    &
+                           (gx*dble(iu)+gy*dble(iv)+gz*dble(iw))/g
                 If(TCell%MoExCell(i,j,k)/=1) then
                 !  rhs(ictr) = rhs(ictr)-TCell%vof(i,j,k)*TGrid%dx(i,j,k)*      &
                 !             TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*(p(i+iu,j+iv,k+iw)&
@@ -553,11 +559,16 @@ Module PredictorUV
                 end if
                 rhs(ictr) = rhs(ictr)-IJKFlux(i,j,k)
 
-                If(i==1)rhs(ictr) = rhs(ictr)+CWE(j,k,1)*(iu*TVar_n%u(i-1,j,k)+&
-                             iv*TVar_n%v(i-1,j,k)+iw*TVar_n%w(i-1,j,k))
-                If(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*(iu*TVar_n%u(i+1,j,k)+&
-                             iv*TVar_n%v(i+1,j,k)+iw*TVar_n%w(i+1,j,k))
-                If(j==1)rhs(ictr) = rhs(ictr)+CSN(i,k,1)*(iu*TVar_n%u(i,j-1,k)+&
+                If(i==1)rhs(ictr)=rhs(ictr)+CWE(j,k,1)*			       &
+                                 (dble(iu)*TVar_n%u(i-1,j,k)+  		       &
+                                  dble(iv)*TVar_n%v(i-1,j,k)+		       &
+                                  dble(iw)*TVar_n%w(i-1,j,k))
+                If(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*		       &
+                                 (dble(iu)*TVar_n%u(i+1,j,k)+		       &
+                                  dble(iv)*TVar_n%v(i+1,j,k)+		       &
+                                  dble(iw)*TVar_n%w(i+1,j,k))
+                If(j==1)rhs(ictr)=rhs(ictr)+CSN(i,k,1)*			       &
+                		(dble(iu)*TVar_n%u(i,j-1,k)+&
                              iv*TVar_n%v(i,j-1,k)+iw*TVar_n%w(i,j-1,k))
                 If(j==Jmax-iv)rhs(ictr)=rhs(ictr)+CSN(i,k,2)*(iu*TVar_n%u(i,j+1,k)+&
                              iv*TVar_n%v(i,j+1,k)+iw*TVar_n%w(i,j+1,k))

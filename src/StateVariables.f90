@@ -4,16 +4,16 @@ Module StateVariables
     Implicit none
     Integer(kind=it4b):: ight=1,jght=1,kght=1
     Integer(kind=it4b):: ite
-    Real(kind=dp),parameter:: pi = 4.d0*datan(1.d0),Cp = 1.005d3
-    Real(kind=dp),parameter:: nu = 1.0034d-6,kT = 0.0271d0,kTw = 0.0271d0
-    Real(kind=dp),parameter:: nuw=1.0034d-6,nua=1.506d-5,                &
-                              roa=1.225d0,row=998.2d0 !
-    Real(kind=dp),public :: nuref
-    Real(kind=dp):: Rey,wa,Ta,xc,yc,zc,R1 = 0.5d0, R2 = 4.d0
+    Real(kind=dp),parameter :: pi = 4.d0*datan(1.d0),Cp = 1.005d3
+    Real(kind=dp),parameter :: nu = 1.0034d-6,kT = 0.0271d0,kTw = 0.0271d0
+    Real(kind=dp),parameter :: nuw=1.0034d-6,nua=1.506d-5,                     &
+                               roa=1.225d0,row=998.2d0,g=9.80665d0 
+    Real(kind=dp),public    :: nuref,gx,gy,gz
+    Real(kind=dp) 	    :: Fr,Rey,wa,Ta,xc,yc,zc,R1=0.5d0,R2=4.d0
 
     Type :: Variables
-      Real(kind=dp),dimension(:,:,:),allocatable:: u,v,w,p,t,Gpu,Gpv,Gpw,ures, &
-                                                   vres,wres,pres,mres
+      Real(kind=dp),dimension(:,:,:),allocatable:: u,v,w,p,t,Gpu,Gpv,Gpw,      &
+                                                   ures,vres,wres,pres,mres
       Real(kind=dp):: Uint,Vint,Wint,Pint,Tint,Uref,Roref,Pref,Tref
     End Type
     
@@ -61,7 +61,9 @@ Module StateVariables
       Open(unit=5,file='Convergence.dat')
       close(5,status='delete')
       Rey = Uref*Lref/nuref
-      Print*, Rey
+      Fr = Uref/dsqrt(g*Lref)
+      Print*,"Reynolds number:",Rey
+      Print*,"Froude number:",Fr
       Call BoundaryConditionVar(Vari)
     End subroutine InitialVar
     !*******************************************************

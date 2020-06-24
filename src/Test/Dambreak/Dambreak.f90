@@ -22,6 +22,7 @@ Program Main
     USE Solver
     USE BoundaryInterface
     USE BoundaryFunction
+    USE InitialVof
     
     Implicit none
     
@@ -36,28 +37,28 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     
     allocate(Constin(6))
-    Open(unit=5,file='input.dat',action='read')
+    Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/Dambreak/input.dat',action='read')
     Read(5,*),
     Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     close(5)
-    Ta = 1000.d0
-    wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
-    xc = 0.d0
-    yc = 0.d0
-    zc = 0.d0
-    vel = dble(Rey*nuw/Lref)
+   
+    
     NI = Imax+1
     NJ = Jmax+1
     NK = Kmax+1
+    gx = 0.d0
+    gy = 0.d0
+    gz = -g
+    vel = dsqrt(dabs(g*Lref))
   !  Imax = 98
   !  Jmax = 98
   !  Kmax = 98
-    SPoint%x = -20.d0
-    SPoint%y = -20.d0
-    SPoint%z = -20.d0
-    EPoint%x = 40.d0
-    EPoint%y = 20.d0
-    EPoint%z = 20.d0
+    SPoint%x = 0.d0
+    SPoint%y = 0.d0
+    SPoint%z = 0.d0
+    EPoint%x = 1.61d0
+    EPoint%y = 0.15d0
+    EPoint%z = 0.60d0
     ReS%x = -1.d0
     ReS%y = -1.d0
     ReS%z = -1.d0
@@ -72,27 +73,24 @@ Program Main
     BCvof = BCBase(Imax,Jmax,Kmax)
     BClvs = BCBase(Imax,Jmax,Kmax)
     
-    ! For flow over sphere
-    call BCp%SetDN(1,0,1,1,1,1)
-    call BCu%SetDN(0,1,0,0,0,0)
-    call BCv%SetDN(0,1,0,0,0,0)
-    call BCw%SetDN(0,1,0,0,0,0)
-    call BCVof%SetDN(0,0,1,1,1,1)
-    call BCLvs%SetDN(0,0,1,1,1,1)
+    ! For dambreak flow 
+    ! 0 for Dirichlet, 1 for Neumann Boundary Condition
+    call BCp%SetDN(1,1,1,1,1,0)
+    call BCu%SetDN(0,0,0,0,0,1)
+    call BCv%SetDN(0,0,0,0,0,1)
+    call BCw%SetDN(0,0,0,0,0,1)
+    call BCVof%SetDN(1,1,1,1,1,1)
+    call BCLvs%SetDN(1,1,1,1,1,1)
     ! Set Constant for boundary condition
-    Constin(1) = vel
-    Constin(2:6) = 0.d0
+    Constin(:) = 0.d0
     call BCu%SetConstant(Constin)    
     Constin(:) = 0.d0
     call BCv%SetConstant(Constin)
     call BCw%SetConstant(Constin)
     call BCp%SetConstant(Constin)
-    Constin(1)=1.d0
-    Constin(2)=1.d0
     call BCVof%SetConstant(Constin)
-    Constin(1)=-1.d3
-    Constin(2)=-1.d3
     call BCLvs%SetConstant(Constin)
+    
     BCu%West   => BCUW
     BCu%East   => BCUE
     BCu%South  => BCUS
@@ -136,21 +134,21 @@ Program Main
     BCLvs%Top    => BCLvsT
     deallocate(Constin)
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
-    Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
+    Call InitialGridDamBreak(SPoint,EPoint,PGrid,Lref)
     Call InitialUVGrid(PGrid,UGrid,0,Lref)
     Call InitialUVGrid(PGrid,VGrid,1,Lref)
     Call InitialUVGrid(PGrid,WGrid,2,Lref)
     Call MPI_Initial
     Call HYPRE_CreateGrid(PGrid)
-    Call InitialClsvofFluidField(PGrid,PCell)
-    Call InitialClsvofFluidField(UGrid,UCell)
-    Call InitialClsvofFluidField(VGrid,VCell)
-    Call InitialClsvofFluidField(WGrid,WCell)
+    Call InitialClsvofFluidFieldDamBreak(PGrid,PCell)
+    Call InitialClsvofFluidFieldDamBreak(UGrid,UCell)
+    Call InitialClsvofFluidFieldDamBreak(VGrid,VCell)
+    Call InitialClsvofFluidFieldDamBreak(WGrid,WCell)
     
-    Call InitialClsvofLiquidField(PGrid,PCell)
-    Call InitialClsvofLiquidField(UGrid,UCell)
-    Call InitialClsvofLiquidField(VGrid,VCell)
-    Call InitialClsvofLiquidField(WGrid,WCell)
+    Call InitialClsvofLiquidFieldDamBreak(PGrid,PCell)
+    Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
+    Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
+    Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
     Call InitialVar(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
  !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
  !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))

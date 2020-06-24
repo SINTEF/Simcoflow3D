@@ -47,7 +47,6 @@ list(APPEND SRC_LIST
     ProjectionP.f90 
     ComputePUVW.f90
     StateVariables.f90
-    Main.f90
     Constants.f90
     BoundaryInterface.f90
     BoundaryFunction.f90
@@ -57,7 +56,7 @@ set (LINK_LIBS ${LINK_LIBS}
     ${MPI_Fortran_LIBRARIES}
     ${HYPRE_LIBRARIES}
     )
-add_executable(${PROJECT_NAME} ${SRC_LIST})
-target_link_libraries(${PROJECT_NAME} ${LINK_LIBS})
+#add_executable(${PROJECT_NAME} ${SRC_LIST})
+#target_link_libraries(${PROJECT_NAME} ${LINK_LIBS})
     
-#add_subdirectory(test)
+add_subdirectory(Test)

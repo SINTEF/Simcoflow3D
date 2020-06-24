@@ -103,21 +103,28 @@ Module Solver
         TVar_n%w(:,:,:) = TVar%w(:,:,:)
         dt = Time%dt!/3.d0
      !  First Runge-Kutta substep
-        Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
-                       BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar_n,TVar,Time%NondiT,dt,itt)
+        if(itt>1) then
+          call Clsvof_Scheme(PGrid,PCell,UCell,VCell,WCell,TVar,dt,itt)
+          call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
+        end if
+        
+        call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
+              BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar_n,TVar,Time%NondiT,dt,itt)
+        
+              
      !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
      !                                                          TVar,dt,itt)
-        Call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
+        call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
         ! print*, TVar%u(20,jbeg)
         ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
-        Call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
-        Call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
-        Call ResidualNormCalculate(WCell,TVar%w,TVar_n%w,TVar%wres,WConv)
-        Call ResidualNormCalculate(PCell,TVar%p,TVar_n%p,TVar%pres,PConv)
-        Do i = 1,Imax
-          Do j = 1,Jmax
-            Do k = 1,Kmax
+        call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
+        call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
+        call ResidualNormCalculate(WCell,TVar%w,TVar_n%w,TVar%wres,WConv)
+        call ResidualNormCalculate(PCell,TVar%p,TVar_n%p,TVar%pres,PConv)
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
               TVar%mres(i,j,k) = PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*              &
                                 (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-            &
                                  PCell%EEArea(i-1,j,k)*TVar%u(i-1,j,k))+       &
@@ -127,10 +134,10 @@ Module Solver
                                  PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*              &
                                 (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-            &
                                  PCell%TEArea(i,j,k-1)*TVar%w(i,j,k-1))
-            End do
-          End do
-        End do
-    End Subroutine AdamBasforthBDF2
+            end do
+          end do
+        end do
+    end Subroutine AdamBasforthBDF2
 
     Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
         Implicit none

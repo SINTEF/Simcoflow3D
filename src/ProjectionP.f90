@@ -10,6 +10,8 @@ Module ProjectionP
     USE PredictorUV
     USE MPI
     USE ieee_arithmetic
+    use BoundaryInterface
+    use BoundaryFunction
     Implicit none
     Private
     Real(kind=dp),dimension(:,:,:),pointer :: p,u,v,w
@@ -29,13 +31,14 @@ Module ProjectionP
     Contains
     
     subroutine PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,      &
-                               VCell,WCell,TVar,TPred,PU,PV,PW,PoCoef,Proj,dt)
+                               VCell,WCell,TVar,TPred,PU,PV,PW,BCp,PoCoef,Proj,dt)
         implicit none
         type(Grid),intent(in)		      :: PGrid,UGrid,VGrid,WGrid
         type(Cell),intent(in)		      :: PCell,UCell,VCell,WCell
         type(Variables),intent(in),target     :: TVar
         type(Predictor),intent(in),target     :: TPred
         type(PoissonCoefficient),intent(in)   :: PU,PV,PW
+        type(BCBase),intent(in)		      :: BCp
         type(Projection),intent(inout),target :: Proj
       
         real(kind=dp),intent(in)	      :: dt
@@ -72,7 +75,9 @@ Module ProjectionP
         call HYPRE_ParCSRPCGGetFinalRelative(solver,final_res_norm,ierr)
     !    Call HYPRE_ParCSRPCGGetResidual(solver,tol,ierr)
         Call DeltaPressureGetValues(x,PCell,Proj)
-        Call DeltaPressureBoundaryCondition(Proj,1,0,1,1,1,1)
+        Call DeltaPressureBoundaryCondition(Proj,BCp%flag(1),BCp%flag(2),      &
+                                                 BCp%flag(3),BCp%flag(4),      &
+                                                 BCp%flag(5),BCp%flag(6))
         Call HYPRE_IJMatrixDestroy(A,ierr)
         Call HYPRE_IJVectorDestroy(b,ierr)
         Call HYPRE_IJVectorDestroy(x,ierr)

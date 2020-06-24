@@ -47,9 +47,9 @@ Module ComputePUV
       Proj%Pp(:,:,:) = 0.d0
       
       call PredictorUVW(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,             &
-                        WCell,TVar_n,TVar,PU,PV,PW,Pred,dt)
-      call PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
-                        WCell,TVar,Pred,PU,PV,PW,PoCoef,Proj,dt)
+                        WCell,TVar_n,TVar,BCu,BCv,BCw,PU,PV,PW,Pred,dt)
+    !  call PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
+    !                    WCell,TVar,Pred,PU,PV,PW,BCp,PoCoef,Proj,dt)
       
       maxPoCoef=0.d0
       do i = 1,Imax
@@ -94,19 +94,97 @@ Module ComputePUV
       end do
   !    call BoundaryConditionVar(TVar)
       call BoundaryConditionVarNew(PGrid, PCell, TVar, BCp, BCu, BCv, BCw, Time)
-      i = Imax
-      do j = 1,Jmax
-        do k = 1,Kmax
-          TVar%u(i,j,k) = (PGrid%dx(Imax,j,k)*PGrid%dz(Imax,j,k)*              &
-                PCell%NEArea(Imax,j,k)*(-TVar%v(Imax,j,k)+TVar%v(Imax,j-1,k))+ &
-                              PGrid%dx(Imax,j,k)*PGrid%dy(Imax,j,k)*           &
-                PCell%TEArea(Imax,j,k)*(-TVar%w(Imax,j,k)+TVar%w(Imax,j,k-1))+ &
-                              PGrid%dy(Imax,j,k)*PGrid%dz(Imax,j,k)*           &
-                PCell%EEArea(Imax,j,k)*TVar%u(Imax-1,j,k))/                    &
-                PCell%EEArea(Imax,j,k)/PGrid%dy(Imax,j,k)/PGrid%dz(Imax,j,k)
+      if(BCp%flag(1)==0) then
+        i = 1
+        do j = 1,Jmax
+          do k = 1,Kmax
+            TVar%u(i-1,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                  &
+                            (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
+                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                             PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                  &
+                            (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
+                             PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                             PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
+                  	     PCell%EEArea(i,j,k)*TVar%u(i,j,k))/               &
+                             PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
+          end do
         end do
-      end do
-      
+      elseif(BCp%flag(2)==0) then
+        i = Imax
+        do j = 1,Jmax
+          do k = 1,Kmax
+            TVar%u(i,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                    &
+                         (-PCell%NEArea(i,j,k)*TVar%v(i,j,k)+		       &
+                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
+                         (-PCell%TEArea(i,j,k)*TVar%w(i,j,k)+		       &
+                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                           PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*           	       &
+                  	   PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/               &
+                           PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
+          end do
+        end do
+      elseif(BCp%flag(3)==0) then
+        j=1
+        do i=1,Imax
+          do k=1,Kmax
+            TVar%v(i,j-1,k)=(PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+ 	       &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
+                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
+                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
+                  	    PCell%NEArea(i,j,k)*TVar%v(i,j,k))/                &
+                            PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
+          end do
+        end do  
+      elseif(BCp%flag(4)==0) then
+        j=Jmax
+        do i=1,Imax
+          do j=1,Jmax
+            TVar%v(i,j,k) =(-PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k)) 	       &
+                            -PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                  &
+                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
+                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
+                  	    PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))/              &
+                            PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
+          end do
+        end do    
+      elseif(BCp%flag(5)==0) then
+        k=1
+        do i=1,Imax
+          do j=1,Jmax
+            TVar%w(i,j,k-1)=(PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+ 	       &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
+                           (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
+                            PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
+                  	    PCell%TEArea(i,j,k)*TVar%w(i,j,k))/                &
+                            PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
+          end do
+        end do
+      elseif(BCp%flag(6)==0) then
+        k=kmax
+        do i=1,Imax
+          do j=1,Jmax
+            TVar%w(i,j,k)=(-PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                   &
+                          (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
+                           PCell%EEArea(i,j,k)*TVar%u(i-1,j,k)) 	       &
+                           -PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
+                          (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
+                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
+                  	   PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))/               &
+                           PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
+          end do
+        end do      
+      end if
       deallocate(Pred%u)
       deallocate(Pred%v)
       deallocate(Pred%w)
