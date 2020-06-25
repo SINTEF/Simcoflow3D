@@ -61,11 +61,31 @@ Module InitialVof
       
       tol = 1.d-20
       epsi = 1.d-40
-      vflF => TCell%vof
-      phiF => TCell%phi
-      nxF => TCell%nx
-      nyF => TCell%ny
-      nzF => TCell%nz
+      if(associated(vflF).eqv..false.) then
+        vflF => TCell%vof
+      else
+        print*, 'Error with using pointer for vflF InitialVof 67'
+      end if
+      if(associated(phiF).eqv..false.) then
+        phiF => TCell%phi
+      else
+        print*, 'Error with using pointer for phiF InitialVof 72'
+      end if
+      if(associated(nxF).eqv..false.) then
+        nxF => TCell%nx
+      else
+        print*, 'Error with using pointer for nxF Intial Vof 78'
+      end if    
+      if(associated(nyF).eqv..false.) then
+        nyF => TCell%ny
+      else
+        print*, 'Error with using pointer for nyF InitialVof 83'
+      end if
+      if(associated(nzF).eqv..false.) then
+        nzF => TCell%nz
+      else
+        print*, 'Error with using pointer for nzF InitialVof 88'
+      end if  
       Radius = 0.5d0/TGrid%Lref
       do i=1,Imax
         do j=1,Jmax

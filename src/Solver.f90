@@ -70,8 +70,10 @@ Module Solver
           ! print*, itt
           if(mod(itt,iprint)==0)then
             write(*,*), itt,Time%PhysT,Time%NondiT
-            call PrintResultVTK(PGrid,TVar,PCell,itt)
+            print*, 'Some thing here is wrong'
+          !  call PrintResultVTK(PGrid,TVar,PCell,itt)
             call PrintResultVTR3D(PGrid,TVar,PCell,itt)
+            print*, 'Oh it is not'
           ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotUCent(UGrid,TVar,UCell,itt)
@@ -79,7 +81,17 @@ Module Solver
           ! call PrintResultTecplotWCent(WGrid,TVar,WCell,itt)
           end if
         end do
-        deallocate(GraP,TVar_n%p,TVar_n%u,Tvar_n%v)
+        if(allocated(GraP)) then 
+          deallocate(GraP)
+        else 
+          print*,'Grap is unlocated Solver 87'
+        end if
+        if(allocated(TVar_n%p).and.allocated(TVar_n%u).and.		       &
+           allocated(TVar_n%v).and.allocated(TVar_n%w)) then
+          deallocate(TVar_n%p,TVar_n%u,TVar_n%v,TVar_n%w)
+        else
+          print*,'Tvar_n is unlocated Solver 93'
+        end if
     end subroutine IterationSolution
 
     Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &

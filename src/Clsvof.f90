@@ -200,14 +200,14 @@ Module Clsvof
       allocate(temlsy(imax,jmax,kmax))
       allocate(temlsz(imax,jmax,kmax))
       
-      vfl=>PCell%vofL
-      phi=>PCell%phiL
+      if(associated(vfl).eqv..false.) vfl=>PCell%vofL
+      if(associated(phi).eqv..false.) phi=>PCell%phiL
       
-      vflF=>PCell%Vof
-      phiF=>PCell%phi
-      nxF=>PCell%nx
-      nyF=>PCell%ny
-      nzF=>PCell%nz
+      if(associated(vflF).eqv..false.) vflF=>PCell%Vof
+      if(associated(phiF).eqv..false.) phiF=>PCell%phi
+      if(associated(nxF).eqv..false.) nxF=>PCell%nx
+      if(associated(nyF).eqv..false.) nyF=>PCell%ny
+      if(associated(nzF).eqv..false.) nzF=>PCell%nz
       
       dtv=dt/dble(nv)
       
@@ -419,14 +419,13 @@ Module Clsvof
         end do 
         call Redistance_Levelset(PGrid,nx,ny,nz,dis)
       end do
-      
-      nullify(vfl)
-      nullify(phi)
-      nullify(vflF)
-      nullify(phiF)
-      nullify(nxF)
-      nullify(nyF)
-      nullify(nzF)
+      if(associated(vfl).eqv..true.) nullify(vfl)
+      if(associated(phi).eqv..true.) nullify(phi)
+      if(associated(vflF).eqv..true.) nullify(vflF)
+      if(associated(phiF).eqv..true.) nullify(phiF)
+      if(associated(nxF).eqv..true.) nullify(nxF)
+      if(associated(nyF).eqv..true.) nullify(nyF)
+      if(associated(nzF).eqv..true.) nullify(nzF)
       
       deallocate(nx)
       deallocate(ny)

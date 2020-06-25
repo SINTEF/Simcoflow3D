@@ -265,7 +265,7 @@ Module PrintResult
       type(Variables),INTENT(IN)   	 :: TVar
       type(Cell),INTENT(IN)         	 :: TCell
       integer(kind=it8b),INTENT(IN) 	 :: itt 			!< Number of elements.
-      real(R4P),allocatable,dimension(:) :: x,y,z                       !< X coordinates.
+      real(R4P),allocatable,dimension(:) :: x,y,z                       !< X,Y,Z coordinates.
       integer(I4P)                  	 :: error                       !< Status error.
       integer(I4P)                  	 :: i,j,k                       
       character(15)                      :: curd
@@ -288,7 +288,7 @@ Module PrintResult
         z(k)=TGrid%z(1,1,k)-TGrid%dz(1,1,k)/2.d0
       end do
       z(Kmax+1)=TGrid%z(1,1,Kmax)+TGrid%dz(1,1,Kmax)/2.d0
-      
+      print*,'Something inside the VTK3D 1'
       write(curd,'(i8.8)') itt
       error=a_vtk_file%initialize(format='BINARY', 			       &
       filename='PCell_Binary_3D'//trim(curd)//'.vtr', 		       	       &
@@ -303,11 +303,17 @@ Module PrintResult
       error=a_vtk_file%xml_writer%write_piece(nx1=1,nx2=IMax+1,ny1=1,          &
                                               ny2=JMax+1,nz1=1,nz2=KMax+1)
       error=a_vtk_file%xml_writer%write_geo(x=x,y=y,z=z)
+      print*,'Something inside the VTK3D 2'
       error=a_vtk_file%xml_writer%write_dataarray(location='cell',action='open')
       call WriteDataArrayVTK(a_vtk_file,TVar%p,"p")
+      print*,'Something inside the VTK3D 3'
       call WriteDataArrayVTK(a_vtk_file,TVar%u,"u")
+      print*,'Something inside the VTK3D 4'
       call WriteDataArrayVTK(a_vtk_file,TVar%v,"v")
+      print*,'Something inside the VTK3D 5'
       call WriteDataArrayVTK(a_vtk_file,TVar%w,"w")
+      
+      print*,'Something inside the VTK3D 6'
       
       call WriteDataArrayVTK(a_vtk_file,TCell%phiL,"LiquidLvs")
       call WriteDataArrayVTK(a_vtk_file,TCell%phi,"FluidLvs")
