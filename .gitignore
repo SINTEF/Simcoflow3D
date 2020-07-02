@@ -24,3 +24,7 @@ src/Diffusiveflux
 src/Diffusiveflux~
 src/PredictUVW2.f90
 first order upwind 
+../.gitignore.swo
+../GFMDebug/
+./
+../src/input.dat~
