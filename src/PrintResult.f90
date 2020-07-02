@@ -6,46 +6,46 @@ Module PrintResult
     USE Cutcell
     USE VTK
     USE VTR
-    
+
     Implicit none
     Private
-    
+
     character(len=1), parameter :: newline=achar(10)
-    
+
     Public:: PrintResultTecplotPCent,PrintResultTecplotUCent,                  &
              PrintResultTecplotVCent,PrintResultTecplotWCent,                  &
              PrintResultTecplotPCentXY,PrintResultVTK,PrintResultVTR3D
-    
+
     Interface PrintResultTecplotPCent
        Module procedure PrintResultTecplotPCent
     End Interface PrintResultTecplotPCent
-    
+
     Interface PrintResultTecplotUCent
        Module procedure PrintResultTecplotUCent
     End Interface PrintResultTecplotUCent
-    
+
     Interface PrintResultTecplotVCent
        Module procedure PrintResultTecplotVCent
     End Interface PrintResultTecplotVCent
-    
+
     Interface PrintResultTecplotWCent
        Module procedure PrintResultTecplotWCent
     End Interface PrintResultTecplotWCent
-    
+
     Interface PrintResultTecplotPCentXY
        Module procedure PrintResultTecplotPCentXY
     End Interface PrintResultTecplotPCentXY
-    
+
     Interface PrintResultVTK
       module procedure PrintResultVTK
     End interface PrintResultVTK
-    
+
     Interface PrintResultVTR3D
       module procedure PrintResultVTR3D
     End interface PrintResultVTR3D
-    
+
     Contains
-    
+
     Subroutine PrintResultTecplotPCent(TGrid,TVar,TCell,iter)
       Implicit none
       type(Grid),intent(in):: TGrid
@@ -55,7 +55,7 @@ Module PrintResult
       Integer(kind=it4b) i,j,k
       Real(kind=dp),dimension(:,:,:),allocatable:: p
       Character(15) curd
-      
+
       Allocate(p(Imax,Jmax,Kmax))
       Do i = 1,Imax
         Do j = 1,Jmax
@@ -92,7 +92,7 @@ Module PrintResult
  1110 format(1x,'zone i=',i5,',j=',i5,',k=',i5,'f=block')
       Deallocate(p)
     End Subroutine PrintResultTecplotPCent
-    
+
     Subroutine PrintResultVTR3D(TGrid,TVar,TCell,itt)
       IMPLICIT NONE
       TYPE(Grid),INTENT(IN)         :: TGrid
@@ -102,7 +102,7 @@ Module PrintResult
       TYPE(VTR_file_handle)         :: fd
       CHARACTER(len=70)              :: dir
       dir = trim("/home/sontd/code/CutCell3DGFMCLSVOF/Result/")
-      
+
       call VTR_open_file(Prefix="FlowField",dir=dir, itera=itt,FD=fd)
     ! use keyword argument due to huge number of optional dummy argument
     ! so we need keyword argument to specify the location of actual argument
@@ -115,9 +115,10 @@ Module PrintResult
       call VTR_write_var(fd,"LiquidLvs",TCell%phiL(:,:,:))
       call VTR_Write_var(fd,"FluidVof",TCell%vof(:,:,:))
       call VTR_Write_var(fd,"LiquidVof",TCell%vofL(:,:,:))
+      call VTR_Write_var(fd,"Mass error",Tvar%mres)
       call VTR_close_file(fd)
     end subroutine PrintResultVTR3D
-    
+
     Subroutine PrintResultTecplotPCentXY(TGrid,TVar,TCell,iter)
       Implicit none
       type(Grid),intent(in):: TGrid
@@ -252,12 +253,12 @@ Module PrintResult
       Close(5)
  1110 format(1x,'zone i=',i5,',j=',i5,',k=',i5,'f=block')
     End Subroutine PrintResultTecplotWCent
-    
-    subroutine PrintResultVTK(TGrid,TVar,TCell,itt) 
+
+    subroutine PrintResultVTK(TGrid,TVar,TCell,itt)
       use penf
       use vtk_fortran, only : vtk_file
 !------------------------------------------------------------------------------
-        
+
 !------------------------------------------------------------------------------
       implicit none
       type(vtk_file)                	 :: a_vtk_file                  !< A VTK file.
@@ -267,15 +268,15 @@ Module PrintResult
       integer(kind=it8b),INTENT(IN) 	 :: itt 			!< Number of elements.
       real(R4P),allocatable,dimension(:) :: x,y,z                       !< X,Y,Z coordinates.
       integer(I4P)                  	 :: error                       !< Status error.
-      integer(I4P)                  	 :: i,j,k                       
+      integer(I4P)                  	 :: i,j,k
       character(15)                      :: curd
       !------------------------------------------------------------------------
-      ! Print result for 3D data  
+      ! Print result for 3D data
       !------------------------------------------------------------------------
       allocate(x(IMax+1))
       allocate(y(JMax+1))
       allocate(z(Kmax+1))
-      
+
       do i=1,IMax
         x(i)=TGrid%x(i,1,1)-TGrid%dx(i,1,1)/2.d0
       enddo
@@ -288,68 +289,61 @@ Module PrintResult
         z(k)=TGrid%z(1,1,k)-TGrid%dz(1,1,k)/2.d0
       end do
       z(Kmax+1)=TGrid%z(1,1,Kmax)+TGrid%dz(1,1,Kmax)/2.d0
-      print*,'Something inside the VTK3D 1'
       write(curd,'(i8.8)') itt
       error=a_vtk_file%initialize(format='BINARY', 			       &
       filename='PCell_Binary_3D'//trim(curd)//'.vtr', 		       	       &
                 mesh_topology='RectilinearGrid',nx1=1,nx2=IMax+1,ny1=1,        &
-                ny2=JMax+1,nz1=1,nz2=KMax+1) 
+                ny2=JMax+1,nz1=1,nz2=KMax+1)
 
    !   error = a_vtk_file%xml_writer%write_fielddata(action='open')
    !   error = a_vtk_file%xml_writer%write_fielddata(x=0._R8P, data_name='TIME')
    !   error = a_vtk_file%xml_writer%write_fielddata(x=1_I8P, data_name='CYCLE')
    !   error = a_vtk_file%xml_writer%write_fielddata(action='close')
-      
+
       error=a_vtk_file%xml_writer%write_piece(nx1=1,nx2=IMax+1,ny1=1,          &
                                               ny2=JMax+1,nz1=1,nz2=KMax+1)
       error=a_vtk_file%xml_writer%write_geo(x=x,y=y,z=z)
-      print*,'Something inside the VTK3D 2'
       error=a_vtk_file%xml_writer%write_dataarray(location='cell',action='open')
       call WriteDataArrayVTK(a_vtk_file,TVar%p,"p")
-      print*,'Something inside the VTK3D 3'
       call WriteDataArrayVTK(a_vtk_file,TVar%u,"u")
-      print*,'Something inside the VTK3D 4'
       call WriteDataArrayVTK(a_vtk_file,TVar%v,"v")
-      print*,'Something inside the VTK3D 5'
       call WriteDataArrayVTK(a_vtk_file,TVar%w,"w")
-      
-      print*,'Something inside the VTK3D 6'
-      
+
       call WriteDataArrayVTK(a_vtk_file,TCell%phiL,"LiquidLvs")
       call WriteDataArrayVTK(a_vtk_file,TCell%phi,"FluidLvs")
       call WriteDataArrayVTK(a_vtk_file,TCell%vofL,"LiquidVof")
-      call WriteDataArrayVTK(a_vtk_file,TCell%vof,"FluidVof") 
+      call WriteDataArrayVTK(a_vtk_file,TCell%vof,"FluidVof")
       error=a_vtk_file%xml_writer%write_dataarray(location='cell',action='close')
       error=a_vtk_file%xml_writer%write_piece()
       error=a_vtk_file%finalize()
       deallocate(x,y,z)
     end subroutine PrintResultVTK
-    
+
     subroutine WriteDataArrayVTK(a_vtk_file,InVar,VarName)
       use penf
-      use vtk_fortran, only : vtk_file	
-      
+      use vtk_fortran, only : vtk_file
+
       implicit none
       type(vtk_file),intent(inout)                      :: a_vtk_file
       real(R8P),dimension(:,:,:),allocatable,intent(in) :: InVar
-      character(*),intent(in) 			        :: VarName	
+      character(*),intent(in) 			        :: VarName
       integer(I4P)                  	   	        :: error                 !< Status error.
       integer(I4P)                  	   	        :: i,j,k
-      integer(I4P)                  	   	        :: n  	
-      real(R4P),allocatable,dimension(:)   	        :: v 
-      
-      n=1  
-      allocate(v(1:IMax*JMax*KMax))   
+      integer(I4P)                  	   	        :: n
+      real(R4P),allocatable,dimension(:)   	        :: v
+
+      n=1
+      allocate(v(1:IMax*JMax*KMax))
       v=0.d0
       do k=1,Kmax
         do j=1,Jmax
-          do i=1,Imax   
+          do i=1,Imax
             v(n)=InVar(i,j,k)
             n=n+1
           end do
         end do
-      end do  
+      end do
       error=a_vtk_file%xml_writer%write_dataarray(data_name=VarName,x=v)
-      deallocate(v)	       		
-    end subroutine WriteDataArrayVTK	
+      deallocate(v)
+    end subroutine WriteDataArrayVTK
 End module PrintResult

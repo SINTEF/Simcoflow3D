@@ -17,15 +17,11 @@ Module StateVariables
       Real(kind=dp):: Uint,Vint,Wint,Pint,Tint,Uref,Roref,Pref,Tref
     End Type
     
-    Public:: InitialVar,BoundaryConditionVar
+    Public:: InitialVar
     
     Interface InitialVar
       Module procedure InitialVar
     End interface InitialVar
-    
-    Interface BoundaryConditionVar
-      Module procedure BoundaryConditionVar
-    End interface BoundaryConditionVar
     
     Contains
     
@@ -43,9 +39,9 @@ Module StateVariables
       Vari%Pref = Roref*Uref**2.d0
       Vari%Tref = Tref
       nuref = nu
-      Do i = 1,Imax
-        Do j = 1,Jmax
-          Do k = 1,Kmax
+      Do i = 0,Imax+1
+        Do j = 0,Jmax+1
+          Do k = 0,Kmax+1
             Vari%u(i,j,k) = 0.d0 !Uint/Uref
             Vari%v(i,j,k) = 0.d0 !Vint/Uref
             Vari%w(i,j,k) = 0.d0
@@ -64,7 +60,6 @@ Module StateVariables
       Fr = Uref/dsqrt(g*Lref)
       Print*,"Reynolds number:",Rey
       Print*,"Froude number:",Fr
-      Call BoundaryConditionVar(Vari)
     End subroutine InitialVar
     !*******************************************************
     !             dp/dn = 0.d0, u,v = 0.d0
@@ -79,62 +74,6 @@ Module StateVariables
     !  wall________________________
     !             dp/dn = 0.d0, u,v = 0.d0
     !*******************************************************
-    
-    Subroutine BoundaryConditionVar(Vari)
-      Type(Variables),intent(inout):: Vari
-      Integer(kind=it4b):: i,j,k
-      Real(kind=dp),parameter:: Twall = 300.d0
-      Do j = 1,Jmax
-        Do k = 1,Kmax
-      ! Inlet boundary
-          Vari%p(1-ight,j,k) = Vari%p(1,j,k)        ! Vari%Pint/(Vari%Pref)
-          Vari%t(1-ight,j,k) = Vari%t(1,j,k)
-          Vari%u(1-ight,j,k) = Vari%Uint/Vari%Uref  ! -Vari%u(1,j,k)
-          Vari%v(1-ight,j,k) = 0.d0 - Vari%v(1,j,k) ! Vari%Vint/Vari%Uref
-          Vari%w(1-ight,j,k) = 0.d0 - Vari%w(1,j,k) !
-      ! Outlet boundary
-          Vari%p(Imax+ight,j,k) = 0.d0 - Vari%p(Imax,j,k)
-          Vari%t(Imax+ight,j,k) = Vari%t(Imax,j,k)
-          Vari%u(Imax+ight,j,k) = Vari%u(Imax,j,k)  ! Vari%Uint/Vari%Uref
-          Vari%v(Imax+ight,j,k) = Vari%v(Imax,j,k)  ! Vari%Vint/Vari%Uref
-          Vari%w(Imax+ight,j,k) = Vari%w(Imax,j,k)
-        End do
-      End do
-      Do i = 1,Imax
-        Do k = 1,Kmax
-      ! slip wall boundary
-          Vari%p(i,1-jght,k) = Vari%p(i,1,k)
-          Vari%t(i,1-jght,k) = 2.d0*Twall/Vari%Tref-Vari%t(i,1,k)
-          Vari%u(i,1-jght,k) = Vari%u(i,1,k)
-          Vari%v(i,1-jght,k) = 0.d0 !- Vari%v(i,jbeg+jght) !VariVari%Vint/Vari%Uref
-          Vari%w(i,1-jght,k) = Vari%w(i,1,k)
-      ! slip wall boundary
-          Vari%p(i,Jmax+jght,k) = Vari%p(i,Jmax,k)
-          Vari%t(i,Jmax+jght,k) = 2.d0*Twall/Vari%Tref-Vari%t(i,Jmax,k)
-          Vari%u(i,Jmax+jght,k) = Vari%u(i,Jmax,k)
-          Vari%v(i,Jmax+jght,k) = 0.d0-Vari%v(i,Jmax-jght,k)
-          Vari%v(i,Jmax,k) = 0.d0 !Vari%Uint/Vari%Uref
-          Vari%w(i,Jmax+jght,k) = Vari%w(i,Jmax,k)
-        End do
-      End do
-      Do i = 1,Imax
-        Do j = 1,Jmax
-      ! Slip wall boundary condition
-          Vari%p(i,j,1-kght) = Vari%p(i,j,1)
-          Vari%t(i,j,1-kght) = Vari%t(i,j,1)
-          Vari%u(i,j,1-kght) = Vari%u(i,j,1)
-          Vari%v(i,j,1-kght) = Vari%v(i,j,1)
-          Vari%w(i,j,1-kght) = 0.d0
-      ! Slip wall boundary condition
-          Vari%p(i,j,Kmax+kght) = Vari%p(i,j,Kmax)
-          Vari%t(i,j,Kmax+kght) = Vari%t(i,j,Kmax)
-          Vari%u(i,j,Kmax+kght) = Vari%u(i,j,Kmax)
-          Vari%v(i,j,Kmax+kght) = Vari%v(i,j,Kmax)
-          Vari%w(i,j,Kmax+kght) = 0.d0-Vari%w(i,j,Kmax-1)
-          Vari%w(i,j,Kmax) = 0.d0
-        End do
-      End do
-    End subroutine BoundaryConditionVar
 End Module StateVariables
 
 

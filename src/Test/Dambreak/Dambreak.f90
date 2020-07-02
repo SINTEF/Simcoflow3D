@@ -20,6 +20,7 @@ Program Main
     USE PrintResult
     USE MPI
     USE Solver
+    USE ComputePUV
     USE BoundaryInterface
     USE BoundaryFunction
     USE InitialVof
@@ -149,7 +150,6 @@ Program Main
     Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
     Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
     Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
-    Call InitialVar(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
  !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
  !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
@@ -165,6 +165,9 @@ Program Main
     Call NumberExternalCell(VCell,0,1,0)
     Call NumberExternalCell(WCell,0,0,1)
     Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
+    
+    Call InitialVarDambreak(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
+    call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, 0.d0)
     Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
                            BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
     Pause

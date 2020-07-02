@@ -9,7 +9,7 @@ Module Solver
     USE MPI
     USE BoundaryInterface
     USE BoundaryFunction
-    
+
     Implicit none
     Private
     Type,Public:: SolverTime
@@ -24,15 +24,15 @@ Module Solver
     Real(kind=dp),parameter:: Twall = 400.d0
     Real(kind=dp):: Tref,Prn
     Real(dp),dimension(:,:,:),pointer:: Tem,u,v,w
-    
+
     public:: IterationSolution
-    
+
     interface IterationSolution
       module Procedure IterationSolution
     end Interface IterationSolution
-    
+
     contains
-    
+
     subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
                                  WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,iprint)
         Implicit none
@@ -46,23 +46,26 @@ Module Solver
         Type(SolverConvergence)			   :: UConv,VConv,WConv,PConv
         Type(Variables)				   :: TVar_n
         Integer(kind=it8b)			   :: itt
+        real(kind=dp),dimension(:,:,:,:),allocatable :: FluxDivOld
         Allocate(TVar_n%p(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(TVar_n%w(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
         Allocate(GraP(Imax,Jmax,Kmax))
-        
+        allocate(FluxDivOld(Imax,Jmax,Kmax,3))
+
+        FluxDivOld(:,:,:,:) = 0.d0
         Time%iter = 10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.5d0
-        
+
         do itt = 1,Time%iter
           call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,TVar_n,UConv,      &
-                     VConv,WConv,PConv,Time,itt)
+               WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,TVar_n,FluxDivOld,UConv, &
+               VConv,WConv,PConv,Time,itt)
           Time%NondiT = Time%NondiT+Time%dt
           Time%PhysT = Time%Nondit*PGrid%Lref/TVar%URef
-          
+
           call PrintHistory(itt,Uconv)
           call PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
                                  VCell,WCell,itt,Time%NondiT)
@@ -70,10 +73,8 @@ Module Solver
           ! print*, itt
           if(mod(itt,iprint)==0)then
             write(*,*), itt,Time%PhysT,Time%NondiT
-            print*, 'Some thing here is wrong'
           !  call PrintResultVTK(PGrid,TVar,PCell,itt)
             call PrintResultVTR3D(PGrid,TVar,PCell,itt)
-            print*, 'Oh it is not'
           ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotUCent(UGrid,TVar,UCell,itt)
@@ -81,9 +82,9 @@ Module Solver
           ! call PrintResultTecplotWCent(WGrid,TVar,WCell,itt)
           end if
         end do
-        if(allocated(GraP)) then 
+        if(allocated(GraP)) then
           deallocate(GraP)
-        else 
+        else
           print*,'Grap is unlocated Solver 87'
         end if
         if(allocated(TVar_n%p).and.allocated(TVar_n%u).and.		       &
@@ -92,21 +93,23 @@ Module Solver
         else
           print*,'Tvar_n is unlocated Solver 93'
         end if
+        if(allocated(FluxDivOld)) deallocate(FluxDivOld)
     end subroutine IterationSolution
 
     Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
                      WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,			       &
-                     TVar,TVar_n,UConv,VConv,WConv,PConv,Time,itt)
+                     TVar,TVar_n,FluxDivOld,UConv,VConv,WConv,PConv,Time,itt)
         Implicit none
-        Type(Grid),intent(in)               :: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout)            :: PCell,UCell,VCell,WCell
-        type(BCBase),intent(inout)	    :: BCu,BCv,BCw,BCp,BCVof,BCLvs
-        Type(Variables),intent(inout)       :: TVar,TVar_n
-        Type(SolverTime),intent(inout)      :: Time
-        Type(SolverConvergence),intent(out) :: UConv,VConv,WConv,PConv
-        Integer(kind=it8b),intent(in)       :: itt
-        Integer(kind=it4b)   		    :: i,j,k
-        Real(kind=dp)  			    :: dt,mres
+        Type(Grid),intent(in)               			   :: PGrid,UGrid,VGrid,WGrid
+        Type(Cell),intent(inout)            			   :: PCell,UCell,VCell,WCell
+        type(BCBase),intent(inout)	    			   :: BCu,BCv,BCw,BCp,BCVof,BCLvs
+        Type(Variables),intent(inout)       			   :: TVar,TVar_n
+        real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
+        Type(SolverTime),intent(inout)      			   :: Time
+        Type(SolverConvergence),intent(out) 			   :: UConv,VConv,WConv,PConv
+        Integer(kind=it8b),intent(in)       			   :: itt
+        Integer(kind=it4b)   		    			   :: i,j,k
+        Real(kind=dp)  			    			   :: dt,mres
         Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
         dt = Time%dt
         TVar_n%p(:,:,:) = TVar%p(:,:,:)
@@ -116,18 +119,15 @@ Module Solver
         dt = Time%dt!/3.d0
      !  First Runge-Kutta substep
         if(itt>1) then
-          call Clsvof_Scheme(PGrid,PCell,UCell,VCell,WCell,TVar,dt,itt)
+          call Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
           call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
         end if
-        
         call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
-              BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar_n,TVar,Time%NondiT,dt,itt)
-        
-              
+              BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
+              dt,itt)
      !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
      !                                                          TVar,dt,itt)
         call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
-        ! print*, TVar%u(20,jbeg)
         ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
         call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
@@ -152,26 +152,36 @@ Module Solver
     end Subroutine AdamBasforthBDF2
 
     Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
-        Implicit none
-        Type(Grid),intent(in):: UGrid,VGrid,WGrid
-        Type(Variables),intent(in):: TVar
-        Type(SolverTime),intent(out):: Time
-        Integer(kind=it4b):: i,j,k
-        Real(kind=dp):: tol
+        implicit none
+        type(Grid),intent(in):: UGrid,VGrid,WGrid
+        type(Variables),intent(in):: TVar
+        type(SolverTime),intent(out):: Time
+        integer(kind=it4b):: i,j,k
+        real(kind=dp):: tol
+
         tol = 1.d-20
         Time%dt = 1.d0
-        Do i = 1,Imax
-          Do j = 1,Jmax
-            Do k = 1,Kmax
-              Time%dt = dmin1(Time%dt,                                         &
-                              Time%cfl*Ugrid%dx(i,j,k)/dabs(TVar%u(i,j,k)+tol),&
-                              Time%cfl*VGrid%dy(i,j,k)/dabs(TVar%v(i,j,k)+tol),&
-                              Time%cfl*WGrid%dz(i,j,k)/dabs(TVar%w(i,j,k)+tol),&
-                              Time%cfl*Ugrid%dx(1,j,k)/(TVar%Uint/TVar%Uref))
-            End do
-          End do
-        End do
-    End Subroutine ComputeTimeStep
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+         !     Time%dt=dmin1(Time%dt,                                           &
+         !                     Time%cfl*Ugrid%dx(i,j,k)/dabs(TVar%u(i,j,k)+tol),&
+         !                     Time%cfl*VGrid%dy(i,j,k)/dabs(TVar%v(i,j,k)+tol),&
+         !                     Time%cfl*WGrid%dz(i,j,k)/dabs(TVar%w(i,j,k)+tol),&
+         !                     Time%cfl*Ugrid%dx(1,j,k)/(TVar%Uint/TVar%Uref))
+              Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dx(i,j,k)/	       &
+                     (dabs(TVar%u(i,j,k))+dsqrt(TVar%u(i,j,k)**2.d0+	       &
+                      4.d0*VGrid%dx(i,j,k)*dabs(gx/g)/Fr)))
+              Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dy(i,j,k)/	       &
+                     (dabs(TVar%v(i,j,k))+dsqrt(TVar%v(i,j,k)**2.d0+	       &
+                      4.d0*VGrid%dy(i,j,k)*dabs(gy/g)/Fr)))
+              Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dz(i,j,k)/	       &
+                     (dabs(TVar%w(i,j,k))+dsqrt(TVar%w(i,j,k)**2.d0+	       &
+                      4.d0*VGrid%dz(i,j,k)*dabs(gz/g)/Fr)))
+            end do
+          end do
+        end do
+    end Subroutine ComputeTimeStep
 
     Subroutine ResidualNormCalculate(TCell,Varn1,Varn,Tres,Conv)
         Implicit none
@@ -221,7 +231,7 @@ Module Solver
        Type(SolverConvergence),intent(in):: TNorm
        Open(unit=5,file='Convergence.dat',access='append')
        Write(5,76) itt,TNorm%N1,TNorm%N2,TNorm%Ninf,TNorm%N1c,TNorm%N2c,       &
-                                                                   TNorm%Ninfc
+                                                              TNorm%Ninfc
        Close(5)
  76	   Format(I10,f15.10,f15.10,f15.10,f15.10,f15.10,f15.10)
     End subroutine

@@ -13,7 +13,14 @@ Module InitialVof
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid level set function
     
-    public:: InitialClsvofFluidFieldDamBreak,InitialClsvofLiquidFieldDambreak,InitialGridDamBreak
+    public:: InitialClsvofFluidFieldDamBreak,				       &
+             InitialClsvofLiquidFieldDambreak,				       &
+             InitialVarDambreak,					       &
+             InitialGridDamBreak
+             
+    interface InitialVarDambreak
+      module procedure InitialVarDambreak
+    end interface InitialVarDambreak
     
     interface InitialClsvofFluidFieldDamBreak	
       module procedure InitialClsvofFluidFieldDamBreak
@@ -166,7 +173,7 @@ Module InitialVof
                                dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
             call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),         &
                  TGrid%dz(i,j,k),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
-            vfl(i,j,k)=vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
+            vfl(i,j,k)=1.d0-vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
           end do
         end do
       end do
@@ -177,4 +184,42 @@ Module InitialVof
       nullify(nyF)
       nullify(nzF)
     end subroutine InitialClsvofLiquidFieldDambreak
+    
+    Subroutine InitialVarDambreak(Vari,Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref)
+      Real(kind=dp),intent(in):: Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref
+      Type(Variables),intent(inout):: Vari
+      Integer(kind=it4b):: i,j,k
+      Vari%Uint = Uint
+      Vari%Vint = Vint
+      Vari%Wint = Wint
+      Vari%Pint = Pint
+      Vari%Tint = Tint
+      Vari%Uref = Uref
+      Vari%Roref = Roref
+      Vari%Pref = Roref*Uref**2.d0
+      Vari%Tref = Tref
+      nuref = nu
+      Do i = 0,Imax+1
+        Do j = 0,Jmax+1
+          Do k = 0,Kmax+1
+            Vari%u(i,j,k) = 0.d0 !Uint/Uref
+            Vari%v(i,j,k) = 0.d0 !Vint/Uref
+            Vari%w(i,j,k) = 0.d0
+            Vari%p(i,j,k) = Pint/Vari%Pref
+            Vari%Gpu(i,j,k) = 0.d0
+            Vari%Gpv(i,j,k) = 0.d0
+            Vari%t(i,j,k) = Tint/Tref
+            Vari%mres(i,j,k) = 0.d0
+            Vari%pres(i,j,k) = 0.d0
+          End do
+        End do
+      End do
+      Open(unit=5,file='Convergence.dat')
+      close(5,status='delete')
+      Rey = Uref*Lref/nuref
+      Fr = Uref/dsqrt(g*Lref)
+      Print*,"Reynolds number:",Rey
+      Print*,"Froude number:",Fr
+   !   Call BoundaryConditionVar(Vari)
+    End subroutine InitialVarDambreak
 end module InitialVof

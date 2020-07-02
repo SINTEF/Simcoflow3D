@@ -66,8 +66,11 @@ Module ProjectionP
         w => TPred%w  
         Call SetBasicSolver(solver,precond)
     !    Call SetBasicSolver(solver=solver,ierr=ierr)
-        Call SetPoissonMatrix(A,parcsr_A,PGrid,PCell,PoCoef,1,0,1,1,1,1)
-        Call SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,dt)
+        Call SetPoissonMatrix(A,parcsr_A,PGrid,PCell,PoCoef,		       &
+                                                 BCp%flag(1),BCp%flag(2),      &
+                                                 BCp%flag(3),BCp%flag(4),      &
+                                                 BCp%flag(5),BCp%flag(6))
+        Call SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt)
         Call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
         Call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
     !    Run info - Needed logging turned on
@@ -177,9 +180,15 @@ Module ProjectionP
         end do
       end do    
       ! Set up value for variables at boundary cells 
-      TPoCoef(ium*1+iup*Imax,:,:)=TPoCoef(ium*2+iup*(Imax-1),:,:)
-      TPoCoef(:,jvm*1+jvp*JMax,:)=TPoCoef(:,jvm*2+jvp*(JMax-1),:)
-      TPoCoef(:,:,kwm*1+kwp*KMax)=TPoCoef(:,:,kwm*2+kwp*(KMax-1))
+      if(ium==1.or.iup==1) then
+        TPoCoef(ium*1+iup*Imax,:,:)=TPoCoef(ium*2+iup*(Imax-1),:,:)/2.d0
+      end if
+      if(jvm==1.or.jvp==1) then  
+        TPoCoef(:,jvm*1+jvp*JMax,:)=TPoCoef(:,jvm*2+jvp*(JMax-1),:)/2.d0
+      end if
+      if(kwm==1.or.kwp==1) then
+        TPoCoef(:,:,kwm*1+kwp*KMax)=TPoCoef(:,:,kwm*2+kwp*(KMax-1))/2.d0
+      end if  
     end subroutine Compute1DGFMCoefficient
     
     Subroutine SetBasicSolver(solver,precond)
@@ -363,11 +372,6 @@ Module ProjectionP
                     cols(nnz)=PCell%Posnu(i,j+1,k)
                     values(nnz)=-PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*	       &
                                  PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
-                    if(i==2.and.j==81.and.k==3) then
-                      print*,values(nnz)
-                      print*,PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*	       &
-                                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
-                    end if
                     mp5=dabs(values(nnz))              	
                     nnz = nnz+1
                   End if
@@ -393,31 +397,6 @@ Module ProjectionP
                   print*, 'tttttttttttttttttttt'
                   print*, PoCoef(i,j,k,1),PoCoef(i,j,k,2),PoCoef(i,j,k,3)
                   print*, PoCoef(i,j,k,4),PoCoef(i,j,k,5),PoCoef(i,j,k,6)
-                  print*, PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*             &
-                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
-                            PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*             &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   &
-                            PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)+                   &
-			    PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
-			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
-                            PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   & 
-                            PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k) 
-                  print*, '2222222222222222222222222'          
-                  print*,PoCoef(i,j,k,1)*PCell%EEArea(i-1,j,k)*             &
-                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
-                  print*,PoCoef(i,j,k,2)*PCell%NEArea(i,j-1,k)*             &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
-                  print*,PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
-                  print*,PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
-			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)
-		  print*,PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)
-                  print*,PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)
                   pause 
                 end if
               End if
@@ -429,36 +408,38 @@ Module ProjectionP
         Call HYPRE_IJMatrixGetObject(A,parcsr_A,ierr)
     End subroutine SetPoissonMatrix
 
-    Subroutine SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,dt)
+    Subroutine SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt)
         Integer*8:: b,x,par_b,par_x
-        Type(Grid),intent(in):: PGrid
-        Type(Cell),intent(in):: PCell
-        Real(kind=dp),intent(in):: dt
-        Integer(kind=it4b):: i,j,k
-        Integer:: ilower,iupper,ictr,local_size
-        Real(kind=dp):: dx,dy,dz
-        Integer(kind=it4b),dimension(:),allocatable:: rows
-        Real(kind=dp),dimension(:),allocatable:: rhs,xval
-        Real(kind=dp),dimension(:,:),allocatable:: ExtFlux
+        Type(Grid),intent(in)   				:: PGrid
+        Type(Cell),intent(in)   				:: PCell
+        type(BCBase),intent(in) 				:: BCp
+        real(kind=dp),dimension(:,:,:,:),allocatable,intent(in) :: PoCoef
+        Real(kind=dp),intent(in)				:: dt
+        Integer(kind=it4b)					:: i,j,k
+        Integer							:: ilower,iupper,ictr,local_size
+        Real(kind=dp)						:: dx,dy,dz
+        Integer(kind=it4b),dimension(:),allocatable		:: rows
+        Real(kind=dp),dimension(:),allocatable			:: rhs,xval
+        Real(kind=dp),dimension(:,:),allocatable		:: ExtFlux
         ilower = 0
         iupper = PCell%ExtCell
         local_size = iupper-ilower+1 ! the number of rows
         ! In here, we apply boundary condition for deltaP with its values is 0 at
         ! all boundary. therefore, we do not need to set boundary in vector b
-        Allocate(rhs(0:PCell%ExtCell))
-        Allocate(xval(0:PCell%ExtCell))
-        Allocate(rows(0:PCell%ExtCell))
-        Call HYPRE_IJVectorCreate(MPI_COMM_WORLD,ilower,iupper,b,ierr)
-        Call HYPRE_IJVectorSetObjectType(b,HYPRE_PARCSR,ierr)
-        Call HYPRE_IJVectorInitialize(b,ierr)
+        allocate(rhs(0:PCell%ExtCell))
+        allocate(xval(0:PCell%ExtCell))
+        allocate(rows(0:PCell%ExtCell))
+        call HYPRE_IJVectorCreate(MPI_COMM_WORLD,ilower,iupper,b,ierr)
+        call HYPRE_IJVectorSetObjectType(b,HYPRE_PARCSR,ierr)
+        call HYPRE_IJVectorInitialize(b,ierr)
 
-        Call HYPRE_IJVectorCreate(MPI_COMM_WORLD,ilower,iupper,x,ierr)
-        Call HYPRE_IJVectorSetObjectType(x,HYPRE_PARCSR,ierr)
-        Call HYPRE_IJVectorInitialize(x,ierr)
-        Do i = 1,Imax
-          Do j = 1,Jmax
-            Do k = 1,Kmax
-              If(PCell%Cell_Type(i,j,k)/=2) then
+        call HYPRE_IJVectorCreate(MPI_COMM_WORLD,ilower,iupper,x,ierr)
+        call HYPRE_IJVectorSetObjectType(x,HYPRE_PARCSR,ierr)
+        call HYPRE_IJVectorInitialize(x,ierr)
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+              if(PCell%Cell_Type(i,j,k)/=2) then
                 dx = PGrid%dx(i,j,k)
                 dy = PGrid%dy(i,j,k)
                 dz = PGrid%dz(i,j,k)
@@ -469,37 +450,58 @@ Module ProjectionP
                                     PCell%NEArea(i,j-1,k)*v(i,j-1,k))         &
                             -dx*dy*(PCell%TEArea(i,j,k)*w(i,j,k)-             &
                                     PCell%TEArea(i,j,k-1)*w(i,j,k-1))
+                                    
+                if(BCp%flag(1)==0.and.i==1) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,1)*BCp%VarW(j,k)
+                end if
+                if(BCp%flag(2)==0.and.i==Imax) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,4)*BCp%VarE(j,k)  
+                end if
+                if(BCp%flag(3)==0.and.j==1) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,2)*BCp%VarS(i,k)
+                end if
+                if(BCp%flag(4)==0.and.j==Jmax) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,5)*BCp%VarN(i,k)
+                end if
+                if(BCp%flag(5)==0.and.k==1) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,3)*BCp%VarB(i,j)
+                end if
+                if(BCp%flag(6)==0.and.k==Kmax) then
+                  rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,6)*BCp%VarT(i,j)
+                end if
+                        
                 xval(ictr) = 0.d0
                 rows(ictr) = ilower+ictr
-                If(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
+                
+                if(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
                   print*,i,j
                   pause 'fuck you 350'
-                End if
-              End if
-            End do
-          End do
-        End do
+                end if
+              end if
+            end do
+          end do
+        end do
 
-        Call HYPRE_IJVectorSetValues(b,local_size,rows,rhs,ierr)
-        Call HYPRE_IJVectorSetValues(x,local_size,rows,xval,ierr)
-        Call HYPRE_IJVectorAssemble(b,ierr)
-        Call HYPRE_IJVectorAssemble(x,ierr)
+        call HYPRE_IJVectorSetValues(b,local_size,rows,rhs,ierr)
+        call HYPRE_IJVectorSetValues(x,local_size,rows,xval,ierr)
+        call HYPRE_IJVectorAssemble(b,ierr)
+        call HYPRE_IJVectorAssemble(x,ierr)
 	! get the x and b objects
-        Call HYPRE_IJVectorGetObject(b,par_b,ierr)
-        Call HYPRE_IJVectorGetObject(x,par_x,ierr)
-        Deallocate(rhs)
-        Deallocate(xval)
-        Deallocate(rows)
-    End subroutine SetPoissonVectors
+        call HYPRE_IJVectorGetObject(b,par_b,ierr)
+        call HYPRE_IJVectorGetObject(x,par_x,ierr)
+        deallocate(rhs)
+        deallocate(xval)
+        deallocate(rows)
+    end subroutine SetPoissonVectors
 
     Subroutine DeltaPressureGetValues(x,PCell,Projp)
-        Integer*8,intent(in):: x
-        Type(Cell),intent(in):: PCell
-        Type(Projection),intent(inout):: Projp
-        Integer(kind=it4b):: i,j,k
-        Integer(kind=it4b):: ilower,iupper,local_size,ctr
-        Integer(kind=it4b),dimension(:),allocatable:: rows
-        Real(kind=dp),dimension(:),allocatable:: values
+        Integer*8,intent(in)			    :: x
+        Type(Cell),intent(in)			    :: PCell
+        Type(Projection),intent(inout)		    :: Projp
+        Integer(kind=it4b)			    :: i,j,k
+        Integer(kind=it4b)			    :: ilower,iupper,local_size,ctr
+        Integer(kind=it4b),dimension(:),allocatable :: rows
+        Real(kind=dp),dimension(:),allocatable	    :: values
         ilower = 0
         iupper = PCell%ExtCell
         local_size = PCell%ExtCell+1 ! number of element

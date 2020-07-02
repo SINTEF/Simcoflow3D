@@ -36,22 +36,23 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     
     allocate(Constin(6))
-    Open(unit=5,file='input.dat',action='read')
+    Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/FlowSphere/input.dat',action='read')
     Read(5,*),
     Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     close(5)
     Ta = 1000.d0
     wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
+    
     xc = 0.d0
     yc = 0.d0
     zc = 0.d0
+    
     vel = dble(Rey*nuw/Lref)
+    
     NI = Imax+1
     NJ = Jmax+1
     NK = Kmax+1
-  !  Imax = 98
-  !  Jmax = 98
-  !  Kmax = 98
+    
     SPoint%x = -20.d0
     SPoint%y = -20.d0
     SPoint%z = -20.d0

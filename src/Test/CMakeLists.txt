@@ -13,6 +13,12 @@ macro(my_add_test Test)
         ${Test})
 endmacro()
 #aux_source_directory(../ SRC_LIST)
+list(APPEND ADVECTIONLIST
+    ${SRC_LIST}
+    AdvectionTest/InitialVof.f90
+    AdvectionTest/AdvectionTest.f90)
+add_executable(AdvectionTest ${ADVECTIONLIST})
+target_link_libraries(AdvectionTest ${LINK_LIBS})
 list(APPEND DAMBREAKLIST
     ${SRC_LIST}
     Dambreak/InitialVof.f90

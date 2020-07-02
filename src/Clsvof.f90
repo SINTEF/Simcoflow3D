@@ -4,48 +4,48 @@ Module Clsvof
     USE Mesh
     USE Cutcell
     USE StateVariables
-    
+
     implicit none
     private
-    
+
     integer,parameter			   :: band_width = 4,nv = 6,nl = 6
-    real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction 
-    real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
+    real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
+    real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
     real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14
-    
+
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc
-    
+
     interface InitialClsvofFluidFiel
       module procedure InitialClsvofFluidField
     end interface
-    
+
     interface InitialClsvofLiquidField
       module procedure InitialClsvofLiquidField
     end interface
-    
+
     interface ClsVof_Scheme
       module procedure ClsVof_Scheme
     end interface
-    
+
     interface ComputeUVWLiquidField
       module procedure ComputeUVWLiquidField
-    end interface   
-    
+    end interface
+
     interface volume_fraction_calc
       module procedure volume_fraction_calc
-    end interface   
-    
+    end interface
+
     contains
-    
+
     subroutine InitialClsvofFluidField(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
       integer(kind=it4b)	      :: i,j,k
       real(kind=dp)		      :: dx,dy,dz,dis,vol,Radius,epsi,s
       real(kind=dp)		      :: tol
-      
+
       tol = 1.d-20
       epsi = 1.d-40
       vflF => TCell%vof
@@ -79,7 +79,7 @@ Module Clsvof
       nullify(nyF)
       nullify(nzF)
     end subroutine InitialClsvofFluidField
-    
+
     subroutine InitialClsvofLiquidField(TGrid,TCell)
       implicit none
       type(Grid),intent(in)           :: TGrid
@@ -87,13 +87,13 @@ Module Clsvof
       integer(kind=it4b)	      :: i,j,k
       real(kind=dp)		      :: dx,dy,dz,dis,vol,Radius,epsi,s
       real(kind=dp)		      :: tol
-      
+
       vfl => TCell%vofL
       phi => TCell%phiL
       nxF => TCell%nxL
       nyF => TCell%nyL
       nzF => TCell%nzL
-      
+
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
@@ -104,43 +104,42 @@ Module Clsvof
             nzF(i,j,k)=1.d0
           end do
         end do
-      end do    
-      
+      end do
+
       nullify(vfl)
       nullify(phi)
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
     end subroutine InitialClsvofLiquidField
-    
+
     subroutine ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
       implicit none
       type(Grid),intent(in)	:: PGrid
       type(Cell),intent(in)     :: PCell
       type(Cell),intent(inout)  :: UCell,VCell,WCell
-      
       call ComputeVelocityCellLiquidField(PGrid%dx,PCell,UCell,1,0,0)
       call ComputeVelocityCellLiquidField(PGrid%dy,PCell,VCell,0,1,0)
       call ComputeVelocityCellLiquidField(PGrid%dz,PCell,WCell,0,0,1)
     end subroutine ComputeUVWLiquidField
-    
+
     subroutine ComputeVelocityCellLiquidField(dxyz,PCell,VelCell,iu,iv,iw)
-      !! The subroutine is used to compute the velocity cell properties such as 
+      !! The subroutine is used to compute the velocity cell properties such as
       !! volume of fluid, level set function, normal vector. The boundary conditions
-      !! are applied later.  
+      !! are applied later.
       implicit none
-      real(kind=dp),dimension(:,:,:),allocatable,intent(in) :: dxyz
-      type(Cell),intent(in)				    :: PCell
-      type(Cell),intent(inout)				    :: VelCell
-      integer(kind=it4b),intent(in)			    :: iu,iv,iw
-      integer(kind=it4b)				    :: i,j,k
-      
+      real(kind=dp),dimension(:,:,:),intent(in) :: dxyz
+      type(Cell),intent(in)		        :: PCell
+      type(Cell),intent(inout)			:: VelCell
+      integer(kind=it4b),intent(in)		:: iu,iv,iw
+      integer(kind=it4b)			:: i,j,k
+
       call DirectionAverageArray(dxyz,PCell%vofL,VelCell%vofL,iu,iv,iw)
       call DirectionAverageArray(dxyz,PCell%phiL,VelCell%phiL,iu,iv,iw)
       call DirectionAverageArray(dxyz,PCell%nxL,VelCell%nxL,iu,iv,iw)
       call DirectionAverageArray(dxyz,PCell%nyL,VelCell%nyL,iu,iv,iw)
       call DirectionAverageArray(dxyz,PCell%nzL,VelCell%nzL,iu,iv,iw)
-      
+
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
@@ -149,34 +148,37 @@ Module Clsvof
             end if
           end do
         end do
-      end do     
+      end do
     end subroutine ComputeVelocityCellLiquidField
-    
+
     subroutine DirectionAverageArray(dxyz,Varin,Varout,iu,iv,iw)
       !! The subroutine is used to compute the variables based on centre average.
-      !! More complex interpolation technique can be used later. 
+      !! More complex interpolation technique can be used later.
       implicit none
-      real(kind=dp),dimension(:,:,:),allocatable,intent(in)  :: dxyz,Varin
-      real(kind=dp),dimension(:,:,:),allocatable,intent(out) :: Varout
-      integer(kind=it4b),intent(in)			     :: iu,iv,iw
-      real(kind=dp)					     :: lamda
-      integer(kind=it4b)				     :: i,j,k
-      
+      real(kind=dp),dimension(:,:,:),intent(in)  :: dxyz,Varin
+      real(kind=dp),dimension(:,:,:),intent(out) :: Varout
+      integer(kind=it4b),intent(in)		 :: iu,iv,iw
+      real(kind=dp)				 :: lamda
+      integer(kind=it4b)			 :: i,j,k
+
       do i=1,Imax-iu
         do j=1,Jmax-iv
           do k=1,Kmax-iw
-            lamda=dxyz(i+iu,j+iv,k+iw)/(dxyz(i,j,k)+dxyz(i+iu,j+iv,k+iw))            
+            lamda=dxyz(i+iu,j+iv,k+iw)/(dxyz(i,j,k)+dxyz(i+iu,j+iv,k+iw))
             Varout(i,j,k)=lamda*Varin(i,j,k)+(1.d0-lamda)*Varin(i+iu,j+iv,k+iw)
           end do
         end do
-      end do    
+      end do
+
+      if(iu==1) Varout(Imax,:,:)=Varout(Imax-1,:,:)
+      if(iv==1) Varout(:,Jmax,:)=Varout(:,Jmax-1,:)
+      if(iw==1) Varout(:,:,Kmax)=Varout(:,:,Kmax-1)
     end subroutine DirectionAverageArray
-    
-    subroutine Clsvof_Scheme(PGrid,PCell,UCell,VCell,WCell,TVar,dt,itt)
+
+    subroutine Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
       implicit none
       type(Grid),intent(in) 		    :: PGrid
       type(Cell),intent(inout),target       :: PCell
-      type(Cell),intent(in)		    :: UCell,VCell,WCell
       type(Variables),intent(in)	    :: TVar
       integer(it8b),intent(in)	    	    :: itt
       real(dp),intent(in)		    :: dt
@@ -185,7 +187,7 @@ Module Clsvof
       real(dp),dimension(:,:,:),allocatable :: ue,ve,we,nx,ny,nz,dis
       real(dp),dimension(:,:,:),allocatable :: temvfx,temvfy,temvfz
       real(dp),dimension(:,:,:),allocatable :: temlsx,temlsy,temlsz
-      
+
       allocate(nx(imax,jmax,kmax))
       allocate(ny(imax,jmax,kmax))
       allocate(nz(imax,jmax,kmax))
@@ -199,18 +201,18 @@ Module Clsvof
       allocate(temlsx(imax,jmax,kmax))
       allocate(temlsy(imax,jmax,kmax))
       allocate(temlsz(imax,jmax,kmax))
-      
+
       if(associated(vfl).eqv..false.) vfl=>PCell%vofL
       if(associated(phi).eqv..false.) phi=>PCell%phiL
-      
+
       if(associated(vflF).eqv..false.) vflF=>PCell%Vof
       if(associated(phiF).eqv..false.) phiF=>PCell%phi
       if(associated(nxF).eqv..false.) nxF=>PCell%nx
       if(associated(nyF).eqv..false.) nyF=>PCell%ny
       if(associated(nzF).eqv..false.) nzF=>PCell%nz
-      
+
       dtv=dt/dble(nv)
-      
+
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
@@ -218,7 +220,7 @@ Module Clsvof
           end do
         end do
       end do
-      
+
       do j = 1,jmax
         do i = 1,imax
           do k = 1,kmax
@@ -226,7 +228,7 @@ Module Clsvof
           end do
         end do
       end do
-      
+
       do k = 1,kmax
         do i = 1,imax
           do j = 1,jmax
@@ -234,7 +236,7 @@ Module Clsvof
           end do
         end do
       end do
-      
+
       do kk=1,nv
         if(mod(kk,3)==0) then
           temvfx(:,:,:) = vfl(:,:,:)
@@ -244,7 +246,7 @@ Module Clsvof
             do j = 2,jmax-1
               do k = 2,kmax-1
                 temvfx(i,j,k) = temvfx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*(ue(i,j,k)-ue(i-1,j,k)))
-                temlsx(i,j,k) = temlsx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*(ue(i,j,k)-ue(i-1,j,k))) 
+                temlsx(i,j,k) = temlsx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*(ue(i,j,k)-ue(i-1,j,k)))
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k) = 0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
                 vfl(i,j,k) = temvfx(i,j,k)
@@ -256,7 +258,7 @@ Module Clsvof
           call Boundary_Condition(phi)
           call Boundary_Condition(temvfx)
           call Boundary_Condition(temlsx)
-        
+
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
           call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,nx,ny,nz,dis,dtv)
@@ -276,7 +278,7 @@ Module Clsvof
           end do
           call Boundary_Condition(vfl)
           call Boundary_Condition(phi)
-        
+
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
           call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,nx,ny,nz,dis,dtv)
@@ -302,7 +304,7 @@ Module Clsvof
                 temvfy(i,j,k) = temvfy(i,j,k)/(1.d0-dtv/PGrid%dy(i,j,k)*       &
                                                         (ve(i,j,k)-ve(i,j-1,k)))
                 temlsy(i,j,k) = temlsy(i,j,k)/(1.d0-dtv/PGrid%dy(i,j,k)*       &
-                                                        (ve(i,j,k)-ve(i,j-1,k))) 
+                                                        (ve(i,j,k)-ve(i,j-1,k)))
                 if(temvfy(i,j,k)<=vofeps) temvfy(i,j,k) = 0.d0
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
                 vfl(i,j,k) = temvfy(i,j,k)
@@ -348,7 +350,7 @@ Module Clsvof
               end do
             end do
           end do
-        else 
+        else
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
           call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,nx,ny,nz,dis,dtv)
@@ -381,14 +383,14 @@ Module Clsvof
                 temlsx(i,j,k)=temlsx(i,j,k)+dtv/PGrid%dx(i,j,k)*temlsz(i,j,k)* &
                                                          (ue(i,j,k)-ue(i-1,j,k))
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k)=0.d0
-                if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0 
+                if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
               end do
             end do
           end do
           call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)  
+          call Boundary_Condition(phi)
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
           call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,nx,ny,nz,dis,dtv)
@@ -416,7 +418,7 @@ Module Clsvof
               PCell%nzL(i,j,k) = nz(i,j,k)
             end do
           end do
-        end do 
+        end do
         call Redistance_Levelset(PGrid,nx,ny,nz,dis)
       end do
       if(associated(vfl).eqv..true.) nullify(vfl)
@@ -426,7 +428,7 @@ Module Clsvof
       if(associated(nxF).eqv..true.) nullify(nxF)
       if(associated(nyF).eqv..true.) nullify(nyF)
       if(associated(nzF).eqv..true.) nullify(nzF)
-      
+
       deallocate(nx)
       deallocate(ny)
       deallocate(nz)
@@ -441,7 +443,7 @@ Module Clsvof
       deallocate(temlsy)
       deallocate(temlsz)
     end subroutine Clsvof_Scheme
-    
+
     ! build-up interface
     subroutine Isinterface(i,j,k,flag)
        implicit none
@@ -458,8 +460,8 @@ Module Clsvof
        if(dabs(vfl(i,j,k-1)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
        if(dabs(vfl(i,j,k+1)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
        return
-    end subroutine Isinterface    
-    
+    end subroutine Isinterface
+
     subroutine X_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
@@ -471,8 +473,8 @@ Module Clsvof
        integer i,j,k
        real(dp):: flux,lse
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       flux = 0.d0 
-       ! volume of fluid 
+       flux = 0.d0
+       ! volume of fluid
        do j = 2,jmax-1
          do k = 2,kmax-1
            do i = 2,imax-1
@@ -505,7 +507,7 @@ Module Clsvof
            end do
          end do
        end do
-       ! level set 
+       ! level set
        lse = 0.d0
        flux = 0.d0
        do j = 2,jmax-1
@@ -532,8 +534,8 @@ Module Clsvof
            end do
          end do
        end do
-    end subroutine X_Sweep    
-    
+    end subroutine X_Sweep
+
     subroutine Y_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
@@ -542,10 +544,10 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: nxx,nyy,nzz,diss
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer :: i,j,k
-       real(dp):: flux,lsn 
+       real(dp):: flux,lsn
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       flux = 0.d0 
-       ! volume of fluid 
+       flux = 0.d0
+       ! volume of fluid
        do i = 2,imax-1
          do j = 2,jmax-1
            do k = 2,kmax-1
@@ -571,13 +573,13 @@ Module Clsvof
                end if
              end if
              if(j>=2) temvf(i,j,k) = temvf(i,j,k)-flux
-             if(j<=jmax-1) temvf(i,j+1,k) = temvf(i,j+1,k)+flux 
+             if(j<=jmax-1) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
            end do
          end do
        end do
        lsn = 0.d0
        flux = 0.d0
-    ! level set 
+    ! level set
        do i = 2,imax-1
          do j = 2,jmax-1
            do k = 2,kmax-1
@@ -587,7 +589,7 @@ Module Clsvof
                    (2.d0*PGrid%dy(i,j,k))
              else
                if(j<=jmax-2) then
-                 lsn=phi(i,j+1,k)-PGrid%dy(i,j,k)/2.d0*(1.d0+ve(i,j,k)*dtv/    & 
+                 lsn=phi(i,j+1,k)-PGrid%dy(i,j,k)/2.d0*(1.d0+ve(i,j,k)*dtv/    &
                      PGrid%dy(i,j,k))*(phi(i,j+2,k)-phi(i,j,k))/               &
                      (2.d0*PGrid%dy(i,j,k))
                else
@@ -602,7 +604,7 @@ Module Clsvof
          end do
        end do
     end subroutine Y_Sweep
-    
+
     subroutine Z_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
        implicit none
        type(Grid),intent(in)                               :: PGrid
@@ -611,10 +613,10 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: nxx,nyy,nzz,diss
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer 						   :: i,j,k
-       real(dp)						   :: flux,lst 
+       real(dp)						   :: flux,lst
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       flux = 0.d0 
-       ! volume of fluid 
+       flux = 0.d0
+       ! volume of fluid
        do i = 2,imax-1
          do j = 2,jmax-1
            do k = 2,kmax-1
@@ -645,7 +647,7 @@ Module Clsvof
            end do
          end do
        end do
-       ! level set 
+       ! level set
        do j = 2,jmax-1
          do i = 2,imax-1
            do k = 2,kmax-1
@@ -670,7 +672,7 @@ Module Clsvof
          end do
        end do
     end subroutine Z_Sweep
-    
+
     subroutine Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        implicit none
        type(Grid),intent(in)                               :: PGrid
@@ -728,8 +730,8 @@ Module Clsvof
          end do
        end do
     end subroutine Interface_Reconstruct
-    
-    subroutine Interface_Reconstruct_ijk(i,j,k,dx,dy,dz,nxx,nyy,nzz,diss) 
+
+    subroutine Interface_Reconstruct_ijk(i,j,k,dx,dy,dz,nxx,nyy,nzz,diss)
        implicit none
        integer:: i,j,k,ii,jj,kk
        real(dp):: dx,dy,dz,nxx,nyy,nzz,diss,temp,vofeps
@@ -758,13 +760,13 @@ Module Clsvof
              nyy = nyy/temp
              nzz = nzz/temp
           end if
-          call Find_Distance(dx,dy,dz,nxx,nyy,nzz,vfl(i,j,k),diss)         
+          call Find_Distance(dx,dy,dz,nxx,nyy,nzz,vfl(i,j,k),diss)
           if(isnan(diss)) then
              pause 'reconstruct 245'
           end if
        end if
     end subroutine Interface_Reconstruct_ijk
-    
+
     subroutine Find_Distance(dx,dy,dz,nxx,nyy,nzz,f,s)
        real(dp),intent(in):: dx,dy,dz,nxx,nyy,nzz,f
        real(dp),intent(out):: s
@@ -786,7 +788,7 @@ Module Clsvof
           sc = 0.5d0*dz1+dsqrt(2.d0*fc*dx1*dy1-dz1**2.d0/12.d0)
           if(sc<dy1) then
              call Final_Distance(f,sc,sm,s)
-             if(isnan(s)) then 
+             if(isnan(s)) then
                 pause
              end if
           else
@@ -824,7 +826,7 @@ Module Clsvof
           end if
        end if
     end subroutine Find_Distance
-    
+
     subroutine Cubic_Equation_Solve(fc,dx1,dy1,dz1,sc,case2)
        real(dp),intent(in):: fc,dx1,dy1,dz1
        real(dp),intent(inout):: sc
@@ -842,9 +844,9 @@ Module Clsvof
           a1 = 3.d0*(dx1**2.d0+dy1**2.d0+dz1**2.d0)
           a0 = 6.d0*fc*dx1*dy1*dz1-(dx1**3.d0+dy1**3.d0+dz1**3.d0)
           call Newton_Raphson(a3,a2,a1,a0,sc)
-       end if        
+       end if
     end subroutine Cubic_Equation_Solve
-    
+
     subroutine Final_Distance(f,sc,sm,s)
        real(dp),intent(in):: f,sc,sm
        real(dp),intent(out):: s
@@ -854,7 +856,7 @@ Module Clsvof
           s = sm-sc
        end if
     end subroutine Final_Distance
-    
+
     subroutine Volume_Calc(dx,dy,dz,nxx,nyy,nzz,alpha,vol)
        implicit none
        real(dp),intent(in):: dx,dy,dz,nxx,nyy,nzz,alpha
@@ -903,10 +905,10 @@ Module Clsvof
        else
           fm3 = 0.d0
        end if
-       vol = 1.d0/(6.d0*nx1*ny1*nz1)*(alpha**3.d0-f1-f2-f3+fm1+fm2+fm3) 
+       vol = 1.d0/(6.d0*nx1*ny1*nz1)*(alpha**3.d0-f1-f2-f3+fm1+fm2+fm3)
        return
     end subroutine Volume_Calc
-    
+
     subroutine Newton_Raphson(a3,a2,a1,a0,sc)
        implicit none
        real(dp),intent(in):: a3,a2,a1,a0
@@ -918,8 +920,8 @@ Module Clsvof
           delvar = (a3*sc**3.d0+a2*sc**2.d0+a1*sc+a0)/(3.d0*a3*sc**2.d0+2.d0*a2*sc+a1)
           sc = sc-delvar
        end do
-    end subroutine Newton_Raphson  
-    
+    end subroutine Newton_Raphson
+
     subroutine Volume_Fraction_Calc(dx,dy,dz,nxx,nyy,nzz,s,vol)
        real(dp),intent(in):: nxx,nyy,nzz,dx,dy,dz,s
        real(dp),intent(out):: vol
@@ -935,7 +937,7 @@ Module Clsvof
        sm = dx1+dy1+dz1
        sc = dmin1(s,sm-s)
        if(s<=0.d0) then
-          vol =  0.d0 
+          vol =  0.d0
           return
        end if
        if(s>=sm) then     ! be careful with this condition. it affects to region contains fluid
@@ -961,8 +963,8 @@ Module Clsvof
           end if
           fc = fc/(6.d0*dx1*dy1*dz1)
        end if
-       if(s<=0.5d0*sm) then                 ! be careful with this step. the chosen of 
-          vol = fc*dx*dy*dz          ! the region contains fluid
+       if(s<=0.5d0*sm) then                 ! be careful with this step. the chosen of
+          vol = fc*dx*dy*dz          	    ! the region contains fluid
           return
        else
           vol = (1.d0-fc)*dx*dy*dz
@@ -989,16 +991,16 @@ Module Clsvof
        if(nxx<=0) then
           call Volume_Fraction_Calc(udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = vol/(udt*dy*dz)
-       else 
+       else
           call Volume_Fraction_Calc(dx-udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(udt*dy*dz)
        end if
-       if(isnan(flux)) then 
+       if(isnan(flux)) then
           pause 'east flux 1178'
        end if
        flux  = flux*udt/dx
-    end subroutine East_Flux    
-    
+    end subroutine East_Flux
+
     ! calculate flux throught the west of cell
     subroutine West_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,udt,flux)
        implicit none
@@ -1013,17 +1015,17 @@ Module Clsvof
        if(nxx>=0) then
           call Volume_Fraction_Calc(udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = vol/(udt*dy*dz)
-       else 
+       else
           call Volume_Fraction_Calc(dx-udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(udt*dy*dz)
        end if
-       if(isnan(flux)) then 
+       if(isnan(flux)) then
           pause 'west flux 778'
        end if
        flux  = flux*udt/dx
     end subroutine West_Flux
-    
-    ! calculate flux through the north side of cell    
+
+    ! calculate flux through the north side of cell
     subroutine North_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,vdt,flux)
        implicit none
        real(dp),intent(in):: nxx,nyy,nzz,diss,volf,dx,dy,dz,vdt
@@ -1043,8 +1045,8 @@ Module Clsvof
        end if
        flux = flux*vdt/dy
     end subroutine North_Flux
-    
-    ! calculate flux throght the south side of cell    
+
+    ! calculate flux throght the south side of cell
     subroutine South_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,vdt,flux)
        implicit none
        real(dp),intent(in):: nxx,nyy,nzz,diss,volf,dx,dy,dz,vdt
@@ -1067,7 +1069,7 @@ Module Clsvof
        end if
        flux = flux*vdt/dy
     end subroutine South_Flux
-    
+
     ! calculate the flux through top of cell
     subroutine Top_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,wdt,flux)
        implicit none
@@ -1082,13 +1084,13 @@ Module Clsvof
        if(nzz<=0) then
           call Volume_Fraction_Calc(dx,dy,wdt,nxx,nyy,nzz,diss,vol)
           flux = vol/(dx*dy*wdt)
-       else 
+       else
           call Volume_Fraction_Calc(dx,dy,dz-wdt,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*dy*wdt)
        end if
        flux = flux*wdt/dz
     end subroutine Top_Flux
-    
+
     ! calculate the flux through bottom of cell
     subroutine Bottom_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,wdt,flux)
        implicit none
@@ -1103,13 +1105,13 @@ Module Clsvof
        if(nzz>=0) then
           call Volume_Fraction_Calc(dx,dy,wdt,nxx,nyy,nzz,diss,vol)
           flux = vol/(dx*dy*wdt)
-       else 
+       else
           call Volume_Fraction_Calc(dx,dy,dz-wdt,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*dy*wdt)
        end if
        flux = flux*wdt/dz
     end subroutine Bottom_Flux
-    
+
     ! Redistance from vof to level set
     subroutine Redistance_Levelset(PGrid,Tnx,Tny,Tnz,Tdis)
       implicit none
@@ -1129,8 +1131,8 @@ Module Clsvof
       real(kind=dp),dimension(:,:,:),allocatable	    :: phiaux
       integer,dimension(:,:,:),allocatable		    :: fix
       real(kind=dp)					    :: epsi
-      
-      epsi = 1.d-15 
+
+      epsi = 1.d-15
       allocate(fix(imax,jmax,kmax))
       allocate(phiaux(imax,jmax,kmax))
       fix(:,:,:) = 0
@@ -1138,20 +1140,20 @@ Module Clsvof
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
-            if((0.d0+epsi)<vfl(i,j,k).and.vfl(i,j,k)<(1.d0-epsi)) then               
+            if((0.d0+epsi)<vfl(i,j,k).and.vfl(i,j,k)<(1.d0-epsi)) then
               phiaux(i,j,k) = dsign(1.d0,0.5d0-vfl(i,j,k))*dabs(Tdis(i,j,k))
               fix(i,j,k) = 1
               do ii = -band_width,band_width
                 do jj = -band_width,band_width
                   do kk = -band_width,band_width
-                  ! determine the point xv on the boundary cell(i,j,k) with the 
+                  ! determine the point xv on the boundary cell(i,j,k) with the
                   ! shortest distance to the cell center of (i+-ii,j+-jj)
                     if(1<=i+ii.and.i+ii<=imax.and.1<=j+jj.and.j+jj<=jmax.and.  &
                                                   1<=k+kk.and.k+kk<=kmax)then
                       if(vfl(i+ii,j+jj,k+kk)<0.d0+epsi.or.             	       &
                          vfl(i+ii,j+jj,k+kk)>1.d0-epsi) then
                         if(fix(i+ii,j+jj,k+kk)==0) fix(i+ii,j+jj,k+kk) = 1
-                                  
+
                         nxx=Tnx(i,j,k)
                         nyy=Tny(i,j,k)
                         nzz=Tnz(i,j,k)
@@ -1170,7 +1172,7 @@ Module Clsvof
                           phiaux(i+ii,j+jj,k+kk)=dsign(1.d0,0.5d0-             &
                                                  vfl(i+ii,j+jj,k+kk))*         &
                                          dmin1(deuc,dabs(phiaux(i+ii,j+jj,k+kk)))
-                     ! third step: find the projection of x' onto the interface  
+                     ! third step: find the projection of x' onto the interface
                         else
                           dij1=nxx*PGrid%dx(i,j,k)*dble(ii)+       	       &
                                nyy*PGrid%dy(i,j,k)*dble(jj)+                   &
@@ -1179,7 +1181,7 @@ Module Clsvof
                           yp=PGrid%dy(i,j,k)*dble(jj)-dij1*nyy
                           zp=PGrid%dz(i,j,k)*dble(kk)-dij1*nzz
                           pointp=Isinsidecell(xp,yp,zp,PGrid%dx(i,j,k),        &
-                                              PGrid%dy(i,j,k),PGrid%dz(i,j,k))   
+                                              PGrid%dy(i,j,k),PGrid%dz(i,j,k))
                           if(pointp.eqv..true.) then
                             fix(i+ii,j+jj,k+kk) = 1     !  set to "2" to reduce computational time
                             deuc=dsqrt((PGrid%dx(i,j,k)*dble(ii)-xp)**2.d0+    &
@@ -1189,19 +1191,19 @@ Module Clsvof
                                             vfl(i+ii,j+jj,k+kk))*dmin1(deuc,   &
                                             dabs(phiaux(i+ii,j+jj,k+kk)))
                           else
-                            ! forth step: find the corner of calculate 
+                            ! forth step: find the corner of calculate
                             xoff=dmax1(dabs(xp)-0.5d0*PGrid%dx(i,j,k),0.d0)
-                            yoff=dmax1(dabs(yp)-0.5d0*PGrid%dy(i,j,k),0.d0) 
+                            yoff=dmax1(dabs(yp)-0.5d0*PGrid%dy(i,j,k),0.d0)
                             zoff=dmax1(dabs(zp)-0.5d0*PGrid%dz(i,j,k),0.d0)
                             xfc=dsign(1.d0,xp)*0.5d0*PGrid%dx(i,j,k)
-                            yfc=dsign(1.d0,yp)*0.5d0*PGrid%dy(i,j,k) 
+                            yfc=dsign(1.d0,yp)*0.5d0*PGrid%dy(i,j,k)
                             zfc=sign(1.d0,zp)*0.5d0*PGrid%dz(i,j,k)
                             if(xoff*dabs(nxx)>=yoff*dabs(nyy).and.             &
                                xoff*dabs(nxx)>=zoff*dabs(nzz)) then
                               face=iscutface(xfc,nxx,nyy,nzz,diss,	       &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),1)
-                              if(face.eqv..true.) then                                                                            
+                              if(face.eqv..true.) then
                                 xs=xfc
                                 diss1=nxx*xs+diss  ! diss for dis1 and diss1 for dis
                                 cas=1
@@ -1225,7 +1227,7 @@ Module Clsvof
                               face=Iscutface(yfc,nxx,nyy,nzz,diss,             &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),2)
-                              if(face.eqv..true.) then                                                                            
+                              if(face.eqv..true.) then
                                 ys=yfc
                                 diss1=nyy*ys+diss
                                 cas = 2
@@ -1243,13 +1245,13 @@ Module Clsvof
                               call Shortest_Point_2d(nxx,nyy,nzz,diss1,        &
                                  ii,jj,kk,cas,PGrid%dx(i,j,k),PGrid%dy(i,j,k), &
                                               PGrid%dz(i,j,k),xs,ys,zs)
-                            end if 
+                            end if
                             if(zoff*dabs(nzz)>=xoff*dabs(nxx).and.             &
                                            zoff*dabs(nzz)>=yoff*dabs(nyy)) then
                               face=Iscutface(zfc,nxx,nyy,nzz,diss,             &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),3)
-                              if(face.eqv..true.) then                                                                            
+                              if(face.eqv..true.) then
                                 zs=zfc
                                 diss1=nzz*zs+diss
                                 cas=3
@@ -1267,14 +1269,14 @@ Module Clsvof
                               call Shortest_Point_2d(nxx,nyy,nzz,diss1,        &
                                  ii,jj,kk,cas,PGrid%dx(i,j,k),PGrid%dy(i,j,k), &
                                               PGrid%dz(i,j,k),xs,ys,zs)
-                            end if 
+                            end if
                             deuc=dsqrt((PGrid%dx(i,j,k)*dble(ii)-xs)**2.d0+    &
                                        (PGrid%dy(i,j,k)*dble(jj)-ys)**2.d0+    &
                                        (PGrid%dz(i,j,k)*dble(kk)-zs)**2.d0)
                             phiaux(i+ii,j+jj,k+kk)=dsign(1.d0,0.5d0-           &
                                         vfl(i+ii,j+jj,k+kk))*                  &
                                         dmin1(deuc,dabs(phiaux(i+ii,j+jj,k+kk)))
-                          end if          
+                          end if
                         end if
                       end if
                     end if
@@ -1302,10 +1304,10 @@ Module Clsvof
       deallocate(fix)
       deallocate(phiaux)
     end subroutine Redistance_Levelset
-    
+
  !   function Heavisideph(phir) result(dhp)
  !      real(dp):: phir,dhp
- !      real(dp):: epsil 
+ !      real(dp):: epsil
  !      epsil = 1.d-5
  !      if(dabs(phir)<=epsilon) then
  !         dhp = -phir/epsilon**2.d0*(1.d0+dcos(pi*phir/epsilon))
@@ -1313,7 +1315,7 @@ Module Clsvof
  !         dhp = 0.d0
  !      end if
  !   end function heavisideph
-    
+
     function Isinsidecell(xp,yp,zp,dx,dy,dz) result(logic)
       implicit none
       real(dp),intent(in) :: xp,yp,zp
@@ -1327,7 +1329,7 @@ Module Clsvof
         logic = .false.
       end if
     end function Isinsidecell
-    
+
     function Isinsiderect(dire1,dire2,rang10,rang11,rang20,rang21) result(logic)
        implicit none
        real(dp),intent(in):: dire1,dire2,rang10,rang11,rang20,rang21
@@ -1338,7 +1340,7 @@ Module Clsvof
           logic = .false.
        end if
     end function Isinsiderect
-    
+
     function Iscutface(face_point,nxx,nyy,nzz,diss,dx,dy,dz,cas) result(logic)
        implicit none
        real(dp),intent(in) :: face_point,nxx,nyy,nzz,diss
@@ -1369,10 +1371,10 @@ Module Clsvof
           return
        else
           logic = .true.
-          return 
+          return
        end if
-    end function Iscutface 
-    
+    end function Iscutface
+
     subroutine Shortest_Point_2d(nx1,ny1,nz1,dis1,ii,jj,kk,cas,dx,dy,dz,xs,ys,zs)
        implicit none
        real(dp),intent(in)    :: nx1,ny1,nz1,dis1
@@ -1391,29 +1393,29 @@ Module Clsvof
            diss=dis1/temp
            dij1=nyy*dy*dble(jj)+nzz*dz*dble(kk)+diss
            yp=dy*dble(jj)-dij1*nyy
-           zp=dz*dble(kk)-dij1*nzz                         
-           pointp=Isinsiderect(yp,zp,-0.5d0*dy,0.5d0*dy,-0.5d0*dz,0.5d0*dz)   
+           zp=dz*dble(kk)-dij1*nzz
+           pointp=Isinsiderect(yp,zp,-0.5d0*dy,0.5d0*dy,-0.5d0*dz,0.5d0*dz)
            if(pointp.eqv..true.) then
              ys = yp
              zs = zp
              return
            else
-           ! forth step: find the corner of 
+           ! forth step: find the corner of
              yoff = dmax1(dabs(yp)-0.5d0*dy,0.d0)
-             zoff = dmax1(dabs(zp)-0.5d0*dz,0.d0) 
+             zoff = dmax1(dabs(zp)-0.5d0*dz,0.d0)
              yfc = dsign(1.d0,yp)*0.5d0*dy
              zfc = dsign(1.d0,zp)*0.5d0*dz
              if(yoff*dabs(nyy)>zoff*dabs(nzz)) then
                ys = yfc
                zs = (diss+nyy*ys)/(-nzz)
-               return 
+               return
              else
                zs = zfc
                ys = (diss+nzz*zs)/(-nyy)
                return
              end if
            end if
-         case(2) ! for y face     
+         case(2) ! for y face
            temp = dsqrt(nx1**2.d0+nz1**2.d0+epsi**2.d0)
            nxx = nx1/temp
            nzz = nz1/temp
@@ -1421,28 +1423,28 @@ Module Clsvof
            dij1 = nxx*dx*dble(ii)+nzz*dz*dble(kk)+diss
            xp = dx*dble(ii)-dij1*nxx
            zp = dz*dble(kk)-dij1*nzz
-           pointp=Isinsiderect(xp,zp,-0.5d0*dx,0.5d0*dx,-0.5d0*dz,0.5d0*dz)   
+           pointp=Isinsiderect(xp,zp,-0.5d0*dx,0.5d0*dx,-0.5d0*dz,0.5d0*dz)
            if(pointp.eqv..true.) then
              xs=xp
              zs=zp
              return
            else
-           ! forth step: find the corner of 
+           ! forth step: find the corner of
              xoff = dmax1(dabs(xp)-0.5d0*dx,0.d0)
-             zoff = dmax1(dabs(zp)-0.5d0*dz,0.d0) 
+             zoff = dmax1(dabs(zp)-0.5d0*dz,0.d0)
              xfc = dsign(1.d0,xp)*0.5d0*dx
              zfc = dsign(1.d0,zp)*0.5d0*dz
              if(xoff*dabs(nxx)>zoff*dabs(nzz)) then
                xs = xfc
                zs = (diss+nxx*xs)/(-nzz)
-               return 
+               return
              else
                zs = zfc
                xs = (diss+nzz*zs)/(-nxx)
                return
              end if
            end if
-         case(3) ! for z face  
+         case(3) ! for z face
            temp=dsqrt(nx1**2.d0+ny1**2.d0+epsi**2.d0)
            nxx=nx1/temp
            nyy=ny1/temp
@@ -1450,30 +1452,30 @@ Module Clsvof
            dij1=nxx*dx*dble(ii)+nyy*dy*dble(jj)+diss
            xp=dx*dble(ii)-dij1*nxx
            yp=dy*dble(jj)-dij1*nyy
-           pointp=Isinsiderect(xp,yp,-0.5d0*dx,0.5d0*dx,-0.5d0*dy,0.5d0*dy)   
+           pointp=Isinsiderect(xp,yp,-0.5d0*dx,0.5d0*dx,-0.5d0*dy,0.5d0*dy)
            if(pointp.eqv..true.) then
              xs=xp
              ys=yp
              return
            else
-           ! forth step: find the corner of 
+           ! forth step: find the corner of
              xoff=dmax1(dabs(xp)-0.5d0*dx,0.d0)
-             yoff=dmax1(dabs(yp)-0.5d0*dy,0.d0) 
+             yoff=dmax1(dabs(yp)-0.5d0*dy,0.d0)
              xfc=dsign(1.d0,xp)*0.5d0*dx
              yfc=dsign(1.d0,yp)*0.5d0*dy
              if(xoff*dabs(nxx)>yoff*dabs(nyy)) then
                xs=xfc
                ys=(diss+nxx*xs)/(-nyy)
-               return 
+               return
              else
                ys=yfc
                xs=(diss+nyy*ys)/(-nxx)
                return
              end if
            end if
-         end select 
+         end select
     end subroutine Shortest_Point_2d
-    
+
     subroutine Boundary_Condition(vari)
        implicit none
        integer i,j,k
@@ -1498,7 +1500,7 @@ Module Clsvof
        end do
        return
     end subroutine Boundary_Condition
-    
+
     subroutine Normal_Vector_Irre(i,j,k,delx,dely,delz,nxx,nyy,nzz)
        implicit none
        integer,intent(in)   :: i,j,k
@@ -1517,7 +1519,7 @@ Module Clsvof
        vy = 0.5d0*(phi(i-1,j+1,k)-phi(i-1,j-1,k))/dely
        vz = 0.5d0*(phi(i-1,j,k+1)-phi(i-1,j,k-1))/delz
        qi(-1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       ! for qi(1) 
+       ! for qi(1)
        if(i<=imax-2) then
           vx = 0.5d0*(phi(i+2,j,k)-phi(i,j,k))/delx
        else
@@ -1525,7 +1527,7 @@ Module Clsvof
        end if
        vy = 0.5d0*(phi(i+1,j+1,k)-phi(i+1,j-1,k))/dely
        vz = 0.5d0*(phi(i+1,j,k+1)-phi(i+1,j,k-1))/delz
-       qi(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0)) 
+       qi(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        if(qi(-1)<eta.and.qi(1)>=eta) then
           dx = -1
        elseif(qi(-1)>=eta.and.qi(1)<eta) then
