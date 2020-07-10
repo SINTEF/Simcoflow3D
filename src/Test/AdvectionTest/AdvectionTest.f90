@@ -98,7 +98,6 @@ program main
           call Clsvof_Scheme(PGrid,PCell,Var,dt,itt)
           iprint = iprint1
        else
-          print*, 'Before running Clsvof_Scheme'
           call Clsvof_Scheme(PGrid,PCell,Var,dt,itt)
        end if
        t = t+dt

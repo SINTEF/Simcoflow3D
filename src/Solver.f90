@@ -77,6 +77,7 @@ Module Solver
             call PrintResultVTR3D(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
+          ! call PrintResultTecplotPCentXZ(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotUCent(UGrid,TVar,UCell,itt)
           ! call PrintResultTecplotVCent(VGrid,TVar,VCell,itt)
           ! call PrintResultTecplotWCent(WGrid,TVar,WCell,itt)

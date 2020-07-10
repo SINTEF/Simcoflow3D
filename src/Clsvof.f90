@@ -416,6 +416,9 @@ Module Clsvof
               PCell%nxL(i,j,k) = nx(i,j,k)
               PCell%nyL(i,j,k) = ny(i,j,k)
               PCell%nzL(i,j,k) = nz(i,j,k)
+              dis(i,j,k) = (0.5d0*PGrid%dx(i,j,k)*dabs(nx(i,j,k))+             &
+                            0.5d0*PGrid%dy(i,j,k)*dabs(ny(i,j,k))+             &
+                            0.5d0*PGrid%dz(i,j,k)*dabs(nz(i,j,k)))-dis(i,j,k)
             end do
           end do
         end do
@@ -475,9 +478,9 @@ Module Clsvof
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
-       do j = 2,jmax-1
-         do k = 2,kmax-1
-           do i = 2,imax-1
+       do j = 1,jmax
+         do k = 1,kmax
+           do i = 1,imax-1
              if(ue(i,j,k)>0.d0) then
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
                  (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0))then
@@ -494,25 +497,29 @@ Module Clsvof
                  flux=vfl(i+1,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
                else
                  call West_Flux(nxx(i+1,j,k),nyy(i+1,j,k),nzz(i+1,j,k),        &
-                           diss(i+1,j,k),vfl(i+1,j,k),PGrid%dx(i,j,k),         &
-                           PGrid%dy(i,j,k),PGrid%dz(i,j,k),-ue(i,j,k)*dtv,flux)
+                       diss(i+1,j,k),vfl(i+1,j,k),PGrid%dx(i+1,j,k),           &
+                       PGrid%dy(i+1,j,k),PGrid%dz(i+1,j,k),-ue(i,j,k)*dtv,flux)
                  flux = -flux
                end if
              end if
-             if(i==1) then
-               flux = vfl(i,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
-             end if
+         
              if(i>=2) temvf(i,j,k) = temvf(i,j,k)-flux
              if(i<=imax-1) temvf(i+1,j,k) = temvf(i+1,j,k)+flux
            end do
+           ! for i=1
+           ! flux = vfl(1,j,k)*ue(1,j,k)*dtv/PGrid%dx(1,j,k)
+           ! temvf(2,j,k)=temvf(2,j,k)+flux
+           ! for i=imax
+           ! flux = vfl(imax,j,k)*ue(imax,j,k)*dtv/PGrid%dx(imax,j,k)
+           ! temvf(imax-1,j,k)=temvf(imax,j,k)-flux
          end do
        end do
        ! level set
        lse = 0.d0
        flux = 0.d0
-       do j = 2,jmax-1
-         do i = 2,imax-1
-           do k = 2,kmax-1
+       do j = 1,jmax
+         do k = 1,kmax
+           do i = 2,imax-1
              if(ue(i,j,k)>=0.d0) then
                lse=phi(i,j,k)+PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*         &
                    dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/        &
@@ -534,6 +541,33 @@ Module Clsvof
            end do
          end do
        end do
+       do j=1,jmax
+         do k=1,kmax
+           if(ue(1,j,k)>=0.d0) then
+             lse=phi(1,j,k)+PGrid%dx(1,j,k)/2.d0*(1.d0-ue(1,j,k)*dtv/	       &
+                            PGrid%dx(1,j,k))*(phi(2,j,k)-phi(1,j,k))/PGrid%dx(1,j,k)
+           else
+             lse=phi(2,j,k)-PGrid%dx(2,j,k)/2.d0*(1.d0+ue(1,j,k)*dtv/	       &
+                            PGrid%dx(2,j,k))*(phi(3,j,k)-phi(1,j,k))/2.d0*PGrid%dx(2,j,k)
+           end if
+           flux=lse*ue(1,j,k)*dtv
+           temls(1,j,k)=temls(1,j,k)-flux/PGrid%dx(1,j,k)
+           temls(2,j,k)=temls(2,j,k)+flux/PGRid%dx(2,j,k)
+           if(ue(Imax,j,k)>0.d0) then
+             lse=phi(Imax,j,k)+PGrid%dx(Imax,j,k)/2.d0*		       	       &
+                 (1.d0-ue(Imax,j,k)*dtv/PGrid%dx(Imax,j,k))*		       &
+                 (phi(Imax,j,k)-phi(Imax-1,j,k))/               	       &
+                 (PGrid%x(Imax,j,k)-PGrid%x(Imax-1,j,k))
+           else
+             lse=phi(Imax,j,k)-PGrid%dx(Imax-1,j,k)/2.d0*		       &
+                 (1.d0+ue(Imax,j,k)*dtv/PGrid%dx(Imax-1,j,k))*	       	       &
+                 (phi(Imax,j,k)-phi(Imax-1,j,k))/             	       	       &
+                 (PGrid%x(Imax,j,k)-PGrid%x(Imax-1,j,k))
+           end if
+           flux=lse*ue(Imax,j,k)*dtv
+           temls(Imax,j,k)=temls(Imax,j,k)-flux/PGrid%dx(Imax,j,k)
+         end do
+       end do  
     end subroutine X_Sweep
 
     subroutine Y_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
@@ -548,9 +582,9 @@ Module Clsvof
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
-       do i = 2,imax-1
-         do j = 2,jmax-1
-           do k = 2,kmax-1
+       do i = 1,imax
+         do k = 1,kmax
+           do j = 1,jmax-1
              if(ve(i,j,k)>0.d0) then
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
                  (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0)) then
@@ -567,22 +601,24 @@ Module Clsvof
                  flux = vfl(i,j+1,k)*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
                else
                  call South_Flux(nxx(i,j+1,k),nyy(i,j+1,k),nzz(i,j+1,k),       &
-                               diss(i,j+1,k),vfl(i,j+1,k),PGrid%dx(i,j,k),     &
-                               PGrid%dy(i,j,k),PGrid%dz(i,j,k),-ve(i,j,k)*dtv,flux)
+                               diss(i,j+1,k),vfl(i,j+1,k),PGrid%dx(i,j+1,k),   &
+                               PGrid%dy(i,j+1,k),PGrid%dz(i,j+1,k),-ve(i,j,k)*dtv,flux)
                  flux = -flux
                end if
              end if
              if(j>=2) temvf(i,j,k) = temvf(i,j,k)-flux
              if(j<=jmax-1) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
            end do
+           ! for j = 1
+            
          end do
        end do
        lsn = 0.d0
        flux = 0.d0
     ! level set
-       do i = 2,imax-1
+       do i = 1,imax
          do j = 2,jmax-1
-           do k = 2,kmax-1
+           do k = 1,kmax
              if(ve(i,j,k)>=0.d0) then
                lsn=phi(i,j,k)+PGrid%dy(i,j,k)/2.d0*(1.d0-ve(i,j,k)*dtv/        &
                    PGrid%dy(i,j,k))*(phi(i,j+1,k)-phi(i,j-1,k))/               &
@@ -603,6 +639,34 @@ Module Clsvof
            end do
          end do
        end do
+       
+       do i=1,imax
+         do k=1,kmax
+           if(ve(i,1,k)>=0.d0) then
+             lsn=phi(i,1,k)+PGrid%dy(i,1,k)/2.d0*(1.d0-ve(i,1,k)*	       &
+                 dtv/PGrid%dy(i,1,k))*(phi(i,2,k)-phi(i,1,k))/		       &
+                (PGrid%y(i,2,k)-PGrid%y(i,1,k))
+           else
+             lsn=phi(i,2,k)-PGrid%dy(i,2,k)/2.d0*(1.d0+ve(i,1,k)*	       &
+                 dtv/PGrid%dy(i,2,k))*(phi(i,3,k)-phi(i,1,k))/		       &
+                (PGrid%y(i,3,k)-PGrid%y(i,1,k))
+           end if
+           flux=lsn*ve(i,1,k)*dtv
+           temls(i,1,k)=temls(i,1,k)-flux/PGrid%dy(i,1,k)
+           temls(i,2,k)=temls(i,2,k)+flux/PGrid%dy(i,2,k)
+           if(ve(i,jmax,k)>0.d0) then
+             lsn=phi(i,jmax,k)+PGrid%dy(i,jmax,k)/2.d0*(1.d0-ve(i,jmax,k)*dtv/ &
+                 PGrid%dy(i,jmax,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/          &
+                (PGrid%y(i,jmax,k)-PGrid%y(i,jmax-1,k))
+           else
+             lsn=phi(i,jmax,k)-PGrid%dy(i,jmax-1,k)/2.d0*(1.d0+ve(i,jmax,k)*dtv/&
+                 PGrid%dy(i,jmax-1,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/            &
+                 (PGrid%y(i,jmax,k)-PGrid%y(i,jmax-1,k))
+           end if
+           flux=lsn*ve(i,jmax,k)*dtv
+           temls(i,jmax,k)=temls(i,jmax,k)-flux/PGrid%dy(i,jmax,k)   
+         end do
+       end do  
     end subroutine Y_Sweep
 
     subroutine Z_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
@@ -617,9 +681,9 @@ Module Clsvof
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
-       do i = 2,imax-1
-         do j = 2,jmax-1
-           do k = 2,kmax-1
+       do i = 1,imax
+         do j = 1,jmax
+           do k = 1,kmax-1
              if(we(i,j,k)>=0.d0) then
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
                  (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0))then
@@ -636,8 +700,8 @@ Module Clsvof
                  flux = vfl(i,j,k+1)*we(i,j,k)*dtv/PGrid%dz(i,j,k)
                else
                  call Bottom_Flux(nxx(i,j,k+1),nyy(i,j,k+1),nzz(i,j,k+1),      &
-                            diss(i,j,k+1),vfl(i,j,k+1),PGrid%dx(i,j,k),        &
-                            PGrid%dy(i,j,k),PGrid%dz(i,j,k),-we(i,j,k)*dtv,flux)
+                            diss(i,j,k+1),vfl(i,j,k+1),PGrid%dx(i,j,k+1),      &
+                            PGrid%dy(i,j,k+1),PGrid%dz(i,j,k+1),-we(i,j,k)*dtv,flux)
                  flux = -flux
                end if
              end if
@@ -648,8 +712,8 @@ Module Clsvof
          end do
        end do
        ! level set
-       do j = 2,jmax-1
-         do i = 2,imax-1
+       do j = 1,jmax
+         do i = 1,imax
            do k = 2,kmax-1
              if(we(i,j,k)>=0.d0) then
                lst=phi(i,j,k)+PGrid%dz(i,j,k)/2.d0*(1.d0-we(i,j,k)*dtv/        &
@@ -671,6 +735,34 @@ Module Clsvof
            end do
          end do
        end do
+       do i=1,imax
+         do j=1,jmax
+           if(we(i,j,1)>=0.d0) then
+             lst=phi(i,j,1)+PGrid%dz(i,j,1)/2.d0*(1.d0-we(i,j,1)*	       &
+                 dtv/PGrid%dz(i,j,1))*(phi(i,j,2)-phi(i,j,1))/		       &
+                (PGrid%z(i,j,2)-PGrid%z(i,j,1))
+           else
+             lst=phi(i,j,2)+PGrid%dz(i,j,2)/2.d0*(1.d0+we(i,j,1)*	       &
+                 dtv/PGrid%dz(i,j,2))*(phi(i,j,3)-phi(i,j,1))/		       &
+                (PGrid%z(i,j,3)-PGrid%z(i,j,1))
+           end if
+           flux=lst*we(i,j,1)*dtv
+           temls(i,j,1)=temls(i,j,1)-flux/PGrid%dz(i,j,1)
+           temls(i,j,2)=temls(i,j,2)+flux/PGrid%dz(i,j,2)
+           if(we(i,j,kmax)>0.d0) then
+             lst=phi(i,j,kmax)+PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/ &
+                 PGrid%dz(i,j,kmax))*(phi(i,j,kmax)-phi(i,j,kmax-1))/          &
+                (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
+           else
+             lst=phi(i,j,kmax)-PGrid%dz(i,j,kmax-1)/2.d0*		       &
+                 (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*		       &
+                 (phi(i,j,kmax)-phi(i,j,kmax-1))/            		       &
+                 (PGrid%z(i,j,kmax)-PGrid%y(i,j,kmax-1))
+           end if
+           flux=lst*we(i,j,kmax)*dtv
+           temls(i,j,kmax)=temls(i,j,kmax)-flux/PGrid%dz(i,j,kmax)
+         end do
+       end do  
     end subroutine Z_Sweep
 
     subroutine Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
@@ -679,7 +771,6 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
        real(dp),dimension(:,:,:),allocatable,intent(inout) :: diss
        integer						   :: i,j,k
-       real(dp)						   :: dx,dy,dz
        real(dp)						   :: nxx1,nyy1,nzz1,diss1
        do i = 2,imax-1
          do j = 2,jmax-1
@@ -1247,7 +1338,7 @@ Module Clsvof
                                               PGrid%dz(i,j,k),xs,ys,zs)
                             end if
                             if(zoff*dabs(nzz)>=xoff*dabs(nxx).and.             &
-                                           zoff*dabs(nzz)>=yoff*dabs(nyy)) then
+                               zoff*dabs(nzz)>=yoff*dabs(nyy)) then
                               face=Iscutface(zfc,nxx,nyy,nzz,diss,             &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),3)
@@ -1354,12 +1445,12 @@ Module Clsvof
              point2=face_point*nxx-0.5d0*dy*nyy+0.5d0*dz*nzz+diss
              point3=face_point*nxx+0.5d0*dy*nyy+0.5d0*dz*nzz+diss
              point4=face_point*nxx+0.5d0*dy*nyy-0.5d0*dz*nzz+diss
-          case(2) ! in y surface
+          case(2)   ! in y surface
              point1=-0.5d0*dx*nxx+face_point*nyy-0.5d0*dz*nzz+diss
              point2=-0.5d0*dx*nxx+face_point*nyy+0.5d0*dz*nzz+diss
              point3=0.5d0*dx*nxx+face_point*nyy+0.5d0*dz*nzz+diss
              point4=0.5d0*dx*nxx+face_point*nyy-0.5d0*dz*nzz+diss
-          case(3) ! in z surface
+          case(3)   ! in z surface
              point1=-0.5d0*dx*nxx-0.5d0*dy*nyy+face_point*nzz+diss
              point2=-0.5d0*dx*nxx+0.5d0*dy*nyy+face_point*nzz+diss
              point3=0.5d0*dx*nxx+0.5d0*dy*nyy+face_point*nzz+diss
@@ -1478,12 +1569,12 @@ Module Clsvof
 
     subroutine Boundary_Condition(vari)
        implicit none
-       integer i,j,k
-       real(dp),dimension(:,:,:),intent(inout) :: vari
+       integer(kind=it4b) 		       	    :: i,j,k
+       real(kind=dp),dimension(:,:,:),intent(inout) :: vari
        do j = 1,jmax
           do k = 1, kmax
              vari(1,j,k) = vari(2,j,k)
-             vari(imax,j,k) = vari(imax-1,j,k)
+             vari(imax,j,k) = vari(imax-1,j,k) 
           end do
        end do
        do i = 1,imax

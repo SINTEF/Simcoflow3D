@@ -199,7 +199,7 @@ Module ProjectionP
         Call HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD,solver,ierr)
 !       Set some parameters
         Call HYPRE_ParCSRPCGSetMaxIter(solver,50,ierr)
-        Call HYPRE_ParCSRPCGSetTol(solver,1.0d-10,ierr)
+        Call HYPRE_ParCSRPCGSetTol(solver,1.d-30,ierr)
         Call HYPRE_ParCSRPCGSetTwoNorm(solver,1,ierr)
 !        Call HYPRE_ParCSRPCGSetPrintLevel(solver,2,ierr)
         Call HYPRE_ParCSRPCGSetLogging(solver,1,ierr)

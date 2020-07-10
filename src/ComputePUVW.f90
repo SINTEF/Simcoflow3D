@@ -60,6 +60,10 @@ Module ComputePUV
                         WCell,TVar,Pred,PU,PV,PW,BCp,PoCoef,Proj,dt)
 
       maxPoCoef=0.d0
+      print*, 'Test w velocity'
+      print*, Pred%w(11,2,13), Pred%w(11,1,13), Pred%w(11,0,13)
+      print*, Pred%v(11,2,13), Pred%v(11,1,13), Pred%v(11,0,13)
+      print*, '==============================='
       do i = 1,Imax
         do j = 1,Jmax
           do k = 1,Kmax
@@ -193,6 +197,50 @@ Module ComputePUV
           end do
         end do
       end if
+      
+      do i=1,Imax
+        do j=1,Jmax
+          do k=1,Kmax
+            if(Tvar%v(i,j,k)>MaxPoCoef) then
+              MaxPocoef = dabs(TVar%v(i,j,k))
+              ii = i
+              jj = j
+              kk = k
+            end if
+          end do
+        end do
+      end do     
+      print*, 'After poisson coefficient computing'
+      print*, MaxPocoef
+      print*, ii,jj,kk
+      print*, TVar%v(61,14,1)
+      print*, TVar%v(61,15,1)
+      print*, TVar%v(62,14,1)
+      print*, TVar%v(61,14,2)
+      print*, '0000000000000000000000000000000'
+      print*, PV%dp(61,14,1),PV%dp(61,15,1)
+      print*, PV%dp(62,14,1),PV%dp(61,14,2)
+      print*, '-------------------------------'
+      print*, TVar%p(61,14,1),PoCoef(61,14,1,5)
+      print*, PoCoef(61,13,1,5),PoCoef(62,14,1,5)
+      print*, PoCoef(61,14,2,5)
+      print*, '===============++++++++++++++++'
+      print*, TVar%p(61,15,1)
+      print*, TVar%p(61,15,1)-TVar%p(61,14,1)
+      print*, '+++++++++++++++++++++++++++++++'
+      print*, TVar%p(10,4,13), TVar%p(10,5,13)
+      print*, TVar%p(11,4,13), TVar%p(11,5,13)
+      print*, 'Test w velocity'
+      print*, Pred%w(11,2,13), Pred%w(11,1,13), Pred%w(11,0,13)
+      print*, Pred%v(11,2,13), Pred%v(11,1,13), Pred%v(11,0,13)
+      print*, '==============================='
+      print*, 'Test the velocity'
+      print*, TVar%u(10,4,13), TVar%u(10,5,13)
+      print*, TVar%v(11,4,13), TVar%v(11,5,13)
+      print*, '==============================='
+      print*, TVar%p(10,30,13), TVar%p(10,29,13), TVar%p(10,31,13)
+      print*, TVar%v(10,30,13), TVar%v(10,29,13), TVar%v(10,31,13)
+      
       deallocate(Pred%u)
       deallocate(Pred%v)
       deallocate(Pred%w)
