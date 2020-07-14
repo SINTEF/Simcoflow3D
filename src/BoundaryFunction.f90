@@ -11,7 +11,7 @@ module BoundaryFunction
   
   public :: BCBase
   
-  public :: BCUW, BCUE, BCUN, BCUS, BCUB, BCUT, 					&
+  public :: BCUW, BCUE, BCUS, BCUN, BCUB, BCUT, 					&
             BCVW, BCVE, BCVS, BCVN, BCVB, BCVT, 					&
             BCWW, BCWE, BCWS, BCWN, BCWB, BCWT, 					&
             BCPW, BCPE, BCPS, BCPN, BCPB, BCPT, 					&
@@ -54,7 +54,7 @@ module BoundaryFunction
     class(BCBase), intent(inout)  		      :: this
     real(kind=dp), dimension(:), allocatable, intent(in) :: Constin	
     
-    allocate(this%Const(sizeof(Constin))) 
+    allocate(this%Const(size(Constin))) 
     this%Const(:) = Constin(:) 
   end subroutine SetConstant
     
@@ -68,8 +68,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, uin, dxin, this%flag(1), this%const(1), 		&
            					       Array2D1, Array2D2) 
@@ -86,8 +86,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:))
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:))
     ! For simple boundary condition       
     call TypicalBC(this%VarE, uin, -dxin*2.d0, this%flag(2), this%const(2), 	&
            					       Array2D1, Array2D2)
@@ -104,8 +104,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition       
     call TypicalBC(this%VarS, uin, dyin, this%flag(3), this%const(3),  		&
            					       Array2D1, Array2D2)
@@ -122,8 +122,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, uin, -dyin, this%flag(4), this%const(4),  	&
            					       Array2D1, Array2D2)
@@ -140,8 +140,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, uin, dzin, this%flag(5), this%const(5),  		&
            					       Array2D1, Array2D2)
@@ -157,8 +157,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, uin, -dzin, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2)   
@@ -174,8 +174,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, vin, dxin, this%flag(1), this%const(1),  		&
            					       Array2D1, Array2D2) 
@@ -191,8 +191,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:))
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarE, vin, -dxin, this%flag(2), this%const(2),  	&
            					        Array2D1, Array2D2) 
@@ -209,8 +209,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarS, vin, dyin, this%flag(3), this%const(3), 		&
     							Array2D1, Array2D2) 
@@ -227,8 +227,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
   
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, vin, -dyin*2.d0, this%flag(4), this%const(4), 	&
     							Array2D1, Array2D2) 
@@ -245,8 +245,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, vin, dzin, this%flag(5), this%const(5),  		&
            					       Array2D1, Array2D2)
@@ -262,8 +262,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, vin, -dzin, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2) 
@@ -279,8 +279,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, win, dxin, this%flag(1), this%const(1),  		&
            					       Array2D1, Array2D2) 
@@ -296,8 +296,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:))
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarE, win, -dxin, this%flag(2), this%const(2),  	&
            					        Array2D1, Array2D2) 
@@ -314,8 +314,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarS, win, dyin, this%flag(3), this%const(3), 		&
     							Array2D1, Array2D2) 
@@ -332,8 +332,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
   
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, win, -dyin, this%flag(4), this%const(4), 		&
     							Array2D1, Array2D2) 
@@ -350,8 +350,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, win, dzin, this%flag(5), this%const(5),  		&
            					       Array2D1, Array2D2)
@@ -367,8 +367,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, win, -dzin*2.d0, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2) 
@@ -384,8 +384,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, pin, dxin, this%flag(1), this%const(1), 		&
     							Array2D1, Array2D2) 
@@ -402,8 +402,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:))
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarE, pin, -dxin, this%flag(2), this%const(2), 		&
     							Array2D1, Array2D2) 
@@ -420,8 +420,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarS, pin, dyin, this%flag(3), this%const(3), 		&
     							Array2D1, Array2D2) 
@@ -438,8 +438,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, pin, -dyin, this%flag(4), this%const(4), 		&
     							Array2D1, Array2D2) 
@@ -456,8 +456,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, pin, dzin, this%flag(5), this%const(5),  		&
            					       Array2D1, Array2D2)
@@ -473,8 +473,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, pin, -dzin, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2)
@@ -490,8 +490,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, vofin, dxin, this%flag(1), this%const(1), 		&
     							Array2D1, Array2D2) 
@@ -508,8 +508,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:))
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarE, vofin, -dxin, this%flag(2), this%const(2), 		&
     							Array2D1, Array2D2) 
@@ -526,8 +526,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarS, vofin, dyin, this%flag(3), this%const(3), 		&
     							Array2D1, Array2D2) 
@@ -544,8 +544,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, vofin, -dyin, this%flag(4), this%const(4), 		&
     							Array2D1, Array2D2) 
@@ -562,8 +562,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, vofin, dzin, this%flag(5), this%const(5),        &	  
            					       Array2D1, Array2D2)
@@ -579,8 +579,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, vofin, -dzin, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2)
@@ -596,8 +596,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
   
-    Array2D1 = sizeof(this%VarW(:,1))
-    Array2D2 = sizeof(this%VarW(1,:))
+    Array2D1 = size(this%VarW(:,1))
+    Array2D2 = size(this%VarW(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarW, lvsin, dxin, this%flag(1), this%const(1), 		&
     							Array2D1, Array2D2) 
@@ -614,8 +614,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarE(:,1))
-    Array2D2 = sizeof(this%VarE(1,:)) 
+    Array2D1 = size(this%VarE(:,1))
+    Array2D2 = size(this%VarE(1,:)) 
     ! For simple boundary condition.   
     call TypicalBC(this%VarE, lvsin, -dxin, this%flag(2), this%const(2), 		&
     							Array2D1, Array2D2) 
@@ -632,8 +632,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
-    Array2D1 = sizeof(this%VarS(:,1))
-    Array2D2 = sizeof(this%VarS(1,:))
+    Array2D1 = size(this%VarS(:,1))
+    Array2D2 = size(this%VarS(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarS, lvsin, dyin, this%flag(3), this%const(3), 		&
     							Array2D1, Array2D2) 
@@ -650,8 +650,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)	   	      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
    
-    Array2D1 = sizeof(this%VarN(:,1))
-    Array2D2 = sizeof(this%VarN(1,:))
+    Array2D1 = size(this%VarN(:,1))
+    Array2D2 = size(this%VarN(1,:))
     ! For simple boundary condition   
     call TypicalBC(this%VarN, lvsin, -dyin, this%flag(4), this%const(4), 		&
     							Array2D1, Array2D2) 
@@ -668,8 +668,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarB(:,1))
-    Array2D2 = sizeof(this%VarB(1,:))
+    Array2D1 = size(this%VarB(:,1))
+    Array2D2 = size(this%VarB(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarB, lvsin, dzin, this%flag(5), this%const(5),        &	  
            					       Array2D1, Array2D2)
@@ -685,8 +685,8 @@ module BoundaryFunction
     real(kind=dp), intent(in)		      :: time 
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
-    Array2D1 = sizeof(this%VarT(:,1))
-    Array2D2 = sizeof(this%VarT(1,:))
+    Array2D1 = size(this%VarT(:,1))
+    Array2D2 = size(this%VarT(1,:))
     ! For simple boundary condition
     call TypicalBC(this%VarT, lvsin, -dzin, this%flag(6), this%const(6),  	&
            					       Array2D1, Array2D2)

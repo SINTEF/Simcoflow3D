@@ -111,7 +111,7 @@ Module Solver
         Integer(kind=it8b),intent(in)       			   :: itt
         Integer(kind=it4b)   		    			   :: i,j,k
         Real(kind=dp)  			    			   :: dt,mres
-        Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
+        Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         dt = Time%dt
         TVar_n%p(:,:,:) = TVar%p(:,:,:)
         TVar_n%u(:,:,:) = TVar%u(:,:,:)
@@ -126,6 +126,8 @@ Module Solver
         call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
               BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
               dt,itt)
+     !   print*,'Set v velocity to 0'      
+     !   TVar%v(:,:,:)=0.d0
      !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
      !                                                          TVar,dt,itt)
         call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
@@ -152,13 +154,14 @@ Module Solver
         end do
     end Subroutine AdamBasforthBDF2
 
-    Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,Time)
+    Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         implicit none
-        type(Grid),intent(in):: UGrid,VGrid,WGrid
-        type(Variables),intent(in):: TVar
-        type(SolverTime),intent(out):: Time
-        integer(kind=it4b):: i,j,k
-        real(kind=dp):: tol
+        type(Grid),intent(in)	      :: UGrid,VGrid,WGrid
+        type(Variables),intent(in)    :: TVar
+        type(SolverTime),intent(out)  :: Time
+        integer(kind=it4b)	      :: i,j,k
+        integer(kind=it8b),intent(in) :: itt
+        real(kind=dp)		      :: tol
 
         tol = 1.d-20
         Time%dt = 1.d0
@@ -178,10 +181,19 @@ Module Solver
                       4.d0*VGrid%dy(i,j,k)*dabs(gy/g)/Fr)))
               Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dz(i,j,k)/	       &
                      (dabs(TVar%w(i,j,k))+dsqrt(TVar%w(i,j,k)**2.d0+	       &
-                      4.d0*VGrid%dz(i,j,k)*dabs(gz/g)/Fr)))
+                      4.d0*VGrid%dz(i,j,k)*dabs(gz/g)/Fr)))           
             end do
           end do
         end do
+        if(itt==1) then
+          do i=1,Imax
+            do j=1,Jmax
+              do k=1,Kmax
+                Time%dt=dmin1(Time%dt,Time%cfl*UGrid%dx(i,j,k))
+              end do
+            end do
+          end do
+        end if        
     end Subroutine ComputeTimeStep
 
     Subroutine ResidualNormCalculate(TCell,Varn1,Varn,Tres,Conv)

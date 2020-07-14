@@ -82,7 +82,8 @@ Module PredictorUV
       p => TVar%p
 
     ! Step 1: Calculate the convective coefficient
-
+      print*, 'Boundary value here predictUVW 85'
+      print*, BCv%VarS(1,13)
       Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,   &
                                         WCell,CFEW,1,0,0)
       Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,   &
@@ -285,7 +286,7 @@ Module PredictorUV
       PW%Dp(:,:,1-kght) = PW%Dp(:,:,1)
       PW%Dp(:,:,Kmax) = PW%Dp(:,:,Kmax-1)
       PW%Dp(:,:,Kmax+kght) = PW%Dp(:,:,Kmax)
-  !    Call PredictorVelocityBoundaryCondition(Pred,TVar)
+      Call PredictorVelocityBoundaryCondition(Pred,BCu,BCv,BCw)
       Call PredictorVelocityInternalCellCondition(Pred,UCell,VCell,WCell)
       Deallocate(CFEW,CFNS,CFTB)
       Deallocate(DFEW,DFNS,DFTB)
@@ -306,8 +307,8 @@ Module PredictorUV
         Call HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD,solver,ierr)
 !       Set some parameters
         Call HYPRE_ParCSRPCGSetMaxIter(solver,50,ierr)
-        Call HYPRE_ParCSRPCGSetTol(solver,1.0d-20,ierr)
-        Call HYPRE_ParCSRPCGSetTwoNorm(solver,1,ierr)
+        Call HYPRE_ParCSRPCGSetTol(solver,1.0d-30,ierr)
+        Call HYPRE_ParCSRPCGSetTwoNorm(solver,0,ierr)
 !        Call HYPRE_ParCSRPCGSetPrintLevel(solver,2,ierr)
         Call HYPRE_ParCSRPCGSetLogging(solver,1,ierr)
 !       Now set up the AMG preconditioner and specify any parameters
@@ -325,7 +326,7 @@ Module PredictorUV
 !        conv. tolerance
           Call HYPRE_BoomerAMGSetTol(precond,0.0d0,ierr)
 !        do only one iteration!
-          Call HYPRE_BoomerAMGSetMaxIter(precond,1,ierr)
+          Call HYPRE_BoomerAMGSetMaxIter(precond,10,ierr)
 !        set amg as the pcg preconditioner
 !         precond_id = 2
           Call HYPRE_ParCSRPCGSetPrecond(solver,2,precond,ierr)
@@ -503,7 +504,7 @@ Module PredictorUV
                 values = 0.d0
                 cols = 0
 
-                if(isnan(PUVW%Dp(i,j,k)).or.isnan(ap)) then
+                if(isnan(PUVW%Dp(i,j,k)).or.isnan(ap).or.dabs(ap)>1.d10.or.dabs(PUVW%Dp(i,j,k))>1.d10) then
                   print*, aP
                   print*, aE
                   print*, aW
@@ -513,7 +514,13 @@ Module PredictorUV
                   print*, aB
                   pause 'Test problem with nan in velocity coefficient'
                 end if
-
+                if(dabs(aw)>1.d10.or.dabs(ae)>1.d10.or.dabs(as)>1.d10.or.	&
+                   dabs(an)>1.d10.or.dabs(ab)>1.d10.or.dabs(at)>1.d10)then
+                  print*, 'Test problem with coefficient'
+                  print*, aw,ae
+                  print*, as,an
+                  print*, ab,at
+                end if   
                 if(dabs(aw)+dabs(ae)+dabs(as)+dabs(an)+dabs(ab)+dabs(at)>dabs(ap)) then
                   print*,ap,aw,ae,as,an,ab,sp
                   print*,fep,fem,TCell%EEArea(i,j,k),TCell%EtaE(i,j,k)
@@ -581,6 +588,13 @@ Module PredictorUV
                     nnz = nnz+1
                   end if
                 end if
+                do ii=0,nnz-1
+                  if(isnan(values(ii)).or.dabs(values(ii))>1.d5)then
+                    print*, 'something wroing with computing coefficient'
+                    print*, values(nnz),cols(ii)
+                    print*, ii
+                  end if  
+                end do
                 call HYPRE_IJMatrixSetValues(A,1,nnz,ictr,cols,values,ierr)
               end if
             end do
@@ -655,15 +669,7 @@ Module PredictorUV
                   PUVW%Dp(i,j,k) = TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
                                    TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*PUVW%Dp(i,j,k)
                 End if
-                if(isnan(PUVW%Dp(i,j,k)).or.isnan(rhs(ictr))) then
-                  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
-                         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*  &
-                         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+   &
-                         dble(iw)*TGrid%dz(i,j,k))
-                  print*,i,j,k
-                  print*,iu,iv,iw
-                  pause 'Set Vector 557'
-                end if
+                
                 rhs(ictr) = rhs(ictr)-IJKFlux(i,j,k)
                 if(i==1)rhs(ictr)=rhs(ictr)+CWE(j,k,1)*BC%VarW(j,k)
                 if(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*BC%VarE(j,k)
@@ -672,6 +678,22 @@ Module PredictorUV
                 if(k==1)rhs(ictr)=rhs(ictr)+CBT(i,j,1)*BC%VarB(i,j)
                 if(k==Kmax-iw)rhs(ictr)=rhs(ictr)+CBT(i,j,2)*BC%VarT(i,j)
                 xval(ictr) = 0.d0
+                if(isnan(PUVW%Dp(i,j,k)).or.isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
+                  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
+                         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*  &
+                         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+   &
+                         dble(iw)*TGrid%dz(i,j,k))
+                  print*,i,j,k
+                  print*,iu,iv,iw
+                  print*, CWE(j,k,1),BC%VarW(j,k)
+                  print*, CWE(j,k,2),BC%VarE(j,k)
+                  print*, CSN(i,k,1),BC%VarS(i,k)
+                  print*, CSN(i,k,2),BC%VarN(i,k)
+                  print*, CBT(i,j,1),BC%VarB(i,j)
+                  print*, CBT(i,j,2),BC%VarT(i,j)
+                  PRINT*,IJKFlux(i,j,k)
+                  pause 'Set Vector 557'
+                end if
                 rows(ictr) = ilower+ictr
               end if
             end do
@@ -2425,47 +2447,98 @@ Module PredictorUV
       Type(Predictor),intent(inout):: Pred
       Type(BCBase),intent(in):: BCu,BCv,BCw
       Integer(kind=it4b):: i,j,k
+      ! The boundary condition for u velocity
+      ! At the Western boundary
       if(BCu%flag(1)==1) then
         do j = 1,Jmax
           do k = 1,Kmax
             Pred%u(1-ight,j,k)=Pred%u(1,j,k)
           end do
         end do
+      else
+        do j = 1,Jmax
+          do k = 1,Kmax
+            Pred%u(1-ight,j,k)=BCu%VarW(j,k)
+          end do
+        end do
       end if
+      ! At the Eastern boundary
       if(BCu%flag(2)==1) then
         do j = 1,Jmax
           do k = 1,Kmax
             Pred%u(Imax,j,k)=Pred%u(Imax-1,j,k)
+            Pred%u(Imax+1,j,k)=2.d0*BCu%VarE(j,k)-Pred%u(Imax-1,j,k)
           end do
         end do
+      else
+        do j = 1,Jmax
+          do k = 1,Kmax
+            Pred%u(Imax,j,k)=BCu%VarE(j,k)
+            Pred%u(Imax+1,j,k)=2.d0*BCu%VarE(j,k)-Pred%u(Imax-1,j,k)
+          end do
+        end do  
       end if
-      if(BCv%flag(3)==1) then
+      ! The boundary condition for v velocity
+      ! At the Souhthern boundary
+      if(BCv%flag(3)==1) then ! Neumann boundary condition
         do i = 1,Imax
           do k = 1,Kmax
             Pred%v(i,1-jght,k)=Pred%v(i,1,k)
           end do
         end do
+      else ! Dirichlet boundary condition
+        do i = 1,Imax
+          do k = 1,Kmax
+            Pred%v(i,1-jght,k)=BCv%VarW(i,k)
+          end do
+        end do 
       end if
+      ! At the Western boundary
       if(BCv%flag(4)==1) then
         do i=1,Imax
           do k=1,Kmax
             Pred%v(i,Jmax,k)=Pred%v(i,Jmax-1,k)
+            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarE(i,j)-Pred%v(i,Jmax-1,k)
+          end do
+        end do
+      else
+        do i=1,Imax
+          do k=1,Kmax
+            Pred%v(i,Jmax,k)=BCv%VarE(i,k)
+            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarE(i,j)-Pred%v(i,Jmax-1,k)
           end do
         end do
       end if
-      if(BCw%flag(5)==1) then
+      ! The boundary condition for w velocity
+      ! At the bottom boundary
+      if(BCw%flag(5)==1) then ! Neumann boundary condition
         do i=1,Imax
           do j=1,Jmax
             Pred%w(i,j,1-kght)=Pred%w(i,j,1)
           end do
         end do
+      else
+        do i=1,Imax
+          do j=1,Jmax
+            Pred%w(i,j,1-kght)=BCw%VarB(i,j)
+          end do
+        end do  
       end if
+      ! At the top boundary 
       if(BCw%flag(6)==1) then
         do i=1,Imax
           do j=1,Jmax
             Pred%w(i,j,Kmax)=Pred%w(i,j,Kmax-1)
+            Pred%w(i,j,Kmax+1)=2.d0*BCw%VarT(i,j)-Pred%w(i,j,Kmax-1)
           end do
         end do
+      else
+        do i=1,Imax
+          do j=1,Jmax
+            Pred%w(i,j,Kmax)=BCw%VarT(i,j)
+            Pred%w(i,j,Kmax+1)=2.d0*BCw%VarT(i,j)-Pred%w(i,j,Kmax-1)
+          end do
+        end do  
       end if
     end subroutine PredictorVelocityBoundaryCondition
 

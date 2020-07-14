@@ -200,7 +200,7 @@ Module ProjectionP
 !       Set some parameters
         Call HYPRE_ParCSRPCGSetMaxIter(solver,50,ierr)
         Call HYPRE_ParCSRPCGSetTol(solver,1.d-30,ierr)
-        Call HYPRE_ParCSRPCGSetTwoNorm(solver,1,ierr)
+        Call HYPRE_ParCSRPCGSetTwoNorm(solver,0,ierr)
 !        Call HYPRE_ParCSRPCGSetPrintLevel(solver,2,ierr)
         Call HYPRE_ParCSRPCGSetLogging(solver,1,ierr)
 !       Now set up the AMG preconditioner and specify any parameters
@@ -218,7 +218,7 @@ Module ProjectionP
 !        conv. tolerance
           Call HYPRE_BoomerAMGSetTol(precond,0.0d0,ierr)
 !        do only one iteration!
-          Call HYPRE_BoomerAMGSetMaxIter(precond,1,ierr)
+          Call HYPRE_BoomerAMGSetMaxIter(precond,10,ierr)
 !        set amg as the pcg preconditioner
 !         precond_id = 2
           Call HYPRE_ParCSRPCGSetPrecond(solver,2,precond,ierr)
@@ -475,6 +475,12 @@ Module ProjectionP
                 
                 if(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
                   print*,i,j
+                  print*,u(i,j,k)
+                  print*,u(i-1,j,k)
+                  print*,v(i,j,k)
+                  print*,v(i,j-1,k)
+                  print*,w(i,j,k)
+                  print*,w(i,j,k-1)
                   pause 'fuck you 350'
                 end if
               end if
