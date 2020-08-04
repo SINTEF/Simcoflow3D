@@ -437,7 +437,7 @@ Module ComputePUV
                      Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),  &
                      PCell%phi(:,Jmax,:), Time)
       call ComputeGhostVarBoundary(Vari%p(:,Jmax,:),BCp%VarN,BCp%flag(4),      &
-                                                    Vari%p(:,Jmax+jght,:)))
+                                                    Vari%p(:,Jmax+jght,:))
       ! For the bottom boundary
       call BCp%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1),     		       &
                       PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
@@ -454,7 +454,7 @@ Module ComputePUV
                    Vari%w(:,:,Kmax-1), PCell%vof(:,:,Kmax), PCell%phi(:,:,Kmax), Time)
       Vari%p(:,:,Kmax)=BCp%VarT(:,:)
       call ComputeGhostVarBoundary(Vari%p(:,:,Kmax),BCp%VarT,BCp%flag(6),      &
-                                                    Vari%p(:,:,Kmax+kght)))                                                
+                                                    Vari%p(:,:,Kmax+kght))                                                
     end subroutine BoundaryConditionVarNew
 
     subroutine ComputeGhostVarBoundary(Varin,BCin,flag,Varout)

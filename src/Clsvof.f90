@@ -17,7 +17,7 @@ Module Clsvof
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc
 
-    interface InitialClsvofFluidFiel
+    interface InitialClsvofFluidField
       module procedure InitialClsvofFluidField
     end interface
 

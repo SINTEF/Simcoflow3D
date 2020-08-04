@@ -4,8 +4,9 @@ find_package(MPI REQUIRED)
 # Hypre,
 # This should be ectracted out to a FindHYPRE.cmake
 # The paths here are platform dependent. Please edit
-set(Fortran_COMPILER_FLAGS -w)
-set(CMAKE_REQUIRED_FLAGS ${Fortran_COMPILER_FLAGS})
+set(Fortran_COMPILER_FLAGS "-w")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -w")
+set(CMAKE_BUILD_TYPE=Debug)
 set(HYPRE_INCLUDE_DIR /usr/include/hypre)
 set(${PROJECT_NAME}_INCLUDE_DIR)
 set(HYPRE_LIBRARIES /usr/lib/libHYPRE.so /usr/lib/libHYPRE_FEI.so /usr/lib/libHYPRE_struct_mv.so /usr/lib/libHYPRE_IJ_mv.so /usr/lib/libHYPRE_parcsr_ls.so)

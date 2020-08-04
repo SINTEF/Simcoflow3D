@@ -19,6 +19,7 @@ list(APPEND ADVECTIONLIST
     AdvectionTest/AdvectionTest.f90)
 add_executable(AdvectionTest ${ADVECTIONLIST})
 target_link_libraries(AdvectionTest ${LINK_LIBS})
+my_add_test(testadvection)
 list(APPEND DAMBREAKLIST
     ${SRC_LIST}
     Dambreak/InitialVof.f90
