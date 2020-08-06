@@ -41,6 +41,8 @@ Program Main
     Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/Dambreak/input.dat',action='read')
     Read(5,*),
     Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
+    Read(5,*),
+    Read(5,*), TimeOrder, SpaceOrder
     close(5)
    
     

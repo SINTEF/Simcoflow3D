@@ -58,6 +58,9 @@ Module Solver
         Time%iter = 10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.5d0
+        ! Print out the information about numerical method
+        print*, 'The accuracy order of time discretization    :',TimeOrder
+        print*, 'The accuracy order of spatial discretization :',SpaceOrder
 
         do itt = 1,Time%iter
           call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
@@ -113,12 +116,13 @@ Module Solver
         Real(kind=dp)  			    			   :: dt,mres
         Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         dt = Time%dt
-        TVar_n%p(:,:,:) = TVar%p(:,:,:)
-        TVar_n%u(:,:,:) = TVar%u(:,:,:)
-        TVar_n%v(:,:,:) = TVar%v(:,:,:)
-        TVar_n%w(:,:,:) = TVar%w(:,:,:)
+        if(itt==1) then
+          TVar_n%p(:,:,:) = TVar%p(:,:,:)
+          TVar_n%u(:,:,:) = TVar%u(:,:,:)
+          TVar_n%v(:,:,:) = TVar%v(:,:,:)
+          TVar_n%w(:,:,:) = TVar%w(:,:,:)
+        end if
         dt = Time%dt!/3.d0
-     !  First Runge-Kutta substep
         if(itt>1) then
           call Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
           call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
@@ -126,12 +130,7 @@ Module Solver
         call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
               BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
               dt,itt)
-     !   print*,'Set v velocity to 0'      
-     !   TVar%v(:,:,:)=0.d0
-     !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
-     !                                                          TVar,dt,itt)
         call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
-        ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
         call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
         call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)

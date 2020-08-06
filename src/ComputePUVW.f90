@@ -34,9 +34,9 @@ Module ComputePUV
       Real(dp),intent(in)           :: dt
       Integer(kind=it8b),intent(in) :: itt
       Type(PoissonCoefficient)      :: PU,PV,PW
-      Type(Predictor)		      :: Pred
+      Type(Predictor)		            :: Pred
       Type(Projection)              :: Proj
-      Integer(kind=it4b) 	      :: i,j,k,ii,jj,kk
+      Integer(kind=it4b) 	          :: i,j,k,ii,jj,kk
       Real(kind=dp)                 :: dps,ute,GradPUVW,maxPoCoef
       real(kind=dp),dimension(:,:,:,:),allocatable :: PoCoef
 
@@ -48,7 +48,7 @@ Module ComputePUV
       allocate(PV%Dp(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
       allocate(PW%Dp(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
       allocate(PoCoef(Imax,JMax,KMax,6)) ! The order of the face : W-1,S-2,B-3,E-4,N-5,T-6
-
+      ! Set the predictor velocity
       Pred%u(:,:,:) = TVar%u(:,:,:)
       Pred%v(:,:,:) = TVar%v(:,:,:)
       Pred%w(:,:,:) = TVar%w(:,:,:)
@@ -57,7 +57,13 @@ Module ComputePUV
              WCell,FluxDivOld,TVar_n,TVar,BCu,BCv,BCw,PU,PV,PW,Pred,dt,itt)
       call PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
                         WCell,TVar,Pred,PU,PV,PW,BCp,PoCoef,Proj,dt)
-
+      ! Set the velocity at time step n-1
+      if(itt>=2) then
+        TVar_n%u(:,:,:)=TVar%u(:,:,:)
+        TVar_n%v(:,:,:)=TVar%v(:,:,:)
+        TVar_n%w(:,:,:)=TVar%w(:,:,:)
+        TVar_n%p(:,:,:)=Tvar%p(:,:,:)
+      end if  
       maxPoCoef=0.d0
       do i = 1,Imax
         do j = 1,Jmax
@@ -106,13 +112,13 @@ Module ComputePUV
         do j = 1,Jmax
           do k = 1,Kmax
             TVar%u(i-1,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                  &
-                            (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
-                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                            (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		             &
+                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	           &
                              PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                  &
-                            (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
-                             PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                            (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		             &
+                             PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	           &
                              PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
-                  	     PCell%EEArea(i,j,k)*TVar%u(i,j,k))/               &
+                  	     PCell%EEArea(i,j,k)*TVar%u(i,j,k))/                   &
                              PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%u(i-1,j,k))) then
               print*,PCell%EEArea(i,j,k)
@@ -125,13 +131,13 @@ Module ComputePUV
         do j = 1,Jmax
           do k = 1,Kmax
             TVar%u(i,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                    &
-                         (-PCell%NEArea(i,j,k)*TVar%v(i,j,k)+		       &
-                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
+                         (-PCell%NEArea(i,j,k)*TVar%v(i,j,k)+		               &
+                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	             &
                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
-                         (-PCell%TEArea(i,j,k)*TVar%w(i,j,k)+		       &
-                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
+                         (-PCell%TEArea(i,j,k)*TVar%w(i,j,k)+		               &
+                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	             &
                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                  	   PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/               &
+                  	   PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/                   &
                            PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%u(i,j,k))) then
               print*,PCell%EEArea(i,j,k)
