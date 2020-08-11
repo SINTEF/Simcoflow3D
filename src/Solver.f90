@@ -101,19 +101,19 @@ Module Solver
     end subroutine IterationSolution
 
     Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,			       &
+                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,            &
                      TVar,TVar_n,FluxDivOld,UConv,VConv,WConv,PConv,Time,itt)
         Implicit none
-        Type(Grid),intent(in)               			   :: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout)            			   :: PCell,UCell,VCell,WCell
-        type(BCBase),intent(inout)	    			   :: BCu,BCv,BCw,BCp,BCVof,BCLvs
-        Type(Variables),intent(inout)       			   :: TVar,TVar_n
+        Type(Grid),intent(in)                        :: PGrid,UGrid,VGrid,WGrid
+        Type(Cell),intent(inout)                     :: PCell,UCell,VCell,WCell
+        type(BCBase),intent(inout)               :: BCu,BCv,BCw,BCp,BCVof,BCLvs
+        Type(Variables),intent(inout)                :: TVar,TVar_n
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
-        Type(SolverTime),intent(inout)      			   :: Time
-        Type(SolverConvergence),intent(out) 			   :: UConv,VConv,WConv,PConv
-        Integer(kind=it8b),intent(in)       			   :: itt
-        Integer(kind=it4b)   		    			   :: i,j,k
-        Real(kind=dp)  			    			   :: dt,mres
+        Type(SolverTime),intent(inout)               :: Time
+        Type(SolverConvergence),intent(out)          :: UConv,VConv,WConv,PConv
+        Integer(kind=it8b),intent(in)                :: itt
+        Integer(kind=it4b)                   :: i,j,k
+        Real(kind=dp)                    :: dt,mres
         Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         dt = Time%dt
         if(itt==1) then
@@ -121,16 +121,22 @@ Module Solver
           TVar_n%u(:,:,:) = TVar%u(:,:,:)
           TVar_n%v(:,:,:) = TVar%v(:,:,:)
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
-        end if
+        end if  
         dt = Time%dt!/3.d0
+     !  First Runge-Kutta substep
         if(itt>1) then
           call Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
           call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
         end if
-        call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,	       &
+        call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,        &
               BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
               dt,itt)
+     !   print*,'Set v velocity to 0'      
+     !   TVar%v(:,:,:)=0.d0
+     !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
+     !                                                          TVar,dt,itt)
         call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
+        ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
         call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
         call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
@@ -152,6 +158,7 @@ Module Solver
           end do
         end do
     end Subroutine AdamBasforthBDF2
+
 
     Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         implicit none

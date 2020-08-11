@@ -1,4 +1,23 @@
 Module PredictorUV
+ !! Description:
+ !! The module compute the predictor step for velocities
+ !! Method:
+ !! Adam-Bashforth for convective flux and Crank-Nicolson or fully implicit 
+ !! for diffusive flux (it is decided by BetaVis). 
+ !! The first order upwind will be applied for convective flux in the first time step.
+ !! Then, high order 3rd MUSCL will be applied. For the cells near solid boundary, 
+ !! first order upwind will be applied. The density-based convective will be applied 
+ !! for cells containing only liquid and gas.
+ !! The source term will be handled implicitly  
+ ! Current Code Owner: SIMCOFlow
+ ! Code Description:
+ ! Language: Fortran 90.
+ ! Software Standards: "European Standards for Writing and
+ ! Documenting Exchangeable Fortran 90 Code".
+ !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+ ! Author : Son Tung Dang
+ !        : NTNU,SINTEF
+ ! Date : 20.09.2019
     USE PrecisionVar
     USE Mesh
     USE Cutcell
@@ -10,16 +29,12 @@ Module PredictorUV
     use BoundaryFunction
     Implicit none
     Private
-    Real(kind=dp),dimension(:,:,:),pointer:: u
-    Real(kind=dp),dimension(:,:,:),pointer:: v
-    Real(kind=dp),dimension(:,:,:),pointer:: w
-    Real(dp),dimension(:,:,:),pointer:: p
-    Real(dp),parameter:: alpha=0.d0,beta = 1.d0
-    Type,public:: Predictor
-        Real(kind=dp),dimension(:,:,:),allocatable:: u,v,w
+    Real(dp),parameter :: alpha=0.d0,beta=1.d0,betaVis=0.5d0
+    Type, public :: Predictor
+        Real(kind=dp), dimension(:,:,:), allocatable :: u,v,w
     End Type
-    Type,public:: PoissonCoefficient
-        Real(kind=dp),dimension(:,:,:),allocatable:: Dp
+    Type, public :: PoissonCoefficient
+        Real(kind=dp), dimension(:,:,:), allocatable :: Dp
     End Type
     Public:: PredictorUVW
     Interface PredictorUVW
@@ -30,33 +45,64 @@ Module PredictorUV
 
     subroutine PredictorUVW(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,  &
                     FluxDivOld,TVar_n,TVar,BCu,BCv,BCw,PU,PV,PW,Pred,dt,itt)
+      !! The subroutine is the predictor step for velocities
       implicit none
-      integer(kind=it8b),intent(in)        :: itt
-      real(kind=dp),intent(in)         :: dt
-      type(Grid),intent(in)        :: PGrid,UGrid,VGrid,WGrid
-      type(Cell),intent(inout)         :: PCell,UCell,VCell,WCell
+      integer(kind=it8b),intent(in) 	     :: itt
+      !! The iterations number 
+      real(kind=dp),intent(in)		         :: dt
+      !! The time step
+      type(Grid),intent(in)		             :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      type(Cell),intent(inout)		         :: PCell,UCell,VCell,WCell
+      !! The cell at the current time step
       real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
+      !! The previous flux divergent flux
       type(Variables),intent(in),target      :: TVar
-      type(Variables),intent(in)             :: TVar_n
+      !! The variables at current time step
+      type(Variables),intent(in),target      :: TVar_n
+      !! The variables at old time step
       type(BCBase),intent(inout)             :: BCu,BCv,BCw
+      !! The velocities boundary function
       type(Predictor),intent(inout)          :: Pred
+      !! The predicted velocities
       type(PoissonCoefficient),intent(inout) :: PU,PV,PW
-      type(Variables)          :: TVart
-      integer(kind=it4b)         :: i,j,k,ii,jj,kk
+      !! The velocities coefficient for Poisson equation
+      integer(kind=it4b)		     :: i,j,k,ii,jj,kk
       integer*8 :: A,parcsr_A,b,par_b,x,par_x,solver,precond
-
-      ! Convective flux and Diffusive flux
-      real(kind=dp),dimension(:,:,:,:),allocatable :: CFEW,CFNS,CFTB,          &
-                                     DFEW,DFNS,DFTB,EDFEW,EDFNS,EDFTB,FluxDiv
-      real(kind=dp),dimension(:,:,:),allocatable   :: UFric,VFric,WFric,       &
-                                           UWE,USN,UBT,VWE,VSN,VBT,WWE,WSN,WBT
-      integer(kind=it4b)         :: num_iterations
-      real(kind=dp)          :: final_res_norm,MaxU
-      real(kind=dp)                :: Fe,Fw,Fn,Fs,Ft,Fb,Fluxn0
+      !! Parameters for linear solver
+      real(kind=dp),dimension(:,:,:,:),allocatable :: MFEW,MFNS,MFTB
+      !! Density fluxes for computing densities at velocities cell. 
+      !! They are used for density-based convective flux 
+      real(kind=dp),dimension(:,:,:,:),allocatable :: CFEW,CFNS,CFTB
+      !! Convective fluxes for computing velocities
+      real(kind=dp),dimension(:,:,:,:),allocatable :: DFEW,DFNS,DFTB
+      !! Diffusive coefficient for computing diffusive fluxes
+      real(kind=dp),dimension(:,:,:,:),allocatable :: EDFEW,EDFNS,EDFTB
+      !! Extra diffusive coefficient for correcting diffusive term
+      real(kind=dp),dimension(:,:,:,:),allocatable :: FluxDiv
+      !! Flux divergence 
+      real(kind=dp),dimension(:,:,:),allocatable   :: UFric,VFric,WFric
+      !! The friction coefficient for computing wall shear stress
+      real(kind=dp),dimension(:,:,:),allocatable   :: UWE,USN,UBT
+      !! The boundary values for solving u-velocity
+      real(kind=dp),dimension(:,:,:),allocatable   :: VWE,VSN,VBT
+      !! The boundary values for solving v-velocity
+      real(kind=dp),dimension(:,:,:),allocatable   :: WWE,WSN,WBT 
+      !! The boundary velues for solving w-velocity
+      real(kind=dp),dimension(:,:,:),allocatable   :: un12,vn12,wn12
+      !! The velocities at time step n+1/2
+      real(kind=dp),dimension(:,:,:),allocatable   :: pn12
+      integer(kind=it4b)		       :: num_iterations
+      real(kind=dp)			           :: final_res_norm,MaxU,RoCeO,RoCeN
+      real(kind=dp)		             :: Fe,Fw,Fn,Fs,Ft,Fb,Fluxn0
 
       allocate(CFEW(0:Imax+1,Jmax,Kmax,3))
       allocate(CFNS(Imax,0:Jmax+1,Kmax,3))
       allocate(CFTB(Imax,Jmax,0:Kmax+1,3))
+      allocate(MFEW(0:Imax+1,Jmax,Kmax,3))
+      allocate(MFNS(Imax,0:Jmax+1,Kmax,3))
+      allocate(MFTB(Imax,Jmax,0:Kmax+1,3))
+
       allocate(DFEW(0:Imax+1,Jmax,Kmax,3))
       allocate(DFNS(Imax,0:Jmax+1,Kmax,3))
       allocate(DFTB(Imax,Jmax,0:Kmax+1,3))
@@ -76,21 +122,59 @@ Module PredictorUV
       allocate(WWE(Jmax,Kmax,2))
       allocate(WSN(Imax,Kmax,2))
       allocate(WBT(Imax,Jmax,2))
-      u => TVar%u
-      v => TVar%v
-      w => TVar%w
-      p => TVar%p
-
+      allocate(un12(0:Imax+1,0:Jmax+1,0:Kmax+1))
+      allocate(vn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
+      allocate(wn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
+      allocate(pn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
+      if(TimeOrder==2.and.SpaceOrder==2) then
+        un12=1.5d0*TVar%u-0.5d0*TVar_n%u
+        vn12=1.5d0*TVar%v-0.5d0*TVar_n%v
+        wn12=1.5d0*TVar%w-0.5d0*TVar_n%w  
+        pn12=1.5d0*TVar%p-0.5d0*TVar_n%p  
+      else
+        un12=TVar%u
+        vn12=TVar%v
+        wn12=TVar%w
+        pn12=TVar%p  
+      endif    
     ! Step 1: Calculate the convective coefficient
-    !  print*, 'Boundary value here predictUVW 85'
-    !  print*, BCv%VarS(1,13)
-      Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,   &
-                                        WCell,CFEW,1,0,0)
-      Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,   &
-                                        WCell,CFNS,0,1,0)
-      Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,   &
-                                        WCell,CFTB,0,0,1)
-
+      if(itt==1) then
+        Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,   &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFEW,1,0,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,   &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFNS,0,1,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,   &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFTB,0,0,1)
+      else
+        if(SpaceOrder==1) then
+          Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell, &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFEW,1,0,0)
+          Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell, &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFNS,0,1,0)
+          Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell, &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFTB,0,0,1)
+        elseif(SpaceOrder==2) then
+          Call ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,           &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFEW,1,0,0)
+          Call ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,           &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFNS,0,1,0)
+          Call ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,           &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,CFTB,0,0,1)
+        else
+          call HighOrderConvectiveFluxForXDir(PGrid,UGrid,VGrid,WGrid,         &  
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,0.d0,CFEW)
+          call HighOrderConvectiveFluxForYDir(PGrid,UGrid,VGrid,WGrid,         &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,0.d0,CFNS)
+          call HighOrderConvectiveFluxForZDir(PGrid,UGrid,VGrid,WGrid,         &
+                        UCell,VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,0.d0,CFTB)
+        end if
+      endif
+      call FaceDensityFluxXDir(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,&
+                        un12,vn12,wn12,MFEW,dt,TVar%Roref)
+      call FaceDensityFluxYDir(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,&
+                        un12,vn12,wn12,MFNS,dt,TVar%Roref)
+      call FaceDensityFluxZDir(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,&
+                        un12,vn12,wn12,MFTB,dt,TVar%Roref)
     ! Step 2: Calculate the diffusive coefficient
 
       EDFEW = 0.d0
@@ -111,7 +195,35 @@ Module PredictorUV
         Do j = 1,Jmax
           Do k = 1,Kmax
           ! U Cell
-            if(UCell%Cell_Type(i,j,k)/=2) then
+            ! Compute the current density in u-velocity cell
+            RoCeO=(UCell%vof(i,j,k)-UCell%vofL(i,j,k))*roa/TVar%Roref+         &
+                   UCell%vofL(i,j,k)*row/TVar%Roref
+            ! Compute the next density in u-velocity cell
+            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,1)-MFEW(i,j,k,1)+                     &
+                            MFNS(i,j+1,k,1)-MFNS(i,j,k,1)+                     &
+                            MFTB(i,j,k+1,1)-MFTB(i,j,k,1))/                    &
+                           (UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k))
+            if(RoCeN>UCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeN<UCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               RoCeO>UCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeO<UCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               UCell%vof(i,j,k)>1.d0-epsi)then
+              Fe=0.5d0*(MFEW(i+1,j,k,1)+dabs(MFEW(i+1,j,k,1)))*un12(i,j,k)+    &
+                 0.5d0*(MFEW(i+1,j,k,1)-dabs(MFEW(i+1,j,k,1)))*un12(i+1,j,k)
+              Fw=0.5d0*(MFEW(i,j,k,1)+dabs(MFEW(i,j,k,1)))*un12(i-1,j,k)+      &
+                 0.5d0*(MFEW(i,j,k,1)-dabs(MFEW(i,j,k,1)))*un12(i,j,k)
+              Fn=0.5d0*(MFNS(i,j+1,k,1)+dabs(MFNS(i,j+1,k,1)))*un12(i,j,k)+    &
+                 0.5d0*(MFNS(i,j+1,k,1)-dabs(MFNS(i,j+1,k,1)))*un12(i,j+1,k)
+              Fs=0.5d0*(MFNS(i,j,k,1)+dabs(MFNS(i,j,k,1)))*un12(i,j-1,k)+      &
+                 0.5d0*(MFNS(i,j,k,1)-dabs(MFNS(i,j,k,1)))*un12(i,j,k)   
+              Ft=0.5d0*(MFTB(i,j,k+1,1)+dabs(MFTB(i,j,k+1,1)))*un12(i,j,k)+    &
+                 0.5d0*(MFTB(i,j,k+1,1)+dabs(MFTB(i,j,k+1,1)))*un12(i,j,k+1)
+              Fb=0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k-1)+      &
+                 0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k)   
+              ! Compute the correction-based convective flux    
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+un12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+                              UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
+            elseif(UCell%Cell_Type(i,j,k)/=2) then
               Fe = CFEW(i+1,j,k,1)
               Fw = CFEW(i,j,k,1)
               Fn = CFNS(i,j+1,k,1)
@@ -119,13 +231,17 @@ Module PredictorUV
               Ft = CFTB(i,j,k+1,1)
               Fb = CFTB(i,j,k,1)
               Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
-           !   if(itt==1) then
-                FluxDiv(i,j,k,1)=Fluxn0
-           !   else
-           !     FluxDiv(i,j,k,1)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,1)
-           !     FluxDivOld(i,j,k,1)=Fluxn0
-           !   end if
             end if
+            if(itt==1) then
+              FluxDiv(i,j,k,1)=Fluxn0
+            else
+              if(SpaceOrder==2.or.TimeOrder==1) then
+                FluxDiv(i,j,k,1)=Fluxn0
+              else  
+                FluxDiv(i,j,k,1)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,1)
+              end if
+            end if
+            FluxDivOld(i,j,k,1)=Fluxn0
             if(UCell%Cell_Type(i,j,k)/=2) then
               UFric(i,j,k)=(UCell%vofL(i,j,k)/UCell%vof(i,j,k)*nuw/nuref+      &
                      (1.d0-UCell%vofL(i,j,k)/UCell%vof(i,j,k))*nua/nuref)/Rey* &
@@ -145,7 +261,35 @@ Module PredictorUV
       do i = 1,Imax
         do j = 1,Jmax-1
           do k = 1,Kmax
-            if(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
+            ! Compute the current density in v-velocity cell
+            RoCeO=(VCell%vof(i,j,k)-VCell%vofL(i,j,k))*roa/TVar%Roref+         &
+                   VCell%vofL(i,j,k)*row/TVar%Roref
+            ! Compute the new density in v-velocity cell at the next time step
+            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,2)-MFEW(i,j,k,2)+                     &
+                            MFNS(i,j+1,k,2)-MFNS(i,j,k,2)+                     &
+                            MFTB(i,j,k+1,2)-MFTB(i,j,k,2))/                    &
+                           (VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k))
+            if(RoCeN>VCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeN<VCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               RoCeO>VCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeO<VCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               VCell%vof(i,j,k)>1.d0-epsi)then
+              Fe=0.5d0*(MFEW(i+1,j,k,2)+dabs(MFEW(i+1,j,k,2)))*vn12(i,j,k)+    &
+                 0.5d0*(MFEW(i+1,j,k,2)-dabs(MFEW(i+1,j,k,2)))*vn12(i+1,j,k)
+              Fw=0.5d0*(MFEW(i,j,k,2)+dabs(MFEW(i,j,k,2)))*vn12(i-1,j,k)+      &
+                 0.5d0*(MFEW(i,j,k,2)-dabs(MFEW(i,j,k,2)))*vn12(i,j,k)
+              Fn=0.5d0*(MFNS(i,j+1,k,2)+dabs(MFNS(i,j+1,k,2)))*vn12(i,j,k)+    &
+                 0.5d0*(MFNS(i,j+1,k,2)-dabs(MFNS(i,j+1,k,2)))*vn12(i,j+1,k)
+              Fs=0.5d0*(MFNS(i,j,k,2)+dabs(MFNS(i,j,k,2)))*vn12(i,j-1,k)+      &
+                 0.5d0*(MFNS(i,j,k,2)-dabs(MFNS(i,j,k,2)))*vn12(i,j,k)   
+              Ft=0.5d0*(MFTB(i,j,k+1,2)+dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k)+    &
+                 0.5d0*(MFTB(i,j,k+1,2)+dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k+1)
+              Fb=0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k-1)+      &
+                 0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k)   
+              ! Compute the density-based correction flux
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+vn12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+                              VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
+            elseif(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
               Fe = CFEW(i+1,j,k,2)
               Fw = CFEW(i,j,k,2)
               Fn = CFNS(i,j+1,k,2)
@@ -153,13 +297,17 @@ Module PredictorUV
               Ft = CFTB(i,j,k+1,2)
               Fb = CFTB(i,j,k,2)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
-           !   if(itt==1) then
-                FluxDiv(i,j,k,2)=Fluxn0
-           !   else
-           !     FluxDiv(i,j,k,2)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,2)
-           !     FluxDivOld(i,j,k,2)=Fluxn0
-           !   end if
             end if
+            if(itt==1) then
+              FluxDiv(i,j,k,2)=Fluxn0
+            else
+              if(SpaceOrder==2.or.TimeOrder==1) then
+                FluxDiv(i,j,k,2)=Fluxn0
+              else
+                FluxDiv(i,j,k,2)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,2)
+              end if
+            end if
+            FluxDivOld(i,j,k,2)=Fluxn0
             ! V Cell
             if(VCell%Cell_Type(i,j,k)/=2) then
               VFric(i,j,k)=(VCell%vofL(i,j,k)/VCell%vof(i,j,k)*nuw/nuref+       &
@@ -180,7 +328,35 @@ Module PredictorUV
       do i = 1,Imax
         do j = 1,Jmax
           do k = 1,Kmax-1
-            if(WCell%Cell_Type(i,j,k)/=2) then ! for WCell
+            ! Compute the current density in w-velocity cell
+            RoCeO=(WCell%vof(i,j,k)-WCell%vofL(i,j,k))*roa/TVar%Roref+         &
+                   WCell%vofL(i,j,k)*row/TVar%Roref
+            ! Compute the next density in w-velocity cell       
+            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,3)-MFEW(i,j,k,3)+                     &
+                            MFNS(i,j+1,k,3)-MFNS(i,j,k,3)+                     &
+                            MFTB(i,j,k+1,3)-MFTB(i,j,k,3))/                    &
+                           (WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k))
+            if(RoCeN>WCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeN<WCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               RoCeO>WCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
+               RoCeO<WCell%vof(i,j,k)*row/TVar%Roref.and.                      &
+               WCell%vof(i,j,k)>1.d0-epsi)then
+              Fe=0.5d0*(MFEW(i+1,j,k,3)+dabs(MFEW(i+1,j,k,3)))*wn12(i,j,k)+    &
+                 0.5d0*(MFEW(i+1,j,k,3)-dabs(MFEW(i+1,j,k,3)))*wn12(i+1,j,k)
+              Fw=0.5d0*(MFEW(i,j,k,3)+dabs(MFEW(i,j,k,3)))*wn12(i-1,j,k)+      &
+                 0.5d0*(MFEW(i,j,k,3)-dabs(MFEW(i,j,k,3)))*wn12(i,j,k)
+              Fn=0.5d0*(MFNS(i,j+1,k,3)+dabs(MFNS(i,j+1,k,3)))*wn12(i,j,k)+    &
+                 0.5d0*(MFNS(i,j+1,k,3)-dabs(MFNS(i,j+1,k,3)))*wn12(i,j+1,k)
+              Fs=0.5d0*(MFNS(i,j,k,3)+dabs(MFNS(i,j,k,3)))*wn12(i,j-1,k)+      &
+                 0.5d0*(MFNS(i,j,k,3)-dabs(MFNS(i,j,k,3)))*wn12(i,j,k)   
+              Ft=0.5d0*(MFTB(i,j,k+1,3)+dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k)+    &
+                 0.5d0*(MFTB(i,j,k+1,3)+dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k+1)
+              Fb=0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k-1)+      &
+                 0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k)   
+              ! Compute the density-based correction flux    
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+wn12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+                              WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
+            elseif(WCell%Cell_Type(i,j,k)/=2) then ! for WCell
               Fe=CFEW(i+1,j,k,3)
               Fw=CFEW(i,j,k,3)
               Fn=CFNS(i,j+1,k,3)
@@ -188,12 +364,17 @@ Module PredictorUV
               Ft=CFTB(i,j,k+1,3)
               Fb=CFTB(i,j,k,3)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
-            !  if(itt==1) then
-                FluxDiv(i,j,k,3)=Fluxn0
-            !  else
-            !    FluxDiv(i,j,k,3)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,3)
-             ! end if
             end if
+            if(itt==1) then
+              FluxDiv(i,j,k,3)=Fluxn0
+            else
+              if(SpaceOrder==2.or.TimeOrder==1) then
+                FluxDiv(i,j,k,3)=Fluxn0
+              else
+                FluxDiv(i,j,k,3)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,3)
+              endif
+            end if
+            FluxDivOld(i,j,k,3)=Fluxn0
           ! W Cell
             if(WCell%Cell_Type(i,j,k)/=2) then
               WFric(i,j,k)=(WCell%vofL(i,j,k)/WCell%vof(i,j,k)*nuw/nuref+      &
@@ -213,10 +394,10 @@ Module PredictorUV
     ! Solving for UCell
       call SetBasicSolver(solver,precond)
     ! call SetBasicSolver(solver=solver,ierr=ierr)
-      call SetMatrix(A,parcsr_A,UGrid,UCell,BCu,DFEW,DFNS,DFTB,            &
+      call SetMatrix(A,parcsr_A,UGrid,UCell,BCu,DFEW,DFNS,DFTB, 		           &
                        EDFEW,EDFNS,EDFTB,UFric,PU,UWE,USN,UBT,dt,1,0,0)
-      call SetVectors(b,x,par_b,par_x,UGrid,UCell,BCu,PU,UWE,USN,UBT,           &
-                                            FluxDiv(:,:,:,1),TVar_n,dt,1,0,0)
+      call SetVectors(b,x,par_b,par_x,UGrid,UCell,BCu,PU,UWE,USN,UBT,          &
+                                            FluxDiv(:,:,:,1),TVar,dt,1,0,0)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
     ! Run info - needed logging turned on
@@ -230,10 +411,10 @@ Module PredictorUV
       call HYPRE_ParCSRPCGDestroy(solver,ierr)
     ! For VCell
       call SetBasicSolver(solver,precond)
-      call SetMatrix(A,parcsr_A,VGrid,VCell,BCv,DFEW,DFNS,DFTB,          &
+      call SetMatrix(A,parcsr_A,VGrid,VCell,BCv,DFEW,DFNS,DFTB,		             &
                        EDFEW,EDFNS,EDFTB,VFric,PV,VWE,VSN,VBT,dt,0,1,0)
-      call SetVectors(b,x,par_b,par_x,VGrid,VCell,BCv,PV,VWE,VSN,VBT,           &
-                                      FluxDiv(:,:,:,2),TVar_n,dt,0,1,0)
+      call SetVectors(b,x,par_b,par_x,VGrid,VCell,BCv,PV,VWE,VSN,VBT,          &
+                                      FluxDiv(:,:,:,2),TVar,dt,0,1,0)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
     ! Run info - needed logging turned on
@@ -247,10 +428,10 @@ Module PredictorUV
       call HYPRE_ParCSRPCGDestroy(solver,ierr)
     ! For WCell
       call SetBasicSolver(solver,precond)
-      call SetMatrix(A,parcsr_A,WGrid,WCell,BCw,DFEW,DFNS,DFTB,          &
+      call SetMatrix(A,parcsr_A,WGrid,WCell,BCw,DFEW,DFNS,DFTB,                &
                        EDFEW,EDFNS,EDFTB,WFric,PW,WWE,WSN,WBT,dt,0,0,1)
-      call SetVectors(b,x,par_b,par_x,WGrid,WCell,BCw,PW,WWE,WSN,WBT,           &
-                                      FluxDiv(:,:,:,3),TVar_n,dt,0,0,1)
+      call SetVectors(b,x,par_b,par_x,WGrid,WCell,BCw,PW,WWE,WSN,WBT,          &
+                                      FluxDiv(:,:,:,3),TVar,dt,0,0,1)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr) 
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
     ! Run info - needed logging turned on
@@ -288,7 +469,7 @@ Module PredictorUV
       PW%Dp(:,:,Kmax+kght) = PW%Dp(:,:,Kmax)
       Call PredictorVelocityBoundaryCondition(Pred,BCu,BCv,BCw)
       Call PredictorVelocityInternalCellCondition(Pred,UCell,VCell,WCell)
-      Deallocate(CFEW,CFNS,CFTB)
+      Deallocate(CFEW,CFNS,CFTB,MFEW,MFNS,MFTB)
       Deallocate(DFEW,DFNS,DFTB)
       Deallocate(EDFEW,EDFNS,EDFTB)
       Deallocate(UFric,VFric,WFric)
@@ -296,7 +477,7 @@ Module PredictorUV
       Deallocate(VWE,VSN,VBT)
       Deallocate(WWE,WSN,WBT)
       Deallocate(FluxDiv)
-      Nullify(u,v,w,p)
+      deallocate(pn12,un12,vn12,wn12)
     End subroutine PredictorUVW
 ! calculate normal flux for both normal cell and cut cell
     Subroutine SetBasicSolver(solver,precond)
@@ -335,16 +516,25 @@ Module PredictorUV
 
     Subroutine SetMatrix(A,parcsr_A,TGrid,TCell,BC,DFEW,DFNS,DFTB,EDFEW,EDFNS,    &
                                     EDFTB,Fric,PUVW,CWE,CSN,CBT,dt,iu,iv,iw)
+        !! The subroutine is used to set up the matrix for linear solver
         Implicit none
-        Integer*8,intent(inout)  :: A,parcsr_A
-        Type(Grid),intent(in)  :: TGrid
-        Type(Cell),intent(in)  :: TCell
+        Integer*8,intent(inout)	 :: A,parcsr_A
+        !! The matrix ID
+        Type(Grid),intent(in)	   :: TGrid
+        !! The grid
+        Type(Cell),intent(in)	   :: TCell
+        !! The cell
         type(BCBase),intent(in)  :: BC
+        !! The boundary condition
         Real(kind=dp),intent(in) :: dt
+        !! The time step
         Real(kind=dp),dimension(:,:,:,:),allocatable,intent(in):: DFEW,DFNS,   &
                                                      DFTB,EDFEW,EDFNS,EDFTB
+        !! The diffusive coefficient 
         Real(kind=dp),dimension(:,:,:),allocatable,intent(in):: Fric
+        !! The friction coefficient
         Type(PoissonCoefficient),intent(inout):: PUVW
+        !! The poission coefficient
         Real(kind=dp),dimension(:,:,:),allocatable,intent(inout):: CWE,CSN,CBT
         Integer,intent(in):: iu,iv,iw
         Integer(kind=it4b):: nnz,ictr,ilower,iupper,cols(0:6)
@@ -514,7 +704,7 @@ Module PredictorUV
                   print*, aB
                   pause 'Test problem with nan in velocity coefficient'
                 end if
-                if(dabs(aw)>1.d10.or.dabs(ae)>1.d10.or.dabs(as)>1.d10.or. &
+                if(dabs(aw)>1.d10.or.dabs(ae)>1.d10.or.dabs(as)>1.d10.or.	&
                    dabs(an)>1.d10.or.dabs(ab)>1.d10.or.dabs(at)>1.d10)then
                   print*, 'Test problem with coefficient'
                   print*, aw,ae
@@ -608,14 +798,14 @@ Module PredictorUV
     end subroutine SetMatrix
 
     Subroutine SetVectors(b,x,par_b,par_x,TGrid,TCell,BC,PUVW,CWE,CSN,CBT,IJKFlux,&
-                                                            TVar_n,dt,iu,iv,iw)
+                                                            TVar,dt,iu,iv,iw)
         Integer*8:: b,x,par_b,par_x
-        Integer,intent(in)               :: iu,iv,iw
-        Type(Grid),intent(in)            :: TGrid
-        Type(Cell),intent(in)            :: TCell
-        type(BCBase),intent(in)          :: BC
+        Integer,intent(in)      	       :: iu,iv,iw
+        Type(Grid),intent(in)   	       :: TGrid
+        Type(Cell),intent(in)   	       :: TCell
+        type(BCBase),intent(in) 	       :: BC
         Type(PoissonCoefficient),intent(inout) :: PUVW
-        Type(Variables),intent(in)         :: TVar_n
+        Type(Variables),intent(in)	       :: TVar
         Real(dp),dimension(:,:,:),allocatable,intent(in) :: CWE,CSN,CBT
         Real(dp),dimension(:,:,:),intent(in) :: IJKFlux
         Real(dp),intent(in):: dt
@@ -645,10 +835,10 @@ Module PredictorUV
             Do k = 1,Kmax-iw
               If(TCell%Cell_Type(i,j,k)/=2) then
                 ictr = TCell%PosNu(i,j,k)
-                rhs(ictr)=(iu*TVar_n%u(i,j,k)+iv*TVar_n%v(i,j,k)+              &
-                           iw*TVar_n%w(i,j,k))*TCell%vof(i,j,k)*               &
+                rhs(ictr)=(iu*TVar%u(i,j,k)+iv*TVar%v(i,j,k)+              &
+                           iw*TVar%w(i,j,k))*TCell%vof(i,j,k)*               &
                            TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt+ &
-                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*           &
+                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*		       &
                            TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*    &
                            (gx*dble(iu)+gy*dble(iv)+gz*dble(iw))/g
                 If(TCell%MoExCell(i,j,k)/=1) then
@@ -703,7 +893,7 @@ Module PredictorUV
         call HYPRE_IJVectorSetValues(x,local_size,rows,xval,ierr)
         call HYPRE_IJVectorAssemble(b,ierr)
         call HYPRE_IJVectorAssemble(x,ierr)
-  ! get the x and b objects
+	! get the x and b objects
         call HYPRE_IJVectorGetObject(b,par_b,ierr)
         call HYPRE_IJVectorGetObject(x,par_x,ierr)
         deallocate(rhs)
@@ -751,53 +941,63 @@ Module PredictorUV
         Deallocate(values,rows)
     End subroutine DeltaGetValues
     
-    ! Face flux with MUSCL scheme
+    ! Face flux with first order upwind
     Subroutine ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
-                                      VCell,WCell,flux,iu,iv,iw)
+                                      VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,flux,iu,iv,iw)
+      !! The subroutine is used to compute the convective flux.
+      !! The scheme is first order upwind
       Implicit none
-      Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-      Type(Cell),intent(in):: PCell,UCell,VCell,WCell
-      Integer(kind=it4b),intent(in):: iu,iv,iw
-      Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout):: flux
-      Integer(kind=it4b):: i,j,k
-      Real(kind=dp):: epsi,delh,delhec,delhec1,delhec2
-      Real(kind=dp):: eta,sx,sy,sz,uw,vs,wb,uwp,uwn,vsp,vsn,wbp,wbn
-      Real(kind=dp):: vw,vb,ww,ws,us,ub
+      Type(Grid),intent(in)         :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      Type(Cell),intent(in)         :: PCell,UCell,VCell,WCell
+      !! The cell
+      Integer(kind=it4b),intent(in) :: iu,iv,iw
+      !! The flag to dicide which velocity momentum equation this subroutine applied to
+      Type(BCBase),intent(in)       :: BCu,BCv,BCw
+      !! The input boundary function
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12, vn12, wn12
+      !! The velocities at n+1/2
+      Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: flux
+      !! The output convective fluxes
+      Integer(kind=it4b) :: i,j,k
+      Real(kind=dp)      :: epsi,delh,delhec,delhec1,delhec2
+      Real(kind=dp)      :: eta,sx,sy,sz,uw,vs,wb,uwp,uwn,vsp,vsn,wbp,wbn
+      Real(kind=dp)      :: vw,vb,ww,ws,us,ub
       epsi = 1.d-20
       Do i = 1,Imax+iu
         Do j = 1,Jmax+iv
           Do k = 1,Kmax+iw
             If(iu==1) then
-              uw = 0.5d0*(u(i,j,k)+u(i-1,j,k))
+              uw = 0.5d0*(un12(i,j,k)+un12(i-1,j,k))
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
             ! For UCell both for convective velocity and scalar velocity
               If(i==1) then
-                Flux(i,j,k,1)=(uwn*u(i,j,k)+uwp*u(i-1,j,k))*           &
+                Flux(i,j,k,1)=(uwn*un12(i,j,k)+uwp*un12(i-1,j,k))*               &
                              UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
               Elseif(i>=Imax) then
-                Flux(i,j,k,1)=(uwn*u(i,j,k)+uwp*u(i-1,j,k))*           &
+                Flux(i,j,k,1)=(uwn*un12(i,j,k)+uwp*un12(i-1,j,k))*               &
                        UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)
               Else
                 eta=UCell%EtaE(i-1,j,k)
-                uw=(1.d0-eta)*u(i-1,j,k)+eta*u(i,j,k)
+                uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
               ! central second order
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
                 
-                Flux(i,j,k,1)=(uwn*u(i,j,k)+uwp*u(i-1,j,k))*UCell%AlE(i-1,j,k)*&
+                Flux(i,j,k,1)=(uwn*un12(i,j,k)+uwp*un12(i-1,j,k))*UCell%AlE(i-1,j,k)*&
                       UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)
               End if
               ! Convective velocity: u, scalar advective : v
-              uw=0.5d0*(u(i-1,j+1,k)+u(i-1,j,k))
+              uw=0.5d0*(un12(i-1,j+1,k)+un12(i-1,j,k))
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
               If(i>Imax) then
-                Flux(i,j,k,2)=(uwp*v(i-1,j,k)+uwn*v(i,j,k))*                   &
-                       VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
+                Flux(i,j,k,2)=uw*BCv%VarE(j,k)*VCell%EEArea(i-1,j,k)*          &
+                             VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
               Elseif(i==1) then
-                Flux(i,j,k,2)=(uwp*v(i-1,j,k)+uwn*v(i,j,k))*                   &
-                       VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
+                Flux(i,j,k,2)=uw*BCv%VarW(j,k)*VCell%EEArea(i,j,k)*            &
+                                 VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,2) = 0.d0
                 If(PCell%EEArea(i-1,j,k)<=1.d-5.or.PCell%EEArea(i-1,j+1,k)     &
@@ -816,7 +1016,7 @@ Module PredictorUV
                         +UCell%Cell_Cent(i-1,j+1,k,2)*UCell%ny(i-1,j+1,k)+     &
                          UCell%Cell_Cent(i-1,j+1,k,3)*UCell%nz(i-1,j+1,k)+     &
                          UCell%phi(i-1,j+1,k))
-                    uw = u(i-1,j+1,k)
+                    uw = un12(i-1,j+1,k)
                   End if
                   If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j+1,k))then
@@ -824,32 +1024,32 @@ Module PredictorUV
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
-                    uw = u(i-1,j,k)
+                    uw = un12(i-1,j,k)
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sy = UCell%SyN(i-1,j,k)
                   eta = dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,2))/Sy
-                  uw = (1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j+1,k)
+                  uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j+1,k)
                 End if
                 eta = VCell%EtaE(i-1,j,k)
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
-                vw = (1.d0-eta)*v(i-1,j,k)+eta*v(i,j,k)
-                Flux(i,j,k,2)=(uwp*v(i-1,j,k)+uwn*v(i,j,k))*           &
+                vw = (1.d0-eta)*vn12(i-1,j,k)+eta*vn12(i,j,k)
+                Flux(i,j,k,2)=(uwp*vn12(i-1,j,k)+uwn*vn12(i,j,k))*		       &
                      VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
               End if
             ! Convective velocity: u, scalar advective: w
-              uw = 0.5d0*(u(i-1,j,k+1)+u(i-1,j,k))
+              uw = 0.5d0*(un12(i-1,j,k+1)+un12(i-1,j,k))
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
               If(i>Imax) then
-                Flux(i,j,k,3)=(uwp*w(i-1,j,k)+uwn*w(i,j,k))*                   &
-                       WCell%EEArea(i-1,j,k)*WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
+                Flux(i,j,k,3)=uw*BCw%VarE(j,k)*WCell%EEArea(i-1,j,k)*          &
+                              WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
               Elseif(i==1) then
-                Flux(i,j,k,3)=(uwp*w(i-1,j,k)+uwn*w(i,j,k))*                   &
-                       WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
+                Flux(i,j,k,3)=uw*BCw%VarW(j,k)*WCell%EEArea(i,j,k)*            &
+                              WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,3) = 0.d0
                 If(PCell%EEArea(i-1,j,k)<=1.d-5.or.PCell%EEArea(i-1,j,k+1)     &
@@ -867,7 +1067,7 @@ Module PredictorUV
                         +UCell%Cell_Cent(i-1,j,k+1,2)*UCell%ny(i-1,j,k+1)+     &
                          UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+     &
                          UCell%phi(i-1,j,k+1))
-                    uw = u(i-1,j,k+1)
+                    uw = un12(i-1,j,k+1)
                   End if
                   If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j,k+1))then
@@ -875,33 +1075,33 @@ Module PredictorUV
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
-                    uw = u(i-1,j,k)
+                    uw = un12(i-1,j,k)
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sz = UCell%SzT(i-1,j,k)
                   eta = dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,3))/Sz
-                  uw = (1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j,k+1)
+                  uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
                 End if
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
-                Flux(i,j,k,3)=(uwp*w(i-1,j,k)+uwn*w(i,j,k))*           &
-                               WCell%EEArea(i-1,j,k)*                  &
+                Flux(i,j,k,3)=(uwp*wn12(i-1,j,k)+uwn*wn12(i,j,k))*		         &
+                               WCell%EEArea(i-1,j,k)*       		               &
                                WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
               End if
             End if
             If(iv==1) then ! Jflux
           ! Convective velocity: v, scalar advective: u
-              vs = 0.5d0*(v(i,j-1,k)+v(i+1,j-1,k))
+              vs = 0.5d0*(vn12(i,j-1,k)+vn12(i+1,j-1,k))
               vsp = 0.5d0*(vs+dabs(vs))
               vsn = 0.5d0*(vs-dabs(vs))
               If(j>Jmax) then
-                Flux(i,j,k,1)=(vsn*u(i,j,k)+vsp*u(i,j-1,k))*                   &
-                       UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
+                Flux(i,j,k,1)=vs*BCu%VarN(i,k)*UCell%NEArea(i,j-1,k)*          &
+                                  UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
               Elseif(j==1) then
-                Flux(i,j,k,1)=(vsn*u(i,j,k)+vsp*u(i,j-1,k))*                   &
-                       UCell%NEArea(i,j,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
+                Flux(i,j,k,1)=vs*BCu%VarS(i,k)*UCell%NEArea(i,j,k)*            &
+                                  UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,1) = 0.d0
                 If(PCell%NEArea(i,j-1,k)<=1.d-5.or.PCell%NEArea(i+1,j-1,k)    &
@@ -919,7 +1119,7 @@ Module PredictorUV
                       VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
-                    vs = v(i,j-1,k)
+                    vs = vn12(i,j-1,k)
                   End if
                   If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
                           /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) then
@@ -927,46 +1127,46 @@ Module PredictorUV
                           +VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+   &
                            VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+   &
                            VCell%phi(i+1,j-1,k))
-                    vs=v(i+1,j-1,k)
+                    vs=vn12(i+1,j-1,k)
                   End if
                   vs=vs*delhec/(delh+epsi)
                 Else
                   Sx=VCell%SxE(i,j-1,k)
                   eta=dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-       &
                                             VCell%Cell_Cent(i,j-1,k,1))/Sx
-                  vs=(1.d0-eta)*v(i,j-1,k)+eta*v(i+1,j-1,k)
+                  vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                 End if
                 eta=UCell%EtaN(i,j-1,k)
                 vsp=0.5d0*(vs+dabs(vs))
                 vsn=0.5d0*(vs-dabs(vs))
-              !  us=(1.d0-eta)*u(i,j-1,k)+eta*u(i,j,k)
-                Flux(i,j,k,1)=(vsn*u(i,j,k)+vsp*u(i,j-1,k))*          &
+              !  us=(1.d0-eta)*un12(i,j-1,k)+eta*un12(i,j,k)
+                Flux(i,j,k,1)=(vsn*un12(i,j,k)+vsp*un12(i,j-1,k))*		      &
                      UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
               End if
               ! Convective velocity: v, scalar convective: v
-              vs = 0.5d0*(v(i,j,k)+v(i,j-1,k))
+              vs = 0.5d0*(vn12(i,j,k)+vn12(i,j-1,k))
               vsp = 0.5d0*(vs+dabs(vs))
               vsn = 0.5d0*(vs-dabs(vs))
               If(j>=Jmax) then
-                Flux(i,j,k,2)=(vsn*v(i,j,k)+vsp*v(i,j-1,k))*           &
+                Flux(i,j,k,2)=(vsn*vn12(i,j,k)+vsp*vn12(i,j-1,k))*		       &
                        VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)
               Elseif(j==1) then
-                Flux(i,j,k,2)=(vsn*v(i,j,k)+vsp*v(i,j-1,k))*           &
+                Flux(i,j,k,2)=(vsn*vn12(i,j,k)+vsp*vn12(i,j-1,k))*		       &
                        VCell%NEArea(i,j,k)*VGrid%dx(i,j,k)*VGrid%dz(i,j,k)
               Else
                 eta=VCell%EtaN(i,j-1,k)
-                vs=(1.d0-eta)*v(i,j-1,k)+eta*v(i,j,k)
-                Flux(i,j,k,2)=(vsn*v(i,j,k)+vsp*v(i,j-1,k))*VCell%AlN(i,j-1,k)*&
+                vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j,k)
+                Flux(i,j,k,2)=(vsn*vn12(i,j,k)+vsp*vn12(i,j-1,k))*VCell%AlN(i,j-1,k)*&
                        VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)
               End if
             ! Convective velocity: v, scalar advective: w
-              vs=0.5d0*(v(i,j-1,k)+v(i,j-1,k+1))
+              vs=0.5d0*(vn12(i,j-1,k)+vn12(i,j-1,k+1))
               If(j>Jmax) then
-                Flux(i,j,k,3)=vs*0.5d0*(w(i,j,k)+w(i,j-1,k))*                  &
-                       WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
+                Flux(i,j,k,3)=vs*BCw%VarN(i,k)*WCell%NEArea(i,j-1,k)*          &
+                                  WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               Elseif(j==1) then
-                Flux(i,j,k,3)=vs*0.5d0*(w(i,j,k)+w(i,j-1,k))*                  &
-                       WCell%NEArea(i,j,k)*WGrid%dx(i,j,k)*wGrid%dz(i,j,k)
+                Flux(i,j,k,3)=vs*BCw%VarS(i,k)*WCell%NEArea(i,j,k)*            &
+                                  WGrid%dx(i,j,k)*wGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,3)=0.d0
                 If(PCell%NEArea(i,j-1,k)<=1.d-5.or.PCell%NEArea(i,j-1,k+1)     &
@@ -984,7 +1184,7 @@ Module PredictorUV
                       VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
-                    vs = v(i,j-1,k)
+                    vs = vn12(i,j-1,k)
                   End if
                   If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
                           /=2.and.VCell%vof(i,j-1,k+1)>VCell%vof(i,j-1,k)) then
@@ -992,34 +1192,34 @@ Module PredictorUV
                           +VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+   &
                            VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+   &
                            VCell%phi(i,j-1,k+1))
-                    vs = v(i,j-1,k+1)
+                    vs = vn12(i,j-1,k+1)
                   End if
                   vs = vs*delhec/(delh+epsi)
                 Else
                   Sz = VCell%SzT(i,j-1,k)
                   eta = dabs(WCell%FCN(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-     &
                                             WCell%Cell_Cent(i,j-1,k,3))/Sz
-                  vs = (1.d0-eta)*v(i,j-1,k)+eta*v(i,j-1,k+1)
+                  vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j-1,k+1)
                 End if
                 vsp = 0.5d0*(vs+dabs(vs))
                 vsn = 0.5d0*(vs-dabs(vs))
                 eta = WCell%EtaN(i,j-1,k)
-                ws = (1.d0-eta)*w(i,j-1,k)+eta*w(i,j,k)
-                Flux(i,j,k,3)=(vsp*w(i,j-1,k)+vsn*w(i,j,k))*      &
+                ws = (1.d0-eta)*wn12(i,j-1,k)+eta*wn12(i,j,k)
+                Flux(i,j,k,3)=(vsp*wn12(i,j-1,k)+vsn*wn12(i,j,k))*			&
                    WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               End if
             End if
             If(iw==1) then
           ! Convective velocity: w, scalar advective: u
-              wb = 0.5d0*(w(i,j,k-1)+v(i+1,j,k-1))
+              wb = 0.5d0*(wn12(i,j,k-1)+vn12(i+1,j,k-1))
               wbp=0.5d0*(wb+dabs(wb))
               wbn=0.5d0*(wb-dabs(wb))
               If(k>Kmax) then
-                Flux(i,j,k,1)=(u(i,j,k)*wbn+u(i,j,k-1)*wbp)*                   &
-                       UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
+                Flux(i,j,k,1)=wb*BCu%VarT(i,j)*UCell%TEArea(i,j,k-1)*          &
+                                  UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,1)=(u(i,j,k)*wbn+u(i,j,k-1)*wbp)*                   &
-                       UCell%TEArea(i,j,k)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
+                Flux(i,j,k,1)=wb*BCu%VarB(i,j)*UCell%TEArea(i,j,k)*            &
+                                  UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
               Else
                 Flux(i,j,k,1) = 0.d0
                 If(PCell%TEArea(i,j,k-1)<=1.d-5.or.PCell%TEArea(i+1,j,k-1)     &
@@ -1037,7 +1237,7 @@ Module PredictorUV
                                 WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+  &
                                 WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+  &
                                 WCell%phi(i,j,k-1))
-                    wb = w(i,j,k-1)
+                    wb = wn12(i,j,k-1)
                   End if
                   If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
                           /=2.and.WCell%vof(i+1,j,k-1)>WCell%vof(i,j,k-1)) then
@@ -1045,20 +1245,20 @@ Module PredictorUV
                           +WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+   &
                            WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+   &
                            WCell%phi(i+1,j,k-1))
-                    wb = w(i+1,j,k-1)
+                    wb = wn12(i+1,j,k-1)
                   End if
                   wb = wb*delhec/(delh+epsi)
                 Else
                   Sx = WCell%SxE(i,j,k-1)
                   eta = dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-     &
                                             WCell%Cell_Cent(i,j,k-1,1))/Sx
-                  wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i+1,j,k-1)
+                  wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                 End if
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
                 eta = UCell%EtaT(i,j,k-1)
-                ub = (1.d0-eta)*u(i,j,k-1)+eta*u(i,j,k)
-                Flux(i,j,k,1)=(wbp*u(i,j,k-1)+wbn*u(i,j,k))*UCell%TEArea(i,j,k-1)*&
+                ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k)
+                Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*UCell%TEArea(i,j,k-1)*&
                                       UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
                 If(isnan(flux(i,j,k,1))) then
                   print*, UCell%FCT(i,j,k-1,1),UCell%FCT(i,j,k-1,2),UCell%FCT(i,j,k-1,3)
@@ -1069,15 +1269,15 @@ Module PredictorUV
                 End if
              ! Convective velocity: w, scalar advective: v
               End if
-              wb = 0.5d0*(w(i,j+1,k-1)+w(i,j,k-1))
+              wb = 0.5d0*(wn12(i,j+1,k-1)+wn12(i,j,k-1))
               wbp=0.5d0*(wb+dabs(wb))
               wbn=0.5d0*(wb-dabs(wb))
               If(k>Kmax) then
-                Flux(i,j,k,2)=(wbp*v(i,j,k-1)+wbn*v(i,j,k))*                   &
-                       VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
+                Flux(i,j,k,2)=wb*BCv%VarT(i,j)*VCell%TEArea(i,j,k-1)*          &
+                                  VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,2)=(wbp*v(i,j,k-1)+wbn*v(i,j,k))*                   &
-                       VCell%TEArea(i,j,k)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
+                Flux(i,j,k,2)=wb*BCv%VarB(i,j)*VCell%TEArea(i,j,k)*            &
+                                  VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
               Else
                 Flux(i,j,k,2) = 0.d0
                 If(PCell%TEArea(i,j,k-1)<=1.d-5.or.PCell%TEArea(i,j+1,k-1)     &
@@ -1096,7 +1296,7 @@ Module PredictorUV
                         +WCell%Cell_Cent(i,j+1,k-1,2)*WCell%ny(i,j+1,k-1)+     &
                          WCell%Cell_Cent(i,j+1,k-1,3)*WCell%nz(i,j+1,k-1)+     &
                          WCell%phi(i,j+1,k-1))
-                    wb = w(i,j+1,k-1)
+                    wb = wn12(i,j+1,k-1)
                   End if
                   If(WCell%MoExCell(i,j,k-1)/=1.and.WCell%Cell_Type(i,j,k-1)   &
                            /=2.and.WCell%vof(i,j,k-1)>WCell%vof(i,j+1,k-1))then
@@ -1104,39 +1304,39 @@ Module PredictorUV
                         WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+          &
                         WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+          &
                         WCell%phi(i,j,k-1))
-                    wb = w(i,j,k-1)
+                    wb = wn12(i,j,k-1)
                   End if
                   wb = wb*delhec/(delh+epsi)
                 Else
                   Sy = WCell%SyN(i,j,k-1)
                   eta = dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-     &
                                                 WCell%Cell_Cent(i,j,k-1,2))/Sy
-                  wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i,j+1,k-1)
+                  wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j+1,k-1)
                 End if
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
                 eta = VCell%EtaT(i,j,k-1)
-                vb = (1.d0-eta)*v(i,j,k-1)+eta*v(i,j,k)
-                Flux(i,j,k,2)=(wbp*v(i,j,k-1)+wbn*v(i,j,k))*           &
+                vb = (1.d0-eta)*vn12(i,j,k-1)+eta*vn12(i,j,k)
+                Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*		       &
                     VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
              ! Convective velocity: w, scalar advective: w
               End if
-              wb = 0.5d0*(w(i,j,k)+w(i,j,k-1))
+              wb = 0.5d0*(wn12(i,j,k)+wn12(i,j,k-1))
               wbp=0.5d0*(wb+dabs(wb))
               wbn=0.5d0*(wb-dabs(wb))
               If(k>=Kmax) then
-                Flux(i,j,k,3)=(wbp*w(i,j,k-1)+wbn*w(i,j,k))*      &
+                Flux(i,j,k,3)=(wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*			&
                     WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,3)=(wbp*w(i,j,k-1)+wbn*w(i,j,k))*      &
+                Flux(i,j,k,3)=(wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*			&
                     WCell%TEArea(i,j,k)*WGrid%dx(i,j,k)*WGrid%dy(i,j,k)
               Else
                 eta = WCell%EtaT(i,j,k-1)
-                wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i,j,k)
+                wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j,k)
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
-                Flux(i,j,k,3)=((wbp*w(i,j,k-1)+wbn*w(i,j,k))*     &
-                      WCell%AlT(i,j,k-1))*WCell%TEArea(i,j,k-1)*    &
+                Flux(i,j,k,3)=((wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*			&
+                      WCell%AlT(i,j,k-1))*WCell%TEArea(i,j,k-1)*		&
                       WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)
               End if
             End if
@@ -1144,14 +1344,380 @@ Module PredictorUV
         End do
       End do
     End subroutine ModifiedConvectiveFluxFirstOrder
-        
-    Subroutine ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
-                                      VCell,WCell,flux,iu,iv,iw)
+
+    subroutine FaceDensityFluxXDir(PGrid,UGrid,VGrid,WGrid,                    &
+                                   PCell,UCell,VCell,WCell,                    &
+                                   un12,vn12,wn12,flux,dt,Roref)
+      !! The subroutine is employed to compute the flux in x direction at cell faces 
+      !! which then used for computing the cell density 
+      IMPLICIT NONE
+      TYPE(Grid),INTENT(IN):: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      TYPE(Cell),INTENT(IN):: PCell,UCell,VCell,WCell
+      !! The cell
+      REAL(KIND=dp),INTENT(IN):: dt
+      !! The time step
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12, vn12, wn12
+      !! The velocities at n+1/2
+      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
+      !! The flux
+      REAL(dp), INTENT(in) :: Roref
+      !! The refence density
+      INTEGER(kind=it4b)   :: i,j,k
+      REAL(KIND=dp)        :: uw,uwn,uwp,eta
+      
+      do j = 1,Jmax
+        do k = 1,Kmax
+          ! For i = 1, u velocity continuity equation flux
+          uw=0.5d0*(un12(1,j,k)+un12(0,j,k))
+          if(UCell%EEArea(1,j,k)>=epsi) then
+            flux(1,j,k,1)=uw*((PCell%Vof(1,j,k)-PCell%vofL(1,j,k))*roa/Roref+  &
+                  PCell%vofL(1,j,k)*row/Roref)*UGrid%dy(1,j,k)*UGrid%dz(1,j,k)
+          else
+            flux(1,j,k,1)=0.d0
+          end if
+          ! For i = 1, v velocity continuity  equation flux
+          uw=0.5d0*(un12(0,j-1,k)+un12(0,j,k))
+          if(VCell%EEArea(1,j,k)>=epsi) then
+            flux(1,j,k,2)=uw*((VCell%Vof(1,j,k)-VCell%vofL(1,j,k))*roa/Roref+  &
+                  VCell%vofL(1,j,k)*row/Roref)*VGrid%dy(1,j,k)*VGrid%dz(1,j,k)
+          else
+            flux(1,j,k,2)=0.d0
+          end if
+          ! For i = 1, w velocity continuity  equation flux
+          uw=0.5d0*(un12(0,j,k-1)+un12(0,j,k))
+          if(WCell%EEArea(1,j,k)>=epsi) then
+            flux(1,j,k,3)=uw*((WCell%Vof(1,j,k)-WCell%vofL(1,j,k))*roa/Roref+  &
+                  WCell%vofL(1,j,k)*row/Roref)*WGrid%dy(1,j,k)*VGrid%dz(1,j,k)
+          else
+            flux(1,j,k,3)=0.d0
+          endif  
+          ! For i = Imax, u velocity continuity  equation flux   
+          uw=0.5d0*(un12(Imax,j,k)+un12(Imax+1,j,k))
+          if(UCell%EEArea(Imax,j,k)>=epsi) then
+            flux(Imax+1,j,k,1)=uw*((PCell%Vof(Imax,j,k)-PCell%vofL(Imax,j,k))* &
+                  roa/Roref+PCell%vofL(Imax,j,k)*row/Roref)*                   &
+                  UGrid%dy(Imax,j,k)*UGrid%dz(Imax,j,k)
+          else
+            flux(Imax+1,j,k,1)=0.d0
+          end if
+          ! For i = Imax, v velocity continuity  equation flux
+          uw=0.5d0*(un12(Imax+1,j-1,k)+un12(Imax+1,j,k))
+          if(VCell%EEArea(Imax,j,k)>=epsi) then
+            flux(Imax+1,j,k,2)=uw*((VCell%Vof(Imax,j,k)-VCell%vofL(Imax,j,k))* &
+                  roa/Roref+VCell%vofL(Imax,j,k)*row/Roref)*                   &
+                  VGrid%dy(Imax,j,k)*VGrid%dz(Imax,j,k)
+          else
+            flux(Imax+1,j,k,2)=0.d0
+          end if
+          ! For i = Imax, w velcoity continuity equation flux
+          uw=0.5d0*(un12(Imax+1,j,k-1)+un12(Imax+1,j,k))
+          if(WCell%EEArea(Imax,j,k)>=epsi) then
+            flux(Imax+1,j,k,3)=uw*((WCell%Vof(Imax,j,k)-WCell%vofL(Imax,j,k))* &
+                  roa/Roref+WCell%vofL(Imax,j,k)*row/Roref)*                   &
+                  WGrid%dy(Imax,j,k)*WGrid%dz(Imax,j,k)
+          else
+            flux(Imax+1,j,k,3)=0.d0
+          end if
+          do i=2,Imax
+          ! Convective velocity: u, scalar advective : rho in u continuity equation
+            flux(i,j,k,1)=0.d0
+            if(UCell%EEArea(i-1,j,k)>=epsi) then
+              eta=UCell%EtaE(i-1,j,k)
+              uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
+              Flux(i,j,k,1)=((PCell%Vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
+                              PCell%vofL(i,j,k)*row/Roref)
+              Flux(i,j,k,1)=uw*UCell%AlE(i-1,j,k)*Flux(i,j,k,1)*               &
+                             UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
+            end if
+          ! Convective velocity: u, scalar advective : rho in v continuity equation
+            
+            Flux(i,j,k,2)=0.d0
+            if(VCell%EEArea(i-1,j,k)>=epsi) then
+              eta=UCell%EtaN(i-1,j,k)
+              uw=eta*un12(i-1,j+1,k)+(1.d0-eta)*un12(i-1,j,k)
+              uwp=0.5d0*(uw+dabs(uw))
+              uwn=0.5d0*(uw-dabs(uw))
+              Flux(i,j,k,2)=(uwp*(VCell%vofL(i-1,j,k)*row/Roref+               &
+                    (VCell%vof(i-1,j,k)-VCell%vofL(i-1,j,k))*roa/Roref)+       &
+                             uwn*(VCell%vofL(i,j,k)*row/Roref+                 &
+                    (VCell%vof(i,j,k)-VCell%vofL(i,j,k))*roa/Roref))*      &
+                             VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
+            end if
+          ! Convective velocity: u, scalar advective : rho in w continuity equation
+            
+            Flux(i,j,k,3)=0.d0
+            if(WCell%EEArea(i-1,j,k)>=epsi) then
+              eta=UCell%EtaT(i-1,j,k)
+              uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
+              uwp=0.5d0*(uw+dabs(uw))
+              uwn=0.5d0*(uw-dabs(uw))
+              Flux(i,j,k,3)=(uwp*(WCell%vofL(i-1,j,k)*row/Roref+               &
+                    (WCell%vof(i-1,j,k)-WCell%vofL(i-1,j,k))*roa/Roref)+       &
+                             uwn*(WCell%vofL(i,j,k)*row/Roref+                 &
+                    (WCell%vof(i,j,k)-WCell%vofL(i,j,k))*roa/Roref))*      &
+                             WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
+            end if    
+          end do
+        end do 
+      enddo  
+    end subroutine FaceDensityFluxXDir
+    
+    subroutine FaceDensityFluxYDir(PGrid,UGrid,VGrid,WGrid,                    &
+                                   PCell,UCell,VCell,WCell,                    &
+                                   un12,vn12,wn12,flux,dt,Roref)
+      !! The subroutine is used to compute the flux in y direction at cell faces 
+      !! which then used for computing the cell density 
+      IMPLICIT NONE
+      TYPE(Grid),INTENT(IN) :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      TYPE(Cell),INTENT(IN) :: PCell,UCell,VCell,WCell
+      !! The cell
+      REAL(KIND=dp),INTENT(IN) :: dt
+      !! The time step
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12, vn12, wn12
+      !! The velocities at n+1/2
+      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
+      !! The output flux
+      REAL(dp), INTENT(in)  :: Roref
+      !! The reference density
+      INTEGER(kind=it4b)    :: i,j,k
+      REAL(KIND=dp)         :: vs,vsn,vsp,eta
+      do i=1,Imax
+        do k=1,Kmax
+          ! For j=1, u velocity continuity equation
+          vs=0.5d0*(vn12(i-1,0,k)+vn12(i,0,k))
+          if(UCell%NEArea(i,1,k)>epsi) then
+            flux(i,1,k,1)=vs*((UCell%vof(i,1,k)-UCell%vofL(i,1,k))*roa/Roref+  &
+                             UCell%vofL(i,1,k)*row/Roref)*                     &
+                             UGrid%dx(i,1,k)*UGrid%dz(i,1,k) 
+          else
+            flux(i,1,k,1)=0.d0
+          end if 
+          ! For j=1, v velocity continuity equation
+          vs=0.5d0*(vn12(i,0,k)+vn12(i,1,k))
+          if (VCell%NEArea(i,1,k)>epsi) then
+            flux(i,1,k,2)=vs*((PCell%vof(i,1,k)-PCell%vofL(i,1,k)*roa/Roref+   &
+                             PCell%vof(i,1,k)*row/Roref))*                     &
+                             VGrid%dx(i,1,k)*VGrid%dz(i,1,k)
+          else
+            flux(i,1,k,2)=0.d0
+          endif
+          ! For j=1, w velocity continuity equation
+          vs=0.5d0*(vn12(i,0,k-1)+vn12(i,0,k))
+          if(WCell%NEArea(i,1,k)>epsi) then
+            flux(i,1,k,3)=vs*((WCell%vof(i,1,k)-WCell%vofL(i,1,k)*roa/Roref+   &
+                             WCell%vof(i,1,k)*row/Roref))*                     &
+                             WGrid%dx(i,1,k)*WGrid%dz(i,1,k)
+          else
+            flux(i,1,k,3)=0.d0
+          endif  
+          ! For j=Jmax, u velocity continuity equation
+          vs=0.5d0*(vn12(i-1,Jmax+1,k)+vn12(i,Jmax+1,k))
+          if(UCell%NEArea(i,Jmax,k)>epsi) then
+            flux(i,Jmax+1,k,1)=vs*((UCell%vof(i,Jmax,k)-UCell%vofL(i,Jmax,k))* &
+                                    roa/Roref+UCell%vofL(i,Jmax,k)*row/Roref)*                     &
+                                    UGrid%dx(i,Jmax,k)*UGrid%dz(i,Jmax,k) 
+          else
+            flux(i,Jmax+1,k,1)=0.d0
+          end if 
+          ! For j=Jmax, v velocity continuity equation
+          vs=0.5d0*(vn12(i,Jmax,k)+vn12(i,Jmax+1,k))
+          if (VCell%NEArea(i,Jmax,k)>epsi) then
+            flux(i,Jmax+1,k,2)=vs*((PCell%vof(i,Jmax,k)-PCell%vofL(i,Jmax,k))* &
+                                    roa/Roref+PCell%vofL(i,Jmax,k)*row/Roref)*                     &
+                                    VGrid%dx(i,Jmax,k)*VGrid%dz(i,Jmax,k) 
+          else
+            flux(i,Jmax+1,k,2)=0.d0
+          endif
+          ! For j=Jmax, w velocity continuity equation
+          vs=0.5d0*(vn12(i,Jmax+1,k-1)+vn12(i,Jmax+1,k))
+          if(WCell%NEArea(i,1,k)>epsi) then
+            flux(i,1,k,3)=vs*((WCell%vof(i,1,k)-WCell%vofL(i,1,k)*roa/Roref+   &
+                             WCell%vof(i,1,k)*row/Roref))*                     &
+                             WGrid%dx(i,1,k)*WGrid%dz(i,1,k)
+          else
+            flux(i,1,k,3)=0.d0
+          endif   
+
+          do j=2,Jmax
+            ! Convective velocity: v, scalar advective : rho in u continuity equation   
+            flux(i,j,k,1)=0.d0
+            if(UCell%NEArea(i,j-1,k)>epsi) then
+              eta=VCell%EtaE(i,j-1,k)
+              vs=eta*vn12(i+1,j-1,k)+(1.d0-eta)*vn12(i,j-1,k)
+              vsp=0.5d0*(vs+dabs(vs))
+              vsn=0.5d0*(vs-dabs(vs))
+              flux(i,j,k,1)=(vsp*(UCell%vofL(i,j-1,k)*row/Roref+               &
+                    (UCell%vof(i,j-1,k)-UCell%vofL(i,j-1,k))*roa/Roref)+       &
+                             vsn*(UCell%vofL(i,j,k)*row/Roref+                 &
+                    (UCell%vof(i,j,k)-UCell%vofL(i,j,k))*roa/Roref))*          &
+                             UGrid%dx(i,j,k)*UGrid%dz(i,j,k)     
+            endif
+            ! Convective velocity: v, scalar advective : rho in v continuity equation
+            flux(i,j,k,2)=0.d0
+            if(VCell%NEArea(i,j-1,k)>epsi) then
+              eta=VCell%EtaN(i,j-1,k)
+              vs=eta*vn12(i,j,k)+(1.d0-eta)*vn12(i,j-1,k)
+              flux(i,j,k,2)=vs*((PCell%vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
+                                 PCell%vofL(i,j,k)*row/Roref)*                 &
+                                 VGrid%dx(i,j,k)*VGrid%dz(i,j,k)   
+            endif
+            ! Convective velocity: v, scalar advective : rho in w continuity equation
+            if(WCell%NEArea(i,j-1,k)>epsi) then
+              eta=VCell%EtaT(i,j-1,k)
+              vs=eta*vn12(i,j-1,k+1)+(1.d0-eta)*vn12(i,j-1,k)
+              vsp=0.5d0*(vs+dabs(vs))
+              vsn=0.5d0*(vs-dabs(vs))
+              flux(i,j,k,1)=(vsp*(WCell%vofL(i,j-1,k)*row/Roref+               &
+                    (WCell%vof(i,j-1,k)-WCell%vofL(i,j-1,k))*roa/Roref)+       &
+                             vsn*(WCell%vofL(i,j,k)*row/Roref+                 &
+                    (WCell%vof(i,j,k)-WCell%vofL(i,j,k))*roa/Roref))*          &
+                             WGrid%dx(i,j,k)*WGrid%dz(i,j,k)   
+            endif  
+          enddo  
+        end do 
+      end do                     
+    end subroutine FaceDensityFluxYDir
+
+
+    subroutine FaceDensityFluxZDir(PGrid,UGrid,VGrid,WGrid,                    &
+                                   PCell,UCell,VCell,WCell,                    &
+                                   un12,vn12,wn12,flux,dt,Roref)
+      !! The subroutine is used to compute the flux in y direction at cell faces 
+      !! which then used for computing the cell density 
+      IMPLICIT NONE
+      TYPE(Grid),INTENT(IN) :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      TYPE(Cell),INTENT(IN) :: PCell,UCell,VCell,WCell
+      !! The cell
+      REAL(KIND=dp),INTENT(IN) :: dt
+      !! The time step
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12, vn12, wn12
+      !! The velocities at n+1/2
+      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
+      !! The output flux
+      REAL(dp), INTENT(in)  :: Roref
+      !! The refence density
+      INTEGER(kind=it4b)    :: i,j,k
+      REAL(KIND=dp)         :: wb,wbn,wbp,eta
+      
+      do i=1,Imax
+        do j=1,Jmax
+          ! For k=1, u velocity continuity equation
+          wb=0.5d0*(wn12(i-1,j,0)+wn12(i,j,0))      
+          if(UCell%TEArea(i,j,1)>epsi) then
+            flux(i,j,1,1)=wb*((UCell%vof(i,j,1)-UCell%vofL(i,j,1))*roa/Roref+  &
+                             UCell%vofL(i,j,1)*row/Roref)*                     &
+                             UGrid%dx(i,j,1)*UGrid%dy(i,j,1)
+          else
+            flux(i,j,1,1)=0.d0
+          endif
+          ! for k=1, v velocity continuity equation
+          wb=0.5d0*(wn12(i,j-1,0)+wn12(i,j,0))
+          if(VCell%TEArea(i,j,1)>epsi) then
+            flux(i,j,1,2)=wb*((VCell%vof(i,j,1)-VCell%vofL(i,j,1))*roa/Roref+ &
+                            VCell%vofL(i,j,1)*row/Roref)*                     &
+                            VGrid%dx(i,j,1)*VGrid%dy(i,j,1)
+          else
+            flux(i,j,1,2)=0.d0
+          endif
+          ! for k=1, w velocity continuity equation
+          wb=0.5d0*(wn12(i,j,0)+wn12(i,j,1))
+          if(WCell%TEArea(i,j,1)>epsi) then
+            flux(i,j,1,3)=wb*((PCell%vof(i,j,1)-PCell%vofL(i,j,1))*roa/Roref+  &
+                            PCell%vofL(i,j,1)*row/Roref)*                      &
+                            WGrid%dx(i,j,1)*WGrid%dy(i,j,1)
+          else
+            flux(i,j,1,3)=0.d0
+          endif
+          ! For k=kmax, u velocity continuity equation
+          wb=0.5d0*(wn12(i-1,j,kmax)+wn12(i,j,kmax+1))      
+          if(UCell%TEArea(i,j,1)>epsi) then
+            flux(i,j,kmax+1,1)=wb*((UCell%vof(i,j,kmax)-UCell%vofL(i,j,kmax))* &
+                                roa/Roref+UCell%vofL(i,j,kmax)*row/Roref)*     &
+                                UGrid%dx(i,j,kmax)*UGrid%dy(i,j,kmax)
+          else
+            flux(i,j,kmax+1,1)=0.d0
+          endif
+          ! for k=kmax, v velocity continuity equation
+          wb=0.5d0*(wn12(i,j-1,kmax)+wn12(i,j,kmax+1))
+          if(VCell%TEArea(i,j,1)>epsi) then
+            flux(i,j,kmax+1,2)=wb*((VCell%vof(i,j,kmax)-VCell%vofL(i,j,kmax))* &
+                                 roa/Roref+VCell%vofL(i,j,kmax)*row/Roref)*    &
+                                 VGrid%dx(i,j,kmax)*VGrid%dy(i,j,kmax)
+          else
+            flux(i,j,kmax+1,2)=0.d0
+          endif
+          ! for k=kmax, w velocity continuity equation
+          wb=0.5d0*(wn12(i,j,kmax)+wn12(i,j,kmax+1))
+          if(WCell%TEArea(i,j,kmax+1)>epsi) then
+            flux(i,j,kmax+1,3)=wb*((PCell%vof(i,j,kmax)-PCell%vofL(i,j,kmax))* &
+                                 roa/Roref+PCell%vofL(i,j,kmax)*row/Roref)*    &
+                                 WGrid%dx(i,j,kmax)*WGrid%dy(i,j,kmax)
+          else
+            flux(i,j,kmax+1,3)=0.d0
+          endif
+          do k=2,kmax
+            ! Convective velocity: w, scalar advective : rho in u continuity equation
+            flux(i,j,k,1)=0.d0
+            if(UCell%TEArea(i,j,k-1)>epsi) then
+              eta=WCell%EtaE(i,j,k-1)
+              wb=eta*wn12(i+1,j,k-1)+eta*wn12(i,j,k-1)
+              wbp=0.5d0*(wb+dabs(wb))
+              wbn=0.5d0*(wb-dabs(wb))
+              flux(i,j,k,1)=(wbp*(UCell%vofL(i,j,k-1)*row/Roref+               &
+                          (UCell%vof(i,j,k-1)-UCell%vofL(i,j,k-1))*roa/Roref)+ &
+                             wbn*(UCell%vofL(i,j,k)*row/Roref+                 &
+                          (UCell%vof(i,j,k)-UCell%vofL(i,j,k))*roa/Roref))*    &
+                           UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
+            endif  
+            ! Convective velocity: w, scalar advective : rho in v continuity equation
+            flux(i,j,k,2)=0.d0
+            if(VCell%TEArea(i,j,k-1)>epsi) then
+              eta=WCell%EtaN(i,j,k-1)
+              wb=eta*wn12(i,j+1,k-1)+eta*wn12(i,j,k-1)
+              wbp=0.5d0*(wb+dabs(wb))
+              wbn=0.5d0*(wb-dabs(wb))
+              flux(i,j,k,2)=(wbp*(VCell%vofL(i,j,k-1)*row/Roref+               &
+                          (VCell%vof(i,j,k-1)-VCell%vofL(i,j,k-1))*roa/Roref)+ &
+                             wbn*(VCell%vofL(i,j,k)*row/Roref+                 &
+                          (VCell%vof(i,j,k)-VCell%vofL(i,j,k))*roa/Roref))*    &
+                           VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
+            endif
+            ! Convective velocity: w, scalar advective : rho in w continuity equation
+            flux(i,j,k,3)=0.d0
+            if(WCell%TEArea(i,j,k-1)>epsi) then
+              eta=WCell%EtaT(i,j,k-1)
+              wb=eta*wn12(i,j,k)+(1.d0-eta)*wn12(i,j,k-1)
+              flux(i,j,k,3)=wb*((PCell%vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
+                            PCell%vofL(i,j,k)*row/Roref)*                      &
+                            WGrid%dx(i,j,k)*WGrid%dy(i,j,k) 
+            endif  
+          enddo  
+        enddo
+      enddo    
+ 
+    end subroutine FaceDensityFluxZDir  
+
+    Subroutine ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,                 &
+                                      PCell,UCell,VCell,WCell,                 &
+                                      BCu,BCv,BCw,un12,vn12,wn12,flux,iu,iv,iw)
+      !! The subroutine is used to compute the convective flux. 
+      !! It is second order accuracy
       Implicit none
-      Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-      Type(Cell),intent(in):: PCell,UCell,VCell,WCell
-      Integer(kind=it4b),intent(in):: iu,iv,iw
-      Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout):: flux
+      Type(Grid),intent(in)                                      :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      Type(Cell),intent(in)                                      :: PCell,UCell,VCell,WCell
+      !! The cell
+      Integer(kind=it4b),intent(in)                              :: iu,iv,iw
+      !! The flag to dicide which velocity momentum equation this subroutine applied to
+      type(BCBase),intent(in)                                    :: BCu,BCv,BCw
+      !! The boundary function
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12,vn12,wn12
+      !! The velocities at time n+1/2
+      Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: flux
+      !! The output flux
       Integer(kind=it4b):: i,j,k
       Real(kind=dp):: epsi,delh,delhec,delhec1,delhec2
       Real(kind=dp):: eta,sx,sy,sz,uw,vs,wb,uwp,uwn,vsp,vsn,wbp,wbn
@@ -1161,7 +1727,7 @@ Module PredictorUV
         Do j = 1,Jmax+iv
           Do k = 1,Kmax+iw
             If(iu==1) then
-              uw = 0.5d0*(u(i,j,k)+u(i-1,j,k))
+              uw = 0.5d0*(un12(i,j,k)+un12(i-1,j,k))
             ! For UCell both for convective velocity and scalar velocity
               If(i==1) then
                 Flux(i,j,k,1) = uw**2.d0*UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*  &
@@ -1171,7 +1737,7 @@ Module PredictorUV
                              UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)
               Else
                 eta = UCell%EtaE(i-1,j,k)
-                uw = (1.d0-eta)*u(i-1,j,k)+eta*u(i,j,k)
+                uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
               ! central second order
                 Flux(i,j,k,1) = (uw*UCell%AlE(i-1,j,k))**2.d0                  &
                       *UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)
@@ -1180,13 +1746,13 @@ Module PredictorUV
               !                           UGrid%dy(i-1,j,k)
               End if
               ! Convective velocity: u, scalar advective : v
-              uw = 0.5d0*(u(i-1,j+1,k)+u(i-1,j,k))
+              uw = 0.5d0*(un12(i-1,j+1,k)+un12(i-1,j,k))
               If(i>Imax) then
-                Flux(i,j,k,2) = uw*0.5d0*(v(i-1,j,k)+v(i,j,k))*                &
-                       VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
+                Flux(i,j,k,2)=uw*BCv%VarE(j,k)*VCell%EEArea(i-1,j,k)*        &
+                              VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
               Elseif(i==1) then
-                Flux(i,j,k,2) = uw*0.5d0*(v(i-1,j,k)+v(i,j,k))*                &
-                       VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
+                Flux(i,j,k,2)=uw*BCv%VarW(j,k)*VCell%EEArea(i,j,k)*            &
+                              VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,2) = 0.d0
                 If(PCell%EEArea(i-1,j,k)<=1.d-5.or.PCell%EEArea(i-1,j+1,k)     &
@@ -1205,7 +1771,7 @@ Module PredictorUV
                         +UCell%Cell_Cent(i-1,j+1,k,2)*UCell%ny(i-1,j+1,k)+     &
                          UCell%Cell_Cent(i-1,j+1,k,3)*UCell%nz(i-1,j+1,k)+     &
                          UCell%phi(i-1,j+1,k))
-                    uw = u(i-1,j+1,k)
+                    uw = un12(i-1,j+1,k)
                   End if
                   If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j+1,k))then
@@ -1213,28 +1779,28 @@ Module PredictorUV
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
-                    uw = u(i-1,j,k)
+                    uw = un12(i-1,j,k)
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sy = UCell%SyN(i-1,j,k)
                   eta = dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,2))/Sy
-                  uw = (1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j+1,k)
+                  uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j+1,k)
                 End if
                 eta = VCell%EtaE(i-1,j,k)
-                vw = (1.d0-eta)*v(i-1,j,k)+eta*v(i,j,k)
+                vw = (1.d0-eta)*vn12(i-1,j,k)+eta*vn12(i,j,k)
                 Flux(i,j,k,2) = uw*vw*VCell%AlE(i-1,j,k)*VCell%EEArea(i-1,j,k)*&
                                       VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
               End if
             ! Convective velocity: u, scalar advective: w
-              uw = 0.5d0*(u(i-1,j,k+1)+u(i-1,j,k))
+              uw = 0.5d0*(un12(i-1,j,k+1)+un12(i-1,j,k))
               If(i>Imax) then
-                Flux(i,j,k,3) = uw*0.5d0*(w(i-1,j,k)+w(i,j,k))*                &
-                       WCell%EEArea(i-1,j,k)*WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
+                Flux(i,j,k,3)=uw*BCw%VarE(j,k)*WCell%EEArea(i-1,j,k)*          &
+                                 WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
               Elseif(i==1) then
-                Flux(i,j,k,3) = uw*0.5d0*(w(i-1,j,k)+w(i,j,k))*                &
-                       WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
+                Flux(i,j,k,3)=uw*BCw%VarW(j,k)*WCell%EEArea(i,j,k)*            &
+                                 WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,3) = 0.d0
                 If(PCell%EEArea(i-1,j,k)<=1.d-5.or.PCell%EEArea(i-1,j,k+1)     &
@@ -1252,7 +1818,7 @@ Module PredictorUV
                         +UCell%Cell_Cent(i-1,j,k+1,2)*UCell%ny(i-1,j,k+1)+     &
                          UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+     &
                          UCell%phi(i-1,j,k+1))
-                    uw = u(i-1,j,k+1)
+                    uw = un12(i-1,j,k+1)
                   End if
                   If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j,k+1))then
@@ -1260,30 +1826,30 @@ Module PredictorUV
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
-                    uw = u(i-1,j,k)
+                    uw = un12(i-1,j,k)
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sz = UCell%SzT(i-1,j,k)
                   eta = dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,3))/Sz
-                  uw = (1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j,k+1)
+                  uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
                 End if
                 eta = WCell%EtaE(i-1,j,k)
-                ww = (1.d0-eta)*w(i-1,j,k)+eta*w(i,j,k)
+                ww = (1.d0-eta)*wn12(i-1,j,k)+eta*wn12(i,j,k)
                 Flux(i,j,k,3) = uw*ww*WCell%AlE(i-1,j,k)*WCell%EEArea(i-1,j,k)*&
                                       WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
               End if
             End if
             If(iv==1) then ! Jflux
           ! Convective velocity: v, scalar advective: u
-              vs = 0.5d0*(v(i,j-1,k)+v(i+1,j-1,k))
+              vs = 0.5d0*(vn12(i,j-1,k)+vn12(i+1,j-1,k))
               If(j>Jmax) then
-                Flux(i,j,k,1) = vs*0.5d0*(u(i,j,k)+u(i,j-1,k))*                &
-                       UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
+                Flux(i,j,k,1)=vs*BCu%VarN(i,k)*UCell%NEArea(i,j-1,k)*          &
+                                 UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
               Elseif(j==1) then
-                Flux(i,j,k,1) = vs*0.5d0*(u(i,j,k)+u(i,j-1,k))*                &
-                       UCell%NEArea(i,j,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
+                Flux(i,j,k,1)=vs*BCu%VarS(i,k)*UCell%NEArea(i,j,k)*            &
+                                 UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,1) = 0.d0
                 If(PCell%NEArea(i,j-1,k)<=1.d-5.or.PCell%NEArea(i+1,j-1,k)    &
@@ -1301,7 +1867,7 @@ Module PredictorUV
                       VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
-                    vs = v(i,j-1,k)
+                    vs = vn12(i,j-1,k)
                   End if
                   If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
                           /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) then
@@ -1309,22 +1875,22 @@ Module PredictorUV
                           +VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+   &
                            VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+   &
                            VCell%phi(i+1,j-1,k))
-                    vs = v(i+1,j-1,k)
+                    vs = vn12(i+1,j-1,k)
                   End if
                   vs = vs*delhec/(delh+epsi)
                 Else
                   Sx = VCell%SxE(i,j-1,k)
                   eta = dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-     &
                                             VCell%Cell_Cent(i,j-1,k,1))/Sx
-                  vs = (1.d0-eta)*v(i,j-1,k)+eta*v(i+1,j-1,k)
+                  vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                 End if
                 eta = UCell%EtaN(i,j-1,k)
-                us = (1.d0-eta)*u(i,j-1,k)+eta*u(i,j,k)
+                us = (1.d0-eta)*un12(i,j-1,k)+eta*un12(i,j,k)
                 Flux(i,j,k,1) = us*vs*UCell%AlN(i,j-1,k)*UCell%NEArea(i,j-1,k)*&
                                       UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
               End if
             ! Convective velocity: v, scalar convective: v
-              vs = 0.5d0*(v(i,j,k)+v(i,j-1,k))
+              vs = 0.5d0*(vn12(i,j,k)+vn12(i,j-1,k))
               If(j>=Jmax) then
                 Flux(i,j,k,2) = vs**2.d0*VCell%NEArea(i,j-1,k)*                &
                                              VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)
@@ -1333,18 +1899,18 @@ Module PredictorUV
                                                              VGrid%dz(i,j,k)
               Else
                 eta = VCell%EtaN(i,j-1,k)
-                vs = (1.d0-eta)*v(i,j-1,k)+eta*v(i,j,k)
+                vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j,k)
                 Flux(i,j,k,2) = (vs*VCell%AlN(i,j-1,k))**2.d0*                 &
                        VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)
               End if
             ! Convective velocity: v, scalar advective: w
-              vs = 0.5d0*(v(i,j-1,k)+v(i,j-1,k+1))
+              vs = 0.5d0*(vn12(i,j-1,k)+vn12(i,j-1,k+1))
               If(j>Jmax) then
-                Flux(i,j,k,3) = vs*0.5d0*(w(i,j,k)+w(i,j-1,k))*                &
-                       WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
+                Flux(i,j,k,3)=vs*BCw%VarN(i,k)*WCell%NEArea(i,j-1,k)*          &
+                              WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               Elseif(j==1) then
-                Flux(i,j,k,3) = vs*0.5d0*(w(i,j,k)+w(i,j-1,k))*                &
-                       WCell%NEArea(i,j,k)*WGrid%dx(i,j,k)*wGrid%dz(i,j,k)
+                Flux(i,j,k,3)=vs*BCw%VarS(i,k)*WCell%NEArea(i,j,k)*            &
+                              WGrid%dx(i,j,k)*wGrid%dz(i,j,k)
               Else
                 Flux(i,j,k,3) = 0.d0
                 If(PCell%NEArea(i,j-1,k)<=1.d-5.or.PCell%NEArea(i,j-1,k+1)    &
@@ -1362,7 +1928,7 @@ Module PredictorUV
                       VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
-                    vs = v(i,j-1,k)
+                    vs = vn12(i,j-1,k)
                   End if
                   If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
                           /=2.and.VCell%vof(i,j-1,k+1)>VCell%vof(i,j-1,k)) then
@@ -1370,30 +1936,30 @@ Module PredictorUV
                           +VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+   &
                            VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+   &
                            VCell%phi(i,j-1,k+1))
-                    vs = v(i,j-1,k+1)
+                    vs = vn12(i,j-1,k+1)
                   End if
                   vs = vs*delhec/(delh+epsi)
                 Else
                   Sz = VCell%SzT(i,j-1,k)
                   eta = dabs(WCell%FCN(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-     &
                                             WCell%Cell_Cent(i,j-1,k,3))/Sz
-                  vs = (1.d0-eta)*v(i,j-1,k)+eta*v(i,j-1,k+1)
+                  vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j-1,k+1)
                 End if
                 eta = WCell%EtaN(i,j-1,k)
-                ws = (1.d0-eta)*w(i,j-1,k)+eta*w(i,j,k)
+                ws = (1.d0-eta)*wn12(i,j-1,k)+eta*wn12(i,j,k)
                 Flux(i,j,k,3) = vs*ws*WCell%AlN(i,j-1,k)*WCell%NEArea(i,j-1,k)*&
                                       WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               End if
             End if
             If(iw==1) then
           ! Convective velocity: w, scalar advective: u
-              wb = 0.5d0*(w(i,j,k-1)+v(i+1,j,k-1))
+              wb = 0.5d0*(wn12(i,j,k-1)+vn12(i+1,j,k-1))
               If(k>Kmax) then
-                Flux(i,j,k,1) = wb*0.5d0*(u(i,j,k)+u(i,j,k-1))*                &
-                       UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
+                Flux(i,j,k,1)=wb*BCu%VarT(i,j)*UCell%TEArea(i,j,k-1)*          &
+                              UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,1) = wb*0.5d0*(u(i,j,k)+u(i,j,k-1))*                &
-                       UCell%TEArea(i,j,k)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
+                Flux(i,j,k,1)=wb*BCu%VarB(i,j)*UCell%TEArea(i,j,k)*            &
+                              UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
               Else
                 Flux(i,j,k,1) = 0.d0
                 If(PCell%TEArea(i,j,k-1)<=1.d-5.or.PCell%TEArea(i+1,j,k-1)    &
@@ -1411,7 +1977,7 @@ Module PredictorUV
                                 WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+  &
                                 WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+  &
                                 WCell%phi(i,j,k-1))
-                    wb = w(i,j,k-1)
+                    wb = wn12(i,j,k-1)
                   End if
                   If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
                           /=2.and.WCell%vof(i+1,j,k-1)>WCell%vof(i,j,k-1)) then
@@ -1419,17 +1985,17 @@ Module PredictorUV
                           +WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+   &
                            WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+   &
                            WCell%phi(i+1,j,k-1))
-                    wb = w(i+1,j,k-1)
+                    wb = wn12(i+1,j,k-1)
                   End if
                   wb = wb*delhec/(delh+epsi)
                 Else
                   Sx = WCell%SxE(i,j,k-1)
                   eta = dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-     &
                                             WCell%Cell_Cent(i,j,k-1,1))/Sx
-                  wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i+1,j,k-1)
+                  wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                 End if
                 eta = UCell%EtaT(i,j,k-1)
-                ub = (1.d0-eta)*u(i,j,k-1)+eta*u(i,j,k)
+                ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k)
                 Flux(i,j,k,1) = wb*ub*UCell%AlT(i,j,k-1)*UCell%TEArea(i,j,k-1)*&
                                       UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
                 If(isnan(flux(i,j,k,1))) then
@@ -1441,13 +2007,13 @@ Module PredictorUV
                 End if
              ! Convective velocity: w, scalar advective: v
               End if
-              wb = 0.5d0*(w(i,j+1,k-1)+w(i,j,k-1))
+              wb = 0.5d0*(wn12(i,j+1,k-1)+wn12(i,j,k-1))
               If(k>Kmax) then
-                Flux(i,j,k,2) = wb*0.5d0*(v(i,j,k-1)+v(i,j,k))*                &
-                       VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
+                Flux(i,j,k,2)=wb*BCv%VarT(i,j)*VCell%TEArea(i,j,k-1)*          &
+                              VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,2) = wb*0.5d0*(v(i,j,k-1)+v(i,j,k))*                &
-                       VCell%TEArea(i,j,k)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
+                Flux(i,j,k,2)=wb*BCv%VarB(i,j)*VCell%TEArea(i,j,k)*            &
+                              VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
               Else
                 Flux(i,j,k,2) = 0.d0
                 If(PCell%TEArea(i,j,k-1)<=1.d-5.or.PCell%TEArea(i,j+1,k-1)     &
@@ -1466,7 +2032,7 @@ Module PredictorUV
                         +WCell%Cell_Cent(i,j+1,k-1,2)*WCell%ny(i,j+1,k-1)+     &
                          WCell%Cell_Cent(i,j+1,k-1,3)*WCell%nz(i,j+1,k-1)+     &
                          WCell%phi(i,j+1,k-1))
-                    wb = w(i,j+1,k-1)
+                    wb = wn12(i,j+1,k-1)
                   End if
                   If(WCell%MoExCell(i,j,k-1)/=1.and.WCell%Cell_Type(i,j,k-1)   &
                            /=2.and.WCell%vof(i,j,k-1)>WCell%vof(i,j+1,k-1))then
@@ -1474,22 +2040,22 @@ Module PredictorUV
                         WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+          &
                         WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+          &
                         WCell%phi(i,j,k-1))
-                    wb = w(i,j,k-1)
+                    wb = wn12(i,j,k-1)
                   End if
                   wb = wb*delhec/(delh+epsi)
                 Else
                   Sy = WCell%SyN(i,j,k-1)
                   eta = dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-     &
                                                 WCell%Cell_Cent(i,j,k-1,2))/Sy
-                  wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i,j+1,k-1)
+                  wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j+1,k-1)
                 End if
                 eta = VCell%EtaT(i,j,k-1)
-                vb = (1.d0-eta)*v(i,j,k-1)+eta*v(i,j,k)
+                vb = (1.d0-eta)*vn12(i,j,k-1)+eta*vn12(i,j,k)
                 Flux(i,j,k,2) = wb*vb*VCell%AlT(i,j,k-1)*VCell%TEArea(i,j,k-1)*&
                                       VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
              ! Convective velocity: w, scalar advective: w
               End if
-              wb = 0.5d0*(w(i,j,k)+w(i,j,k-1))
+              wb = 0.5d0*(wn12(i,j,k)+wn12(i,j,k-1))
               If(k>=Kmax) then
                 Flux(i,j,k,3) = wb**2.d0*WCell%TEArea(i,j,k-1)*                &
                                          WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)
@@ -1498,7 +2064,7 @@ Module PredictorUV
                                                              WGrid%dy(i,j,k)
               Else
                 eta = WCell%EtaT(i,j,k-1)
-                wb = (1.d0-eta)*w(i,j,k-1)+eta*w(i,j,k)
+                wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j,k)
                 Flux(i,j,k,3) = (wb*WCell%AlT(i,j,k-1))**2.d0*                 &
                       WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)
               End if
@@ -1508,272 +2074,334 @@ Module PredictorUV
       End do
     End subroutine ModifiedConvectiveFlux
     
-    SUBROUTINE HighOrderConvectiveFluxForXDir(PGrid,UGrid,VGrid,WGrid,UCell,         &
-                                              VCell,WCell,vb,flux)
+    SUBROUTINE HighOrderConvectiveFluxForXDir(PGrid,UGrid,VGrid,WGrid,         &
+                                              UCell,VCell,WCell,BCu,BCv,BCw,   &
+                                              un12,vn12,wn12,vb,flux)
+      !! The subroutine is used to compute the convective flux in x direction using the MUSCL scheme
       IMPLICIT NONE
-      TYPE(Grid),INTENT(IN):: PGrid,UGrid,VGrid,WGrid
-      TYPE(Cell),INTENT(IN):: UCell,VCell,WCell
-      REAL(KIND=dp),INTENT(IN):: vb
-      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT)::flux
+      TYPE(Grid),INTENT(IN)                                      :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      TYPE(Cell),INTENT(IN)                                      :: UCell,VCell,WCell
+      !! The cell
+      REAL(KIND=dp),INTENT(IN)                                   :: vb
+      !! The boundary velocity
+      type(BCBase),intent(in)                                    :: BCu,BCv,BCw
+      !! The boundary function
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12,vn12,wn12
+      !! The velocities
+      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
+      !! The output flux
       INTEGER(kind=it4b):: i,j,k,Lim
       REAL(KIND=dp):: ul,ur,vl,vr,wl,wr,alr,uwp,uwn,sx,sy,sz,uw,delhec,delh,eta
       REAL(KIND=dp):: omei,omei1,ri,ri1,tolim,tol
-      tol=1.d-24
-      Lim=2
+      tol=1.d-40
+      Lim=1
       do j=1,Jmax
         do k=1,Kmax
-          ul=u(0,j,k);ur=u(1,j,k)
+        ! At i = 1   
+          ul=un12(0,j,k);ur=un12(1,j,k)
           alr=(ur+ul)
           alr=dmax1(dabs(ur),dabs(ul))
           flux(1,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*           &
                                UCell%EEArea(1,j,k)*UGrid%dy(1,j,k)*UGrid%dz(1,j,k)
-          vl=v(0,j,k);vr=v(1,j,k)
-          alr=0.5d0*(u(0,j,k)+u(0,j+1,k))
-          flux(1,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*               &
-                               VCell%EEArea(1,j,k)*VGrid%dy(1,j,k)
-          wl=w(0,j,k);wr=w(1,j,k)
-          alr=0.5d0*(w(0,j,k)+w(0,j+1,k))
-          flux(1,j,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*         &
-                     WCell%EEArea(1,j,k)*WGrid%dy(1,j,k)  
+          
+          vl=vn12(0,j,k);vr=vn12(1,j,k)
+          alr=0.5d0*(un12(0,j,k)+un12(0,j+1,k))
+          flux(1,j,k,2)=alr*BCv%VarW(j,k)*VCell%EEArea(1,j,k)*                 &
+                            VGrid%dy(1,j,k)*VGrid%dz(1,j,k)
+          
+          wl=wn12(0,j,k);wr=wn12(1,j,k)
+          alr=0.5d0*(wn12(0,j,k)+wn12(0,j+1,k))
+          flux(1,j,k,3)=alr*BCw%VarW(j,k)*WCell%EEArea(1,j,k)*                 &
+                            WGrid%dy(1,j,k)*WGrid%dz(1,j,k)
           do i=2,Imax
         ! Calculate threshold for MUSCL
         ! from 'A MUSCL scheme on staggered grids with kinetic-like fluxes
         ! for the barotropic Euler system', Thierry Goundon, Julie Llobell
             tolim=dmin1(2.d0*UGrid%dx(i-1,j,k)/PGrid%dx(i,j,k),                &
                         2.d0*UGrid%dx(i,j,k)/PGrid%dx(i,j,k))
-            ri=((u(i-1,j,k)-u(i-2,j,k))/PGrid%dx(i-1,j,k))/                    &
-               ((u(i,j,k)-u(i-1,j,k))/PGrid%dx(i,j,k))
-            omei=MUSCLLimiter(ri,Lim,tolim)*(u(i,j,k)-u(i-1,j,k))/PGrid%dx(i,j,k)
-            ri1=((u(i,j,k)-u(i-1,j,k))/PGrid%dx(i,j,k))/                       &
-                ((u(i+1,j,k)-u(i,j,k))/PGrid%dx(min(Imax,i+1),j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(u(i+1,j,k)-u(i,j,k))/           &
+            ri=((un12(i-1,j,k)-un12(i-2,j,k))/PGrid%dx(i-1,j,k))/                    &
+               ((un12(i,j,k)-un12(i-1,j,k))/PGrid%dx(i,j,k)+tol)
+            omei=MUSCLLimiter(ri,Lim,tolim)*(un12(i,j,k)-un12(i-1,j,k))/PGrid%dx(i,j,k)
+            ri1=((un12(i,j,k)-un12(i-1,j,k))/PGrid%dx(i,j,k))/                       &
+                ((un12(i+1,j,k)-un12(i,j,k))/PGrid%dx(min(Imax,i+1),j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(un12(i+1,j,k)-un12(i,j,k))/           &
                                        PGrid%dx(min(Imax,i+1),j,k)
-            ul=u(i-1,j,k)+0.5d0*(PGrid%dx(i,j,k))*omei
-            ur=u(i,j,k)-0.5d0*(PGrid%dx(i,j,k))*omei1
+            ul=un12(i-1,j,k)+0.5d0*(PGrid%dx(i,j,k))*omei
+            ur=un12(i,j,k)-0.5d0*(PGrid%dx(i,j,k))*omei1
             alr=(ur+ul)
             alr=dmax1(dabs(ur),dabs(ul))
             flux(i,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*         &
-                                 UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)
+                          UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
             if(i>2.and.i<Imax) then
-              if(UCell%vof(i-2,j,k)<1.d0-epsi.or.            &
-                 UCell%vof(i-1,j,k)<1.d0-epsi.or.                      &
-                 UCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(UCell%vof(i-2,j,k)<1.d0-epsi.or.			                         &
+                 UCell%vof(i-1,j,k)<1.d0-epsi.or.            		               &
+                 UCell%vof(i,j,k)<1.d0-epsi.or.				                         &
                  UCell%vof(i+1,j,k)<1.d0-epsi) then
                 eta=UCell%EtaE(i-1,j,k)
-                uw=(1-eta)*u(i-1,j,k)+eta*u(i,j,k)
+                uw=(1-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
               ! first order for x-direction
               !   if(UCell%vofS(i-1,j)>epsi.or.UCell%VofS(i,j)>epsi) then
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
-                Flux(i,j,k,1)=(uwp*u(i-1,j,k)+uwn*u(i,j,k))*           &
-                        UCell%AlE(i-1,j,k)*UGrid%dy(i,j,k)*UCell%EEArea(i-1,j,k)
+                Flux(i,j,k,1)=(uwp*un12(i-1,j,k)+uwn*un12(i,j,k))*		               &
+                        UCell%AlE(i-1,j,k)*UCell%EEArea(i-1,j,k)*              &
+                        UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
               end if
             end if
-            
+            if(isnan(flux(i,j,k,1))) then
+              print*, uwp,uwn
+              print*, ur,ul
+              print*, '++'
+              print*, omei,omei1
+              print*, 'Nan for computing EW convective flux for u momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            endif
             tolim=dmin1(2.d0*VGrid%dx(i-1,j,k)/UGrid%dx(i-1,j,k),              &
                         2.d0*VGrid%dx(i,j,k)/UGrid%dx(i-1,j,k))
-            ri=((v(i-1,j,k)-v(i-2,j,k))/UGrid%dx(max(1,i-2),j,k))/             &
-               ((v(i,j,k)-v(i-1,j,k))/UGrid%dx(i-1,j,k))
-            omei=MUSCLlimiter(ri,Lim,tolim)*(v(i,j,k)-v(i-1,j,k))/UGrid%dx(i-1,j,k)
-            ri1=((v(i,j,k)-v(i-1,j,k))/UGrid%dx(i-1,j,k))/                     &
-                ((v(i+1,j,k)-v(i,j,k))/UGrid%dx(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(v(i+1,j,k)-v(i,j,k))/UGrid%dx(i,j,k)
-            vl=v(i-1,j,k)+0.5d0*(PGrid%dx(i-1,j,k))*omei
-            vr=v(i,j,k)-0.50d0*(PGrid%dx(i,j,k))*omei1
-            alr=0.5d0*(u(i-1,j,k)+u(i-1,j+1,k))
-        !  alr=dmax1(dabs(u(i-1,j)),dabs(u(i-1,j+1)))
+            ri=((vn12(i-1,j,k)-vn12(i-2,j,k))/UGrid%dx(max(1,i-2),j,k))/             &
+               ((vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k)+tol)
+            omei=MUSCLlimiter(ri,Lim,tolim)*(vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k)
+            ri1=((vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k))/                     &
+                ((vn12(i+1,j,k)-vn12(i,j,k))/UGrid%dx(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(vn12(i+1,j,k)-vn12(i,j,k))/UGrid%dx(i,j,k)
+            vl=vn12(i-1,j,k)+0.5d0*(PGrid%dx(i-1,j,k))*omei
+            vr=vn12(i,j,k)-0.50d0*(PGrid%dx(i,j,k))*omei1
+            alr=0.5d0*(un12(i-1,j,k)+un12(i-1,j+1,k))
+        !  alr=dmax1(dabs(un12(i-1,j)),dabs(un12(i-1,j+1)))
             flux(i,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*             &
-                               VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)
+                                 VCell%EEArea(i-1,j,k)*                        &
+                                 VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
             if(i>2.and.i<Imax) then
-              if(VCell%vof(i-2,j,k)<1.d0-epsi.or.            &
-                 VCell%vof(i-1,j,k)<1.d0-epsi.or.                    &
-                 VCell%vof(i,j,k)<1.d0-epsi.or.              &
+              if(VCell%vof(i-2,j,k)<1.d0-epsi.or.			                         &
+                 VCell%vof(i-1,j,k)<1.d0-epsi.or.          		                 &
+                 VCell%vof(i,j,k)<1.d0-epsi.or.				                         &
                  VCell%vof(i+1,j,k)<1.d0-epsi) then
                 
                 if(VCell%EEArea(i,j,k)<0.5d0) then
                   delhec=dabs(VCell%FCE(i-1,j,k,1)*VCell%nx(i-1,j,k)+          &
-                              VCell%FCE(i-1,j,k,2)*VCell%ny(i-1,j,k)+        &
-                              VCell%FCE(i-1,j,k,3)*VCell%nz(i-1,j,k)+        &
+                              VCell%FCE(i-1,j,k,2)*VCell%ny(i-1,j,k)+	         &
+                              VCell%FCE(i-1,j,k,3)*VCell%nz(i-1,j,k)+	         &
                               VCell%phi(i-1,j,k))
-                  if(UCell%MoExCell(i-1,j+1,k)/=1.and.             &
+                  if(UCell%MoExCell(i-1,j+1,k)/=1.and.                         &
                      UCell%Vof(i-1,j+1,k)>epsi)then
                     delh=dabs(UCell%Cell_Cent(i-1,j+1,k,1)*UCell%nx(i-1,j+1,k)+&
                               UCell%Cell_Cent(i-1,j+1,k,2)*UCell%ny(i-1,j+1,k)+&
                               UCell%Cell_Cent(i-1,j+1,k,3)*UCell%nz(i-1,j+1,k)+&
                               UCell%phi(i-1,j+1,k))+tol
-                    uw=u(i-1,j+1,k)
+                    uw=un12(i-1,j+1,k)
                   elseif(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Vof(i-1,j,k)>epsi)then
                     delh=dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+    &
                               UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+    &
                               UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+    &
                               UCell%phi(i-1,j,k))+tol
-                     uw=u(i-1,j,k)
+                     uw=un12(i-1,j,k)
                   else
                     delh=delhec+tol
                     uw=0.d0
                   end if
                   uwp=0.5d0*(uw+dabs(uw))
                   uwn=0.5d0*(uw-dabs(uw))
-                  Flux(i,j,k,2)=(uwp*v(i-1,j,k)+uwn*v(i,j,k))*delhec/delh*     &
-                                 VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)
+                  Flux(i,j,k,2)=(uwp*vn12(i-1,j,k)+uwn*vn12(i,j,k))*delhec/delh*     &
+                                 VCell%EEArea(i-1,j,k)*                        &
+                                 VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
                 else
                   Sy=UCell%SyN(i-1,j,k)
                   eta=dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-        &
                            UCell%Cell_Cent(i-1,j,k,2))/Sy
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  uw=(1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j+1,k)
+                  uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j+1,k)
                   uwp=0.5d0*(uw+dabs(uw))
                   uwn=0.5d0*(uw-dabs(uw))
-                  Flux(i,j,k,2)=(uwp*v(i-1,j,k)+uwn*v(i,j,k))*           &
-                                 VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)
+                  Flux(i,j,k,2)=(uwp*vn12(i-1,j,k)+uwn*vn12(i,j,k))*                 &
+                                 VCell%EEArea(i-1,j,k)*                        &
+                                 VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
 
                 end if
               end if
             end if
-            
+            if(isnan(flux(i,j,k,2))) then
+              print*, i,j,k
+              print*, uwp,uwn
+              print*, vr,vl,alr
+              print*, eta,MUSCLlimiter(ri,Lim,tolim),ri
+              print*, omei,omei1,tolim
+              print*, (vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k)
+              print*, 'Test velocity'
+              print*, vn12(i,j,k),vn12(i-1,j,k)
+              print*, vn12(i-1,j,k),vn12(i-2,j,k)
+              print*, 2.d0*VGrid%dx(i-1,j,k)/UGrid%dx(i-1,j,k),                &
+                      2.d0*VGrid%dx(i,j,k)/UGrid%dx(i-1,j,k)
+              print*, UGrid%dx(i-1,j,k),UGrid%dx(i,j,k)
+              print*, 'Nan for computing EW convective flux for v momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            endif
+
             tolim=dmin1(2.d0*WGrid%dx(i-1,j,k)/WGrid%dx(i-1,j,k),              &
                         2.d0*WGrid%dx(i,j,k)/WGrid%dx(i-1,j,k))
-            ri=((w(i-1,j,k)-w(i-2,j,k))/UGrid%dx(max(1,i-2),j,k))/             &
-               ((w(i,j,k)-w(i-1,j,k))/UGrid%dx(i-1,j,k))
-            omei=MUSCLlimiter(ri,Lim,tolim)*(w(i,j,k)-w(i-1,j,k))/UGrid%dx(i-1,j,k)
-            ri1=((w(i,j,k)-w(i-1,j,k))/UGrid%dx(i-1,j,k))/                     &
-                ((w(i+1,j,k)-w(i,j,k))/UGrid%dx(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(w(i+1,j,k)-w(i,j,k))/UGrid%dx(i,j,k)
-            wl=w(i-1,j,k)+0.5d0*(PGrid%dx(i-1,j,k))*omei
-            wr=w(i,j,k)-0.50d0*(PGrid%dx(i,j,k))*omei1
-            alr=0.5d0*(u(i-1,j,k)+u(i-1,j,k+1))
-            flux(i,j,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*               &
-                               WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)
+            ri=((wn12(i-1,j,k)-wn12(i-2,j,k))/UGrid%dx(max(1,i-2),j,k))/             &
+               ((wn12(i,j,k)-wn12(i-1,j,k))/UGrid%dx(i-1,j,k)+tol)
+            omei=MUSCLlimiter(ri,Lim,tolim)*(wn12(i,j,k)-wn12(i-1,j,k))/UGrid%dx(i-1,j,k)
+            ri1=((wn12(i,j,k)-wn12(i-1,j,k))/UGrid%dx(i-1,j,k))/                     &
+                ((wn12(i+1,j,k)-wn12(i,j,k))/UGrid%dx(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(wn12(i+1,j,k)-wn12(i,j,k))/UGrid%dx(i,j,k)
+            wl=wn12(i-1,j,k)+0.5d0*(PGrid%dx(i-1,j,k))*omei
+            wr=wn12(i,j,k)-0.50d0*(PGrid%dx(i,j,k))*omei1
+            alr=0.5d0*(un12(i-1,j,k)+un12(i-1,j,k+1))
+            flux(i,j,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*             &
+                               WCell%EEArea(i-1,j,k)*                          &
+                               WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
             if(i>2.and.i<Imax) then
-              if(WCell%vof(i-2,j,k)<1.d0-epsi.or.            &
-                 WCell%vof(i-1,j,k)<1.d0-epsi.or.                    &
-                 WCell%vof(i,j,k)<1.d0-epsi.or.              &
+              if(WCell%vof(i-2,j,k)<1.d0-epsi.or.			                         &
+                 WCell%vof(i-1,j,k)<1.d0-epsi.or.          		                 &
+                 WCell%vof(i,j,k)<1.d0-epsi.or.				                         &
                  WCell%vof(i+1,j,k)<1.d0-epsi) then
                 
                 if(WCell%EEArea(i,j,k)<0.5d0) then
                   delhec=dabs(WCell%FCE(i-1,j,k,1)*WCell%nx(i-1,j,k)+          &
-                              WCell%FCE(i-1,j,k,2)*WCell%ny(i-1,j,k)+        &
-                              WCell%FCE(i-1,j,k,3)*WCell%nz(i-1,j,k)+        &
+                              WCell%FCE(i-1,j,k,2)*WCell%ny(i-1,j,k)+	         &
+                              WCell%FCE(i-1,j,k,3)*WCell%nz(i-1,j,k)+	         &
                               WCell%phi(i-1,j,k))
-                  if(UCell%MoExCell(i-1,j,k+1)/=1.and.             &
+                  if(UCell%MoExCell(i-1,j,k+1)/=1.and.			                   &
                      UCell%Vof(i-1,j,k+1)>epsi)then
                     delh=dabs(UCell%Cell_Cent(i-1,j,k+1,1)*UCell%nx(i-1,j,k+1)+&
                               UCell%Cell_Cent(i-1,j,k+1,2)*UCell%ny(i-1,j,k+1)+&
                               UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+&
                               UCell%phi(i-1,j,k+1))+tol
-                    uw=u(i-1,j,k+1)
+                    uw=un12(i-1,j,k+1)
                   elseif(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Vof(i-1,j,k)>epsi)then
                     delh=dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+    &
                               UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+    &
                               UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+    &
                               UCell%phi(i-1,j,k))+tol
-                     uw=u(i-1,j,k)
+                     uw=un12(i-1,j,k)
                   else
                     delh=delhec+tol
                     uw=0.d0
                   end if
                   uwp=0.5d0*(uw+dabs(uw))
                   uwn=0.5d0*(uw-dabs(uw))
-                  Flux(i,j,k,3)=(uwp*w(i-1,j,k)+uwn*w(i,j,k))*delhec/delh*     &
-                                 WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)
+                  Flux(i,j,k,3)=(uwp*wn12(i-1,j,k)+uwn*wn12(i,j,k))*delhec/delh*     &
+                                 WCell%EEArea(i-1,j,k)*                        &
+                                 WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
                 else
                   Sz=UCell%SzT(i-1,j,k)
                   eta=dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-        &
                            WCell%Cell_Cent(i-1,j,k,3))/Sz
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  uw=(1.d0-eta)*u(i-1,j,k)+eta*u(i-1,j,k+1)
+                  uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
                   uwp=0.5d0*(uw+dabs(uw))
                   uwn=0.5d0*(uw-dabs(uw))
-                  Flux(i,j,k,3)=(uwp*w(i-1,j,k)+uwn*w(i,j,k))*           &
-                                 WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)
+                  Flux(i,j,k,3)=(uwp*wn12(i-1,j,k)+uwn*wn12(i,j,k))*                 &
+                                 WCell%EEArea(i-1,j,k)*                        &
+                                 WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
 
                 end if
               end if
             end if
+            if(isnan(flux(i,j,k,3))) then
+              print*, uwp,uwn
+              print*, wr,wl
+              print*, 'Nan for computing EW convective flux for w momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            endif
           end do  
+          ul=un12(Imax,j,k);ur=un12(Imax+1,j,k)
+          alr=(ur+ul)
+          alr=dmax1(dabs(ur),dabs(ul))
+          flux(Imax+1,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*      &
+                   UCell%EEArea(Imax,j,k)*UGrid%dy(Imax,j,k)*UGrid%dz(Imax,j,k)
+        !  flux(Imax+1,j,k,1)=0.d0
+          vl=vn12(Imax,j,k);vr=vn12(Imax+1,j,k)
+          alr=0.5d0*(un12(Imax,j,k)+un12(Imax,j+1,k))
+          flux(Imax+1,j,k,2)=alr*BCv%VarE(j,k)*VCell%EEArea(Imax,j,k)*         &
+                              VGrid%dy(Imax,j,k)*VGrid%dz(Imax,j,k)
+        !  flux(Imax+1,j,k,2)=0.d0
+          wl=wn12(Imax,j,k);wr=wn12(Imax+1,j,k)
+          alr=0.5d0*(un12(Imax,j,k)+un12(Imax,j,k+1))
+          flux(Imax+1,j,k,3)=0.5d0*BCw%VarE(j,k)*WCell%EEArea(Imax,j,k)*       &
+                              WGrid%dy(Imax,j,k)*WGrid%dz(Imax,j,k) 
+        !  flux(Imax+1,j,k,3)=0.d0
         end do
-        ul=u(Imax,j,k);ur=u(Imax+1,j,k)
-        alr=(ur+ul)
-        alr=dmax1(dabs(ur),dabs(ul))
-        flux(Imax+1,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*       &
-                                     UCell%EEArea(Imax,j,k)*UGrid%dy(Imax,j,k)
-        vl=v(Imax,j,k);vr=v(Imax+1,j,k)
-        alr=0.5d0*(u(Imax,j,k)+u(Imax,j+1,k))
-        flux(Imax+1,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*           &
-                                     VCell%EEArea(Imax,j,k)*VGrid%dy(Imax,j,k)
-        wl=w(Imax,j,k);wr=w(Imax+1,j,k)
-        alr=0.5d0*(u(Imax,j,k)+u(Imax,j,k+1))
-        flux(Imax+1,j,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(vr-vl))*        &
-                                     WCell%EEArea(Imax,j,k)*WGrid%dy(Imax,j,k)  
       end do
     end subroutine HighOrderConvectiveFluxForXDir
     
-    subroutine HighOrderConvectiveFluxForYDir(PGrid,UGrid,VGrid,WGrid,UCell,   &
-                                                    VCell,WCell,vb,flux)
+    subroutine HighOrderConvectiveFluxForYDir(PGrid,UGrid,VGrid,WGrid,         &
+                                              UCell,VCell,WCell,BCu,BCv,BCw,   &
+                                              un12,vn12,wn12,vb,flux)
+      !! The subroutine is used to compute the convective in y direction using the MUSCL scheme
       IMPLICIT NONE
-      TYPE(Grid),INTENT(IN):: PGrid,UGrid,VGrid,WGrid
-      TYPE(Cell),INTENT(IN):: UCell,VCell,WCell
-      REAL(KIND=dp),INTENT(IN):: vb
-      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT)::flux
+      TYPE(Grid),INTENT(IN)                                      :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
+      TYPE(Cell),INTENT(IN)                                      :: UCell,VCell,WCell
+      !! The cell
+      REAL(KIND=dp),INTENT(IN)                                   :: vb
+      !! The boundary velocity
+      type(BCBase),intent(in)                                    :: BCu,BCv,BCw
+      !! The boundary function
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12,vn12,wn12
+      !! The input velocities
+      REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
+      !! The output flux
       INTEGER(kind=it4b):: i,j,k,Lim
       REAL(KIND=dp):: ul,ur,vl,vr,wl,wr,alr,delhec,delh,tol
       REAL(KIND=dp):: omei,omei1,ri,ri1,tolim,Sx,Sy,Sz,vs,vsp,vsn,eta
-      Lim=2
-      tol=1.d-24
+      Lim=1
+      tol=1.d-40
       do i=1,Imax
         do k=1,Kmax
-          ul=u(i,0,k);ur=u(i,1,k)
-          alr=0.5d0*(v(i,0,k)+v(i+1,0,k))
-          flux(i,1,k,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*               &
-                        UCell%NEArea(i,1,k)*UGrid%dx(i,1,k)*UGrid%dz(i,1,k)
-          vl=v(i,0,k);vr=v(i,1,k)
+          ul=un12(i,0,k);ur=un12(i,1,k)
+          alr=0.5d0*(vn12(i,0,k)+vn12(i+1,0,k))
+          flux(i,1,k,1)=alr*BCu%VarS(i,k)*UCell%NEArea(i,1,k)*                &
+                        UGrid%dx(i,1,k)*UGrid%dz(i,1,k)
+          vl=vn12(i,0,k);vr=vn12(i,1,k)
           alr=(vr+vl)
           alr=dmax1(dabs(vl),dabs(vr))
           flux(i,1,k,2)=0.5d0*(vr**2.d0+vl**2.d0-dabs(alr)*(vr-vl))*           &
                         VCell%NEArea(i,1,k)*VGrid%dx(i,1,k)*VGrid%dz(i,1,k)
-          wl=w(i,0,k);wr=w(i,1,k)
-          alr=0.5d0*(v(i,0,k)+v(i,0,k+1))
-          flux(i,1,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*         &
-              WCell%NEArea(i,1,k)*WGrid%dx(i,1,k)*WGrid%dz(i,1,k) 
+          wl=wn12(i,0,k);wr=wn12(i,1,k)
+          alr=0.5d0*(vn12(i,0,k)+vn12(i,0,k+1))
+          flux(i,1,k,3)=alr*BCw%VarS(i,k)*WCell%NEArea(i,1,k)*                 &
+                        WGrid%dx(i,1,k)*WGrid%dz(i,1,k) 
           do j=2,Jmax
             tolim=dmin1(2.d0*UGrid%dy(i,j-1,k)/VGrid%dy(i,j-1,k),              &
                         2.d0*UGrid%dy(i,j,k)/VGrid%dy(i,j-1,k))
-            ri=((u(i,j-1,k)-u(i,j-2,k))/VGrid%dy(i,max(1,j-2),k))/             &
-               ((u(i,j,k)-u(i,j-1,k))/VGrid%dy(i,j-1,k))
-            omei=MUSCLLimiter(ri,Lim,tolim)*(u(i,j,k)-u(i,j-1,k))/VGrid%dy(i,j-1,k)
-            ri1=((u(i,j,k)-u(i,j-1,k))/VGrid%dy(i,j-1,k))/                     &
-                ((u(i,j+1,k)-u(i,j,k))/VGrid%dy(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(u(i,j+1,k)-u(i,j,k))/VGrid%dy(i,j,k)
-            ul=u(i,j-1,k)+0.5d0*(PGrid%dy(i,j-1,k))*omei
-            ur=u(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
-            alr=0.5d0*(v(i,j-1,k)+v(i+1,j-1,k))
-       !   alr=dmax1(dabs(v(i,j-1)),dabs(v(i+1,j-1)))
+            ri=((un12(i,j-1,k)-un12(i,j-2,k))/VGrid%dy(i,max(1,j-2),k))/       &
+               ((un12(i,j,k)-un12(i,j-1,k))/VGrid%dy(i,j-1,k)+tol)
+            omei=MUSCLLimiter(ri,Lim,tolim)*(un12(i,j,k)-un12(i,j-1,k))/VGrid%dy(i,j-1,k)
+            ri1=((un12(i,j,k)-un12(i,j-1,k))/VGrid%dy(i,j-1,k))/               &
+                ((un12(i,j+1,k)-un12(i,j,k))/VGrid%dy(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(un12(i,j+1,k)-un12(i,j,k))/VGrid%dy(i,j,k)
+            ul=un12(i,j-1,k)+0.5d0*(PGrid%dy(i,j-1,k))*omei
+            ur=un12(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
+            alr=0.5d0*(vn12(i,j-1,k)+vn12(i+1,j-1,k))
+            !  alr=dmax1(dabs(vn12(i,j-1)),dabs(vn12(i+1,j-1)))
             flux(i,j,k,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*             &
                           UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
             if(j>2.and.j<Jmax) then
-              if(UCell%vof(i,j-2,k)<1.d0-epsi.or.            &
-                 UCell%vof(i,j-1,k)<1.d0-epsi.or.                      &
-                 UCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(UCell%vof(i,j-2,k)<1.d0-epsi.or.			                         &
+                 UCell%vof(i,j-1,k)<1.d0-epsi.or.            		               &
+                 UCell%Vof(i,j,k)<1.d0-epsi.or.				                         &
                  UCell%vof(i,j+1,k)<1.d0-epsi) then
                 if(UCell%NEArea(i,j-1,k)<0.5d0) then
                   delhec=dabs(UCell%FCN(i,j-1,k,1)*UCell%nx(i,j-1,k)+          &
-                              UCell%FCN(i,j-1,k,2)*UCell%ny(i,j-1,k)+        &
+                              UCell%FCN(i,j-1,k,2)*UCell%ny(i,j-1,k)+	         &
                               UCell%FCN(i,j-1,k,3)*UCell%nz(i,j-1,k)+          &
                               UCell%phi(i,j-1,k))
-                  if(VCell%MoExCell(i,j-1,k)/=1.and.             &
+                  if(VCell%MoExCell(i,j-1,k)/=1.and.			                     &
                      VCell%Vof(i,j-1,k)>epsi)then
                     delh=dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+    &
                               VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+    &
-                              VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+    &  
+                              VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+    &	
                               VCell%phi(i,j-1,k))+tol
-                    vs=v(i,j-1,k)
+                    vs=vn12(i,j-1,k)
                   elseif(VCell%MoExCell(i+1,j-1,k)/=1.and.                     &
                          VCell%Vof(i+1,j-1,k)>epsi) then
                     delh=dabs(VCell%Cell_Cent(i+1,j-1,k,1)*VCell%nx(i+1,j-1,k)+&
-                            VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+&
-                            VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+&
+                    	      VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+&
+                    	      VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+&
                               VCell%phi(i+1,j-1,k))+tol
-                    vs=v(i+1,j-1,k)
+                    vs=vn12(i+1,j-1,k)
                   else
                     delh=delhec+tol
                     vs=0.d0
@@ -1781,91 +2409,103 @@ Module PredictorUV
                   vs=vb+(vs-vb)*delhec/delh
                   vsp=0.5d0*(vs+dabs(vs))
                   vsn=0.5d0*(vs-dabs(vs))
-                  Flux(i,j,k,1)=(vsp*u(i,j-1,k)+vsn*u(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,1)=(vsp*un12(i,j-1,k)+vsn*un12(i,j,k))*delhec/delh*     &
                          UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
                 else
                   Sx=VCell%SxE(i,j-1,k)
                   eta=dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-       &
                            VCell%Cell_Cent(i,j-1,k,1))/Sx
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  vs=(1.d0-eta)*v(i,j-1,k)+eta*v(i+1,j-1,k)
+                  vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                   vsp=0.5d0*(vs+dabs(vs))
                   vsn=0.5d0*(vs-dabs(vs))
-                  Flux(i,j,k,1)=(vsp*u(i,j-1,k)+vsn*u(i,j,k))*           &
+                  Flux(i,j,k,1)=(vsp*un12(i,j-1,k)+vsn*un12(i,j,k))*		             &
                          UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
                 end if
               end if
             end if
+            if(isnan(flux(i,j,k,1))) then
+              print*, vsp,vsn
+              print*, ur,ul
+              print*, 'Nan for computing NS convective flux for u momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            endif
 
             tolim=dmin1(2.d0*VGrid%dy(i,j-1,k)/PGrid%dy(i,j,k),                &
                         2.d0*VGrid%dy(i,j,k)/PGrid%dy(i,j,k))
-            ri=((v(i,j-1,k)-v(i,j-2,k))/PGrid%dy(i,j-1,k))/                    &
-               ((v(i,j,k)-v(i,j-1,k))/PGrid%dy(i,j,k))
-            omei=MUSCLlimiter(ri,Lim,tolim)*(v(i,j,k)-v(i,j-1,k))/PGrid%dy(i,j-1,k)
-            ri1=((v(i,j,k)-v(i,j-1,k))/PGrid%dy(i,j,k))/                       &
-                ((v(i,j+1,k)-v(i,j,k))/PGrid%dy(i,min(Jmax,j+1),k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(v(i,j+1,k)-v(i,j,k))/           &
+            ri=((vn12(i,j-1,k)-vn12(i,j-2,k))/PGrid%dy(i,j-1,k))/                    &
+               ((vn12(i,j,k)-vn12(i,j-1,k))/PGrid%dy(i,j,k)+tol)
+            omei=MUSCLlimiter(ri,Lim,tolim)*(vn12(i,j,k)-vn12(i,j-1,k))/PGrid%dy(i,j-1,k)
+            ri1=((vn12(i,j,k)-vn12(i,j-1,k))/PGrid%dy(i,j,k))/                       &
+                ((vn12(i,j+1,k)-vn12(i,j,k))/PGrid%dy(i,min(Jmax,j+1),k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(vn12(i,j+1,k)-vn12(i,j,k))/           &
                                               PGrid%dy(i,min(Jmax,j+1),k)
-            vl=v(i,j-1,k)+0.5d0*(PGrid%dy(i,j,k))*omei
-            vr=v(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
+            vl=vn12(i,j-1,k)+0.5d0*(PGrid%dy(i,j,k))*omei
+            vr=vn12(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
             alr=(vr+vl)
             alr=dmax1(dabs(vl),dabs(vr))
             flux(i,j,k,2)=0.5d0*(vr*vr+vl*vl-dabs(alr)*(vr-vl))*               &
                            VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*VGrid%dz(i,j,k)
             if(j>2.and.j<Jmax) then
-              if(VCell%vof(i,j-2,k)<1.d0-epsi.or.            &
-                 VCell%vof(i,j-1,k)<1.d0-epsi.or.                      &
-                 VCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(VCell%vof(i,j-2,k)<1.d0-epsi.or.			       &
+                 VCell%vof(i,j-1,k)<1.d0-epsi.or.            		       &
+                 VCell%Vof(i,j,k)<1.d0-epsi.or.				       &
                  VCell%vof(i,j+1,k)<1.d0-epsi) then
                 Sx=VCell%Cell_Cent(i,j,k,1)-VCell%Cell_Cent(i,j-1,k,1)
                 Sy=VCell%SyN(i,j-1,k)
                 eta=VCell%EtaN(i,j-1,k)
-                vs=(1.d0-eta)*v(i,j-1,k)+eta*v(i,j,k)
+                vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j,k)
                 vs=(vb+(vs-vb)*VCell%AlN(i,j-1,k))
                 vsp=0.5d0*(vs+dabs(vs))
                 vsn=0.5d0*(vs-dabs(vs))
-                Flux(i,j,k,2)=(vsp*v(i,j-1,k)+vsn*v(i,j,k))*                   &
+                Flux(i,j,k,2)=(vsp*vn12(i,j-1,k)+vsn*vn12(i,j,k))*                   &
                            VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*VGrid%dz(i,j,k)
               end if
             end if
-            
+            if(isnan(flux(i,j,k,2))) then
+              print*, vsp,vsn
+              print*, vr,vl
+              print*, 'Nan for computing NS convective flux for v momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            endif
+
             tolim=dmin1(2.d0*WGrid%dy(i,j-1,k)/VGrid%dy(i,j-1,k),              &
                         2.d0*WGrid%dy(i,j,k)/VGrid%dy(i,j-1,k))
-            ri=((w(i,j-1,k)-w(i,j-2,k))/VGrid%dy(i,max(1,j-2),k))/             &
-               ((w(i,j,k)-w(i,j-1,k))/VGrid%dy(i,j-1,k))
-            omei=MUSCLLimiter(ri,Lim,tolim)*(w(i,j,k)-w(i,j-1,k))/VGrid%dy(i,j-1,k)
-            ri1=((w(i,j,k)-w(i,j-1,k))/VGrid%dy(i,j-1,k))/                     &
-                ((w(i,j+1,k)-w(i,j,k))/VGrid%dy(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(w(i,j+1,k)-w(i,j,k))/WGrid%dy(i,j,k)
-            ul=w(i,j-1,k)+0.5d0*(PGrid%dy(i,j-1,k))*omei
-            ur=w(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
-            alr=0.5d0*(v(i,j-1,k)+v(i,j-1,k+1))
+            ri=((wn12(i,j-1,k)-wn12(i,j-2,k))/VGrid%dy(i,max(1,j-2),k))/             &
+               ((wn12(i,j,k)-wn12(i,j-1,k))/VGrid%dy(i,j-1,k)+tol)
+            omei=MUSCLLimiter(ri,Lim,tolim)*(wn12(i,j,k)-wn12(i,j-1,k))/VGrid%dy(i,j-1,k)
+            ri1=((wn12(i,j,k)-wn12(i,j-1,k))/VGrid%dy(i,j-1,k))/                     &
+                ((wn12(i,j+1,k)-wn12(i,j,k))/VGrid%dy(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(wn12(i,j+1,k)-wn12(i,j,k))/WGrid%dy(i,j,k)
+            wl=wn12(i,j-1,k)+0.5d0*(PGrid%dy(i,j-1,k))*omei
+            wr=wn12(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
+            alr=0.5d0*(vn12(i,j-1,k)+vn12(i,j-1,k+1))
             flux(i,j,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*             &
                           WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*WGrid%dz(i,j,k)
             if(j>2.and.j<Jmax) then
-              if(WCell%vof(i,j-2,k)<1.d0-epsi.or.            &
-                 WCell%vof(i,j-1,k)<1.d0-epsi.or.                      &
-                 WCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(WCell%vof(i,j-2,k)<1.d0-epsi.or.			       &
+                 WCell%vof(i,j-1,k)<1.d0-epsi.or.            		       &
+                 WCell%Vof(i,j,k)<1.d0-epsi.or.				       &
                  WCell%vof(i,j+1,k)<1.d0-epsi) then
                 if(WCell%NEArea(i,j-1,k)<0.5d0) then
                   delhec=dabs(WCell%FCN(i,j-1,k,1)*WCell%nx(i,j-1,k)+          &
-                              WCell%FCN(i,j-1,k,2)*WCell%ny(i,j-1,k)+        &
+                              WCell%FCN(i,j-1,k,2)*WCell%ny(i,j-1,k)+	       &
                               WCell%FCN(i,j-1,k,3)*WCell%nz(i,j-1,k)+          &
                               WCell%phi(i,j-1,k))
-                  if(VCell%MoExCell(i,j-1,k)/=1.and.             &
+                  if(VCell%MoExCell(i,j-1,k)/=1.and.			       &
                      VCell%Vof(i,j-1,k)>epsi)then
                     delh=dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+    &
                               VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+    &
-                              VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+    &  
+                              VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+    &	
                               VCell%phi(i,j-1,k))+tol
-                    vs=v(i,j-1,k)
+                    vs=vn12(i,j-1,k)
                   elseif(VCell%MoExCell(i,j-1,k+1)/=1.and.                     &
                          VCell%Vof(i,j-1,k+1)>epsi) then
                     delh=dabs(VCell%Cell_Cent(i,j-1,k+1,1)*VCell%nx(i,j-1,k+1)+&
-                            VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+&
-                            VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+&
+                    	      VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+&
+                    	      VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+&
                               VCell%phi(i,j-1,k+1))+tol
-                    vs=v(i,j-1,k+1)
+                    vs=vn12(i,j-1,k+1)
                   else
                     delh=delhec+tol
                     vs=0.d0
@@ -1873,106 +2513,122 @@ Module PredictorUV
                   vs=vb+(vs-vb)*delhec/delh
                   vsp=0.5d0*(vs+dabs(vs))
                   vsn=0.5d0*(vs-dabs(vs))
-                  Flux(i,j,k,3)=(vsp*w(i,j-1,k)+vsn*w(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,3)=(vsp*wn12(i,j-1,k)+vsn*wn12(i,j,k))*delhec/delh*     &
                          WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*WGrid%dz(i,j,k)
                 else
                   Sz=VCell%SzT(i,j-1,k)
                   eta=dabs(WCell%FCT(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-       &
                            VCell%Cell_Cent(i,j-1,k,3))/Sz
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  vs=(1.d0-eta)*v(i,j-1,k)+eta*v(i,j-1,k+1)
+                  vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j-1,k+1)
                   vsp=0.5d0*(vs+dabs(vs))
                   vsn=0.5d0*(vs-dabs(vs))
-                  Flux(i,j,k,3)=(vsp*w(i,j-1,k)+vsn*w(i,j,k))*           &
+                  Flux(i,j,k,3)=(vsp*wn12(i,j-1,k)+vsn*wn12(i,j,k))*		       &
                          WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*WGrid%dz(i,j,k)
                 end if
               end if
             end if
+            if(isnan(flux(i,j,k,3))) then
+              print*, vsp,vsn
+              print*, wr,wl
+              print*, 'Nan for computing NS convective flux for w momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            endif
           end do
         
         
-          ul=u(i,Jmax,k);ur=u(i,Jmax+1,k)
-          alr=0.5d0*(v(i,Jmax,k)+v(i+1,Jmax,k))
-          flux(i,Jmax+1,k,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*            &
-                   UCell%NEArea(i,Jmax,k)*UGrid%dx(i,Jmax,k)*UGrid%dz(i,Jmax,k)
-          vl=v(i,Jmax,k);vr=v(i,Jmax+1,k)
+          ul=un12(i,Jmax,k);ur=un12(i,Jmax+1,k)
+          alr=0.5d0*(vn12(i,Jmax,k)+vn12(i+1,Jmax,k))
+          flux(i,Jmax+1,k,1)=alr*BCu%VarN(i,k)*UCell%NEArea(i,Jmax,k)*         &
+                             UGrid%dx(i,Jmax,k)*UGrid%dz(i,Jmax,k)
+          vl=vn12(i,Jmax,k);vr=vn12(i,Jmax+1,k)
           alr=(vr+vl)
           alr=dmax1(dabs(vl),dabs(vr))
-          flux(i,Jmax+1,k,2)=0.5d0*(vr**2.d0+vl**2.d0-dabs(alr)*(vr-vl))*        &
+          flux(i,Jmax+1,k,2)=0.5d0*(vr**2.d0+vl**2.d0-dabs(alr)*(vr-vl))*      &
                     VCell%NEArea(i,Jmax,k)*VGrid%dx(i,Jmax,k)*VGrid%dz(i,Jmax,k)
-          wl=w(i,Jmax,k);wr=w(i,Jmax+1,k)
-          alr=0.5d0*(v(i,Jmax,k)+v(i,Jmax,k+1))
-          flux(i,Jmax+1,k,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*        &
-                     WCell%NEArea(i,Jmax,k)*WGrid%dx(i,Jmax,k)*WGrid%dz(i,Jmax,k)        
+          wl=wn12(i,Jmax,k);wr=wn12(i,Jmax+1,k)
+          alr=0.5d0*(vn12(i,Jmax,k)+vn12(i,Jmax,k+1))
+          flux(i,Jmax+1,k,3)=alr*BCw%VarN(i,k)*WCell%NEArea(i,Jmax,k)*         &
+                             WGrid%dx(i,Jmax,k)*WGrid%dz(i,Jmax,k)	       
         end do
       end do
     end subroutine HighOrderConvectiveFluxForYDir
     
-    subroutine HighOrderConvectiveFluxForZDir(PGrid,UGrid,VGrid,WGrid,UCell,   &
-                                                    VCell,WCell,vb,flux)
+    subroutine HighOrderConvectiveFluxForZDir(PGrid,UGrid,VGrid,WGrid,         &
+                                              UCell,VCell,WCell,BCu,BCv,BCW,   &
+                                              un12,vn12,wn12,vb,flux)
+      !! The subroutine is used to compute the convective flux in the z direction. 
+      !! The MUSCL scheme is used 
       IMPLICIT NONE
       TYPE(Grid),INTENT(IN)    :: PGrid,UGrid,VGrid,WGrid
+      !! The grid
       TYPE(Cell),INTENT(IN)    :: UCell,VCell,WCell
+      !! The cell
+      type(BCBase),intent(in)  :: BCu,BCv,BCw
+      !! The boundary function
+      real(kind=dp),dimension(:,:,:),allocatable,intent(in) :: un12,vn12,wn12
+      !! The velocities at time n+1/2
       REAL(KIND=dp),INTENT(IN) :: vb
+      !! The boundary velocity
       REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT)::flux
       INTEGER(kind=it4b)       :: i,j,k,Lim
       REAL(KIND=dp)            :: ul,ur,vl,vr,wl,wr,alr,delhec,delh,tol
       REAL(KIND=dp)            :: omei,omei1,ri,ri1,tolim,Sx,Sy,Sz,wb,wbp,wbn,eta
-      Lim=2
-      tol=1.d-24
+      Lim=1
+      tol=1.d-40
       do i=1,Imax
         do j=1,Jmax
-          ul=u(i,j,0);ur=u(i,j,1)
-          alr=0.5d0*(w(i,j,0)+w(i+1,j,0))
-          flux(i,j,1,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*               &
-                        UCell%TEArea(i,j,1)*UGrid%dx(i,j,1)*UGrid%dy(i,j,1)
-          vl=v(i,j,0);vr=v(i,j,1)
-          alr=0.5d0*(w(i,j,0)+w(i,j+1,0))
+          ul=un12(i,j,0);ur=un12(i,j,1)
+          alr=0.5d0*(wn12(i,j,0)+wn12(i+1,j,0))
+          flux(i,j,1,1)=alr*BCu%VarB(i,j)*UCell%TEArea(i,j,1)*                 &
+                        UGrid%dx(i,j,1)*UGrid%dy(i,j,1)
+          vl=vn12(i,j,0);vr=vn12(i,j,1)
+          alr=0.5d0*(wn12(i,j,0)+wn12(i,j+1,0))
           flux(i,j,1,2)=0.5d0*(vr**2.d0+vl**2.d0-dabs(alr)*(vr-vl))*           &
                         VCell%TEArea(i,j,1)*VGrid%dx(i,j,1)*VGrid%dy(i,j,1)
-          wl=w(i,j,0);wr=w(i,j,1)
+          wl=wn12(i,j,0);wr=wn12(i,j,1)
           alr=dmax1(dabs(wl),dabs(wr))
-          flux(i,j,1,3)=0.5d0*(alr*wr+alr*wl-dabs(alr)*(wr-wl))*         &
-              WCell%TEArea(i,j,1)*WGrid%dx(i,j,1)*WGrid%dy(i,j,1) 
+          flux(i,j,1,3)=alr*BCv%VarB(i,j)*WCell%TEArea(i,j,1)*                 &
+                        WGrid%dx(i,j,1)*WGrid%dy(i,j,1) 
           do k=2,Kmax
             tolim=dmin1(2.d0*UGrid%dz(i,j,k-1)/WGrid%dz(i,j,k-1),              &
                         2.d0*UGrid%dz(i,j,k)/WGrid%dz(i,j,k-1))
-            ri=((u(i,j,k-1)-u(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/             &
-               ((u(i,j,k)-u(i,j,k-1))/WGrid%dz(i,j,k-1))
-            omei=MUSCLLimiter(ri,Lim,tolim)*(u(i,j,k)-u(i,j,k-1))/WGrid%dz(i,j,k-1)
-            ri1=((u(i,j,k)-u(i,j,k-1))/WGrid%dz(i,j,k-1))/                     &
-                ((u(i,j,k+1)-u(i,j,k))/WGrid%dz(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(u(i,j,k+1)-u(i,j,k))/WGrid%dz(i,j,k)
-            ul=u(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
-            ur=u(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
-            alr=0.5d0*(v(i,j,k-1)+v(i+1,j,k-1))
-       !   alr=dmax1(dabs(v(i,j-1)),dabs(v(i+1,j-1)))
+            ri=((un12(i,j,k-1)-un12(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/             &
+               ((un12(i,j,k)-un12(i,j,k-1))/WGrid%dz(i,j,k-1)+tol)
+            omei=MUSCLLimiter(ri,Lim,tolim)*(un12(i,j,k)-un12(i,j,k-1))/WGrid%dz(i,j,k-1)
+            ri1=((un12(i,j,k)-un12(i,j,k-1))/WGrid%dz(i,j,k-1))/                     &
+                ((un12(i,j,k+1)-un12(i,j,k))/WGrid%dz(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(un12(i,j,k+1)-un12(i,j,k))/WGrid%dz(i,j,k)
+            ul=un12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
+            ur=un12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
+            alr=0.5d0*(vn12(i,j,k-1)+vn12(i+1,j,k-1))
+       !   alr=dmax1(dabs(vn12(i,j-1)),dabs(vn12(i+1,j-1)))
             flux(i,j,k,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*             &
                           UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(UCell%vof(i,j,k-2)<1.d0-epsi.or.            &
-                 UCell%vof(i,j,k-1)<1.d0-epsi.or.                      &
-                 UCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(UCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
+                 UCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
+                 UCell%Vof(i,j,k)<1.d0-epsi.or.				       &
                  UCell%vof(i,j,k+1)<1.d0-epsi) then
                 if(UCell%TEArea(i,j,k-1)<0.5d0) then
                   delhec=dabs(UCell%FCT(i,j,k-1,1)*UCell%nx(i,j,k-1)+          &
-                              UCell%FCT(i,j,k-1,2)*UCell%ny(i,j,k-1)+        &
+                              UCell%FCT(i,j,k-1,2)*UCell%ny(i,j,k-1)+	       &
                               UCell%FCT(i,j,k-1,3)*UCell%nz(i,j,k-1)+          &
                               UCell%phi(i,j,k-1))
-                  if(WCell%MoExCell(i,j,k-1)/=1.and.             &
+                  if(WCell%MoExCell(i,j,k-1)/=1.and.			       &
                      WCell%Vof(i,j,k-1)>epsi)then
                     delh=dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+    &
                               WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+    &
-                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &  
+                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &	
                               WCell%phi(i,j,k-1))+tol
-                    wb=w(i,j,k-1)
+                    wb=wn12(i,j,k-1)
                   elseif(WCell%MoExCell(i+1,j,k-1)/=1.and.                     &
                          WCell%Vof(i-1,j,k+1)>epsi) then
                     delh=dabs(WCell%Cell_Cent(i+1,j,k-1,1)*WCell%nx(i+1,j,k-1)+&
-                            WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+&
-                            WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+&
+                    	      WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+&
+                    	      WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+&
                               WCell%phi(i+1,j,k-1))+tol
-                    wb=w(i+1,j,k-1)
+                    wb=wn12(i+1,j,k-1)
                   else
                     delh=delhec+tol
                     wb=0.d0
@@ -1980,128 +2636,144 @@ Module PredictorUV
                  ! wb=vb+(wb-vb)*delhec/delh
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,1)=(wbp*u(i,j,k-1)+wbn*u(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*delhec/delh*     &
                            UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
                 else
                   Sx=WCell%SxE(i,j,k-1)
                   eta=dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-       &
                            WCell%Cell_Cent(i,j,k-1,1))/Sx
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  wb=(1.d0-eta)*w(i,j,k-1)+eta*w(i+1,j,k-1)
+                  wb=(1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,1)=(wbp*u(i,j,k-1)+wbn*u(i,j,k))*           &
+                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*		       &
                          UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
                 end if
               end if
             end if
-            
+            if(isnan(flux(i,j,k,1))) then
+              print*, wbp,wbn
+              print*, ur,ul
+              print*, 'Nan for computing BT convective flux for u momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            endif
             ! For VCell
             
             tolim=dmin1(2.d0*VGrid%dz(i,j,k-1)/WGrid%dz(i,j,k-1),              &
                         2.d0*VGrid%dz(i,j,k)/WGrid%dz(i,j,k-1))
-            ri=((v(i,j,k-1)-v(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/             &
-               ((v(i,j,k)-v(i,j,k-1))/WGrid%dz(i,j,k-1))
-            omei=MUSCLLimiter(ri,Lim,tolim)*(v(i,j,k)-v(i,j,k-1))/WGrid%dz(i,j,k-1)
-            ri1=((v(i,j,k)-v(i,j,k-1))/WGrid%dz(i,j,k-1))/                     &
-                ((v(i,j,k+1)-v(i,j,k))/WGrid%dz(i,j,k))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(v(i,j,k+1)-v(i,j,k))/WGrid%dz(i,j,k)
-            vl=v(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
-            vr=v(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
-            alr=0.5d0*(v(i,j,k-1)+v(i,j+1,k-1))
-       !   alr=dmax1(dabs(v(i,j-1)),dabs(v(i+1,j-1)))
+            ri=((vn12(i,j,k-1)-vn12(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/             &
+               ((vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1)+tol)
+            omei=MUSCLLimiter(ri,Lim,tolim)*(vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1)
+            ri1=((vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1))/                     &
+                ((vn12(i,j,k+1)-vn12(i,j,k))/WGrid%dz(i,j,k)+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(vn12(i,j,k+1)-vn12(i,j,k))/WGrid%dz(i,j,k)
+            vl=vn12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
+            vr=vn12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
+            alr=0.5d0*(vn12(i,j,k-1)+vn12(i,j+1,k-1))
+       !   alr=dmax1(dabs(vn12(i,j-1)),dabs(vn12(i+1,j-1)))
             flux(i,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*             &
                           VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(VCell%vof(i,j,k-2)<1.d0-epsi.or.            &
-                 VCell%vof(i,j,k-1)<1.d0-epsi.or.                      &
-                 VCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(VCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
+                 VCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
+                 VCell%Vof(i,j,k)<1.d0-epsi.or.				       &
                  VCell%vof(i,j,k+1)<1.d0-epsi) then
                 if(VCell%TEArea(i,j,k-1)<0.5d0) then
                   delhec=dabs(VCell%FCT(i,j,k-1,1)*VCell%nx(i,j,k-1)+          &
-                              VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k-1)+        &
+                              VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k-1)+	       &
                               VCell%FCT(i,j,k-1,3)*VCell%nz(i,j,k-1)+          &
                               VCell%phi(i,j,k-1))
-                  if(WCell%MoExCell(i,j,k-1)/=1.and.             &
+                  if(WCell%MoExCell(i,j,k-1)/=1.and.			       &
                      WCell%Vof(i,j,k-1)>epsi)then
                     delh=dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+    &
                               WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+    &
-                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &  
+                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &	
                               WCell%phi(i,j,k-1))+tol
-                    wb=w(i,j,k-1)
+                    wb=wn12(i,j,k-1)
                   elseif(WCell%MoExCell(i,j+1,k-1)/=1.and.                     &
                          WCell%Vof(i,j+1,k-1)>epsi) then
                     delh=dabs(WCell%Cell_Cent(i,j+1,k-1,1)*VCell%nx(i,j+1,k-1)+&
-                            WCell%Cell_Cent(i,j+1,k-1,2)*VCell%ny(i,j+1,k-1)+&
-                            WCell%Cell_Cent(i,j+1,k-1,3)*VCell%nz(i,j+1,k-1)+&
+                    	      WCell%Cell_Cent(i,j+1,k-1,2)*VCell%ny(i,j+1,k-1)+&
+                    	      WCell%Cell_Cent(i,j+1,k-1,3)*VCell%nz(i,j+1,k-1)+&
                               WCell%phi(i,j+1,k-1))+tol
-                    wb=w(i,j+1,k-1)
+                    wb=wn12(i,j+1,k-1)
                   else
                     delh=delhec+tol
                     wb=0.d0
                   end if
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,2)=(wbp*v(i,j,k-1)+wbn*v(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*delhec/delh*     &
                            VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
                 else
                   Sy=WCell%SyN(i,j,k-1)
                   eta=dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-       &
                            WCell%Cell_Cent(i,j,k-1,2))/Sy
                   if(dabs(eta)>=1.d0) eta=0.5d0
-                  wb=(1.d0-eta)*w(i,j,k-1)+eta*w(i,j+1,k-1)
+                  wb=(1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j+1,k-1)
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,2)=(wbp*v(i,j,k-1)+wbn*v(i,j,k))*           &
+                  Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*		       &
                          VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
                 end if
               end if
             end if
-            
+            if(isnan(flux(i,j,k,2))) then
+              print*, wbp,wbn
+              print*, vr,vl
+              print*, 'Nan for computing BT convective flux for v momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            endif
             ! For WCell 
 
             tolim=dmin1(2.d0*WGrid%dz(i,j,k-1)/PGrid%dz(i,j,k),                &
                         2.d0*WGrid%dz(i,j,k)/PGrid%dz(i,j,k))
-            ri=((w(i,j,k-1)-w(i,j,k-2))/PGrid%dz(i,j,k-1))/                    &
-               ((w(i,j,k)-w(i,j,k-1))/PGrid%dz(i,j,k))
-            omei=MUSCLlimiter(ri,Lim,tolim)*(w(i,j,k)-w(i,j,k-1))/PGrid%dz(i,j,k-1)
-            ri1=((v(i,j,k)-v(i,j,k-1))/PGrid%dz(i,j,k))/                       &
-                ((v(i,j,k+1)-v(i,j,k))/PGrid%dz(i,j,min(Kmax,k+1)))
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(w(i,j,k+1)-w(i,j,k))/           &
+            ri=((wn12(i,j,k-1)-wn12(i,j,k-2))/PGrid%dz(i,j,k-1))/                    &
+               ((wn12(i,j,k)-wn12(i,j,k-1))/PGrid%dz(i,j,k)+tol)
+            omei=MUSCLlimiter(ri,Lim,tolim)*(wn12(i,j,k)-wn12(i,j,k-1))/PGrid%dz(i,j,k-1)
+            ri1=((vn12(i,j,k)-vn12(i,j,k-1))/PGrid%dz(i,j,k))/                       &
+                ((vn12(i,j,k+1)-vn12(i,j,k))/PGrid%dz(i,j,min(Kmax,k+1))+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(wn12(i,j,k+1)-wn12(i,j,k))/           &
                                               PGrid%dz(i,j,min(Kmax,k+1))
-            wl=w(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k))*omei
-            wr=w(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
+            wl=wn12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k))*omei
+            wr=wn12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
             alr=(wr+wl)
             alr=dmax1(dabs(wl),dabs(wr))
             flux(i,j,k,3)=0.5d0*(wr*wr+wl*wl-dabs(alr)*(wr-wl))*               &
                            WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*WGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(WCell%vof(i,j,k-2)<1.d0-epsi.or.            &
-                 WCell%vof(i,j,k-1)<1.d0-epsi.or.                      &
-                 WCell%Vof(i,j,k)<1.d0-epsi.or.              &
+              if(WCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
+                 WCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
+                 WCell%Vof(i,j,k)<1.d0-epsi.or.				       &
                  WCell%vof(i,j,k+1)<1.d0-epsi) then
                 eta=WCell%EtaT(i,j,k-1)
-                wb=(1.d0-eta)*w(i,j,k-1)+eta*w(i,j,k)
+                wb=(1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j,k)
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
-                Flux(i,j,k,3)=(wbp*w(i,j,k-1)+wbn*w(i,j,k))*                   &
+                Flux(i,j,k,3)=(wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*                   &
                            WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*WGrid%dy(i,j,k)
               end if
             end if
+            if(isnan(flux(i,j,k,3))) then
+              print*, wbp,wbn
+              print*, wr,wl
+              print*, 'Nan for computing BT convective flux for w momentum equation'
+              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            endif
           end do
         
-          ul=u(i,j,kmax);ur=u(i,j,kmax+1)
-          alr=0.5d0*(w(i,j,kmax)+w(i+1,j,kmax))
-          flux(i,j,kmax+1,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*          &
-                   UCell%TEArea(i,j,kmax)*UGrid%dx(i,j,kmax)*UGrid%dy(i,j,kmax)
-          vl=v(i,j,kmax);vr=v(i,j,kmax+1)
-          alr=0.5d0*(w(i,j,kmax)+w(i,j+1,kmax))
-          flux(i,j,kmax+1,2)=0.5d0*(alr*ur+alr*vl-dabs(alr)*(vr-vl))*          &
-                   VCell%TEArea(i,j,kmax)*VGrid%dx(i,j,kmax)*VGrid%dy(i,j,kmax)
-          wl=w(i,Jmax,k);wr=w(i,Jmax+1,k)
+          ul=un12(i,j,kmax);ur=un12(i,j,kmax+1)
+          alr=0.5d0*(wn12(i,j,kmax)+wn12(i+1,j,kmax))
+          flux(i,j,kmax+1,1)=alr*BCu%VarT(i,j)*UCell%TEArea(i,j,kmax)*         &
+                              UGrid%dx(i,j,kmax)*UGrid%dy(i,j,kmax)
+          vl=vn12(i,j,kmax);vr=vn12(i,j,kmax+1)
+          alr=0.5d0*(wn12(i,j,kmax)+wn12(i,j+1,kmax))
+          flux(i,j,kmax+1,2)=alr*BCv%VarT(i,j)*VCell%TEArea(i,j,kmax)*         &
+                              VGrid%dx(i,j,kmax)*VGrid%dy(i,j,kmax)
+          wl=wn12(i,Jmax,k);wr=wn12(i,Jmax+1,k)
           alr=dmax1(dabs(wl),dabs(wr))
           flux(i,j,kmax+1,3)=0.5d0*(wr**2.d0+wl**2.d0-dabs(alr)*(wr-wl))*      &
-                   WCell%TEArea(i,j,kmax)*WGrid%dx(i,j,kmax)*WGrid%dy(i,j,kmax)        
+                   WCell%TEArea(i,j,kmax)*WGrid%dx(i,j,kmax)*WGrid%dy(i,j,kmax)	       
         end do
       end do
     end subroutine HighOrderConvectiveFluxForZDir
@@ -2110,14 +2782,14 @@ Module PredictorUV
                                                      flux,EFlux,nuref,iu,iv,iw)
       !! The subroutine is used to compute the coefficient for diffusive flux.
       Implicit none
-      Integer(kind=it4b),intent(in)        :: iu,iv,iw
-      Type(Cell),intent(in)          :: PCell,UCell,VCell,WCell
-      Type(Grid),intent(in)          :: PGrid,UGrid,VGrid,WGrid
+      Integer(kind=it4b),intent(in)				 :: iu,iv,iw
+      Type(Cell),intent(in)					 :: PCell,UCell,VCell,WCell
+      Type(Grid),intent(in)					 :: PGrid,UGrid,VGrid,WGrid
       Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: flux,EFlux
-      Real(kind=dp),intent(in)           :: nuref
-      Integer(kind=it4b)           :: i,j,k
-      Real(kind=dp)            :: Sx,Sy,Sz,tol
-      real(kind=dp)            :: NuF,VflF
+      Real(kind=dp),intent(in)					 :: nuref
+      Integer(kind=it4b)					 :: i,j,k
+      Real(kind=dp)						 :: Sx,Sy,Sz,tol
+      real(kind=dp)						 :: NuF,VflF
       tol = 1.d-30
       Do i = 1,Imax+iu
         Do j = 1,Jmax+iv
@@ -2160,8 +2832,8 @@ Module PredictorUV
                 Sy=UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i-1,j,k,2)
                 Sz=UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i-1,j,k,3)
                 if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i+1,j,k)>epsi) then
-                  VflF=(1.d0-UCell%EtaE(i,j,k))*             &
-                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-UCell%EtaE(i,j,k))*			       &
+                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
                      UCell%EtaE(i,j,k)*UCell%vofL(i+1,j,k)/(UCell%vof(i+1,j,k)+tol)
                 else
                   VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),         &
@@ -2187,8 +2859,8 @@ Module PredictorUV
                 Sz=VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i-1,j,k,3)
 
                 if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i+1,j,k)>epsi) then
-                  VflF=(1.d0-VCell%EtaE(i,j,k))*             &
-                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-VCell%EtaE(i,j,k))*			       &
+                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
                      VCell%EtaE(i,j,k)*VCell%vofL(i+1,j,k)/(VCell%vof(i+1,j,k)+tol)
                 else
                   VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),         &
@@ -2211,8 +2883,8 @@ Module PredictorUV
                 Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i-1,j,k,3)
 
                 if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i+1,j,k)>epsi) then
-                  VflF=(1.d0-WCell%EtaE(i,j,k))*             &
-                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-WCell%EtaE(i,j,k))*			       &
+                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
                      WCell%EtaE(i,j,k)*WCell%vofL(i+1,j,k)/(WCell%vof(i+1,j,k)+tol)
                 else
                   VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),         &
@@ -2269,11 +2941,11 @@ Module PredictorUV
                 Sy = UCell%SyN(i,j-1,k)
                 Sz = UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i,j-1,k,3)
                 if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,j+1,k)>epsi) then
-                  VflF=(1.d0-UCell%EtaN(i,j,k))*             &
-                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-UCell%EtaN(i,j,k))*			       &
+                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
                      UCell%EtaN(i,j,k)*UCell%vofL(i,j+1,k)/(UCell%vof(i,j+1,k)+tol)
                 else
-                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),	       &
                              UCell%vofL(i,j+1,k)/(UCell%vof(i,j+1,k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
@@ -2291,11 +2963,11 @@ Module PredictorUV
                 Sy = VCell%SyN(i,j-1,k)
                 Sz = VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i,j-1,k,3)
                 if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,j+1,k)>epsi) then
-                  VflF=(1.d0-VCell%EtaN(i,j,k))*             &
-                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-VCell%EtaN(i,j,k))*			       &
+                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
                      VCell%EtaN(i,j,k)*VCell%vofL(i,j+1,k)/(VCell%vof(i,j+1,k)+tol)
                 else
-                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),	       &
                              VCell%vofL(i,j+1,k)/(VCell%vof(i,j+1,k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
@@ -2313,11 +2985,11 @@ Module PredictorUV
                 Sy=WCell%SyN(i,j-1,k)
                 Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i,j-1,k,3)
                 if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,j+1,k)>epsi) then
-                  VflF=(1.d0-WCell%EtaN(i,j,k))*             &
-                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-WCell%EtaN(i,j,k))*			       &
+                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
                      WCell%EtaN(i,j,k)*WCell%vofL(i,j+1,k)/(WCell%vof(i,j+1,k)+tol)
                 else
-                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),	       &
                              WCell%vofL(i,j+1,k)/(WCell%vof(i,j+1,k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
@@ -2371,11 +3043,11 @@ Module PredictorUV
                 Sy = UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i,j,k-1,2)
                 Sz = UCell%SzT(i,j,k-1)
                 if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,j,k+1)>epsi) then
-                  VflF=(1.d0-UCell%EtaT(i,j,k))*             &
-                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-UCell%EtaT(i,j,k))*			       &
+                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
                      UCell%EtaT(i,j,k)*UCell%vofL(i,j,k+1)/(UCell%vof(i,j,k+1)+tol)
                 else
-                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),	       &
                              UCell%vofL(i,j,k+1)/(UCell%vof(i,j,k+1)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
@@ -2394,11 +3066,11 @@ Module PredictorUV
                 Sy = VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i,j,k-1,2)
                 Sz = VCell%SzT(i,j,k-1)
                 if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,j,k+1)>epsi) then
-                  VflF=(1.d0-VCell%EtaT(i,j,k))*             &
-                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-VCell%EtaT(i,j,k))*			       &
+                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
                      VCell%EtaT(i,j,k)*VCell%vofL(i,j,k+1)/(VCell%vof(i,j,k+1)+tol)
                 else
-                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),	       &
                              VCell%vofL(i,j,k+1)/(VCell%vof(i,j,k+1)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
@@ -2416,11 +3088,11 @@ Module PredictorUV
                 Sy = WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i,j,k-1,2)
                 Sz = WCell%SzT(i,j,k-1)
                 if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,j,k+1)>epsi) then
-                  VflF=(1.d0-WCell%EtaT(i,j,k))*             &
-                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+           &
+                  VflF=(1.d0-WCell%EtaT(i,j,k))*			       &
+                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
                      WCell%EtaT(i,j,k)*WCell%vofL(i,j,k+1)/(WCell%vof(i,j,k+1)+tol)
                 else
-                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),         &
+                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),	       &
                              WCell%vofL(i,j,k+1)/(WCell%vof(i,j,k+1)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
