@@ -736,29 +736,29 @@ Module Cutcell
         Do j = 1,Jmax
           Do k = 1,Kmax
             Do i = 1,Imax-1
-              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i+1,j,k)/=-1) then
+              if(TCell%Cell_Type(i,j,k)/=2.and.TCell%Cell_Type(i+1,j,k)/=2) then
                 TCell%SxE(i,j,k) = TCell%Cell_Cent(i+1,j,k,1)+BGrid%dx(i+iu,j,k)-&
                                    TCell%Cell_Cent(i,j,k,1)
                 Sy = TCell%Cell_Cent(i+1,j,k,2)-TCell%Cell_Cent(i,j,k,2)
                 Sz = TCell%Cell_Cent(i+1,j,k,3)-TCell%Cell_Cent(i,j,k,3)
-                TCell%EtaE(i,j,k) = dabs((TCell%FCE(i,j,k,1)-                    &
+                TCell%EtaE(i,j,k) = dabs((TCell%FCE(i,j,k,1)-                  &
                                 TCell%Cell_Cent(i,j,k,1))/TCell%SxE(i,j,k))
                 If(TCell%EtaE(i,j,k)>1.d0) TCell%EtaE(i,j,k) = 0.5d0
-                xf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,1)+          &
+                xf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,1)+        &
                          TCell%EtaE(i,j,k)*(TCell%Cell_Cent(i+1,j,k,1)+        &
                                                           BGrid%dx(i+iu,j,k))
-                yf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,2)+          &
+                yf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,2)+        &
                          TCell%EtaE(i,j,k)*TCell%Cell_Cent(i+1,j,k,2)
-                zf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,3)+          &
+                zf = (1.d0-TCell%EtaE(i,j,k))*TCell%Cell_Cent(i,j,k,3)+        &
                          TCell%EtaE(i,j,k)*TCell%Cell_Cent(i+1,j,k,3)
-                If(dabs(Sy)>1.d-4*TGrid%dy(i,j,k).or.                            &
+                If(dabs(Sy)>1.d-4*TGrid%dy(i,j,k).or.                          &
                                        dabs(Sz)>1.d-4*TGrid%dz(i,j,k)) then
                   nxf = 0.5d0*(TCell%nx(i,j,k)+TCell%nx(i+1,j,k))
                   nyf = 0.5d0*(TCell%ny(i,j,k)+TCell%ny(i+1,j,k))
                   nzf = 0.5d0*(TCell%nz(i,j,k)+TCell%nz(i+1,j,k))
-                  delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+                 &
+                  delh1 = xf*TCell%nx(i,j,k)+yf*TCell%ny(i,j,k)+               &
                                             zf*TCell%nz(i,j,k)+TCell%phi(i,j,k)
-                  delh2 = (xf-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)+             &
+                  delh2 = (xf-BGrid%dx(i+iu,j,k))*TCell%nx(i+1,j,k)+           &
                          yf*TCell%ny(i+1,j,k)+zf*TCell%nz(i+1,j,k)+            &
                                                              TCell%phi(i+1,j,k)
                   delh = 0.5d0*(delh1+delh2)
@@ -809,7 +809,7 @@ Module Cutcell
         do i = 1,Imax
           do k = 1,Kmax
             do j = 1,Jmax-1
-              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i,j+1,k)/=-1) then
+              if(TCell%Cell_Type(i,j,k)/=2.and.TCell%Cell_Type(i,j+1,k)/=2) then
                 TCell%SyN(i,j,k)=TCell%Cell_Cent(i,j+1,k,2)+BGrid%dy(i,j+iv,k)-&
                                  TCell%Cell_Cent(i,j,k,2)
                 Sx = TCell%Cell_Cent(i,j+1,k,1)-TCell%Cell_Cent(i,j,k,1)
@@ -882,7 +882,7 @@ Module Cutcell
         Do i = 1,Imax
           Do j = 1,Jmax
             Do k = 1,Kmax-1
-              if(TCell%Posnu(i,j,k)/=-1.and.TCell%Posnu(i,j,k+1)/=-1) then
+              if(TCell%Cell_Type(i,j,k)/=2.and.TCell%Cell_Type(i,j,k+1)/=2) then
                 Sx = TCell%Cell_Cent(i,j,k+1,1)-TCell%Cell_Cent(i,j,k,1)
                 Sy = TCell%Cell_Cent(i,j,k+1,2)-TCell%Cell_Cent(i,j,k,2)
                 TCell%SzT(i,j,k)=TCell%Cell_Cent(i,j,k+1,3)+BGrid%dz(i,j,k+iw)-&

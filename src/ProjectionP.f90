@@ -48,17 +48,17 @@ Module ProjectionP
         real(kind=dp)			      :: final_res_norm,tol
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: PoCoef   ! the coefficient for Poisson solving
         
-        call Compute1DGFMCoefficient(PGrid,PCell,UGrid,UCell,PU,row,	       &
+        call Compute1DGFMCoefficient(PGrid,PCell,UGrid,PU,row,	               &
                                                    1,0,0,0,0,0,PoCoef(:,:,:,1))
-        call Compute1DGFMCoefficient(PGrid,PCell,VGrid,VCell,PV,row,	       &
+        call Compute1DGFMCoefficient(PGrid,PCell,VGrid,PV,row,	               &
                                                    0,1,0,0,0,0,PoCoef(:,:,:,2))
-        call Compute1DGFMCoefficient(PGrid,PCell,WGrid,WCell,PW,row,	       &
+        call Compute1DGFMCoefficient(PGrid,PCell,WGrid,PW,row,	               &
                                                    0,0,1,0,0,0,PoCoef(:,:,:,3))
-        call Compute1DGFMCoefficient(PGrid,PCell,UGrid,UCell,PU,row,	       &
+        call Compute1DGFMCoefficient(PGrid,PCell,UGrid,PU,row,	               &
                                                    0,0,0,1,0,0,PoCoef(:,:,:,4))
-        call Compute1DGFMCoefficient(PGrid,PCell,VGrid,VCell,PV,row,           &
+        call Compute1DGFMCoefficient(PGrid,PCell,VGrid,PV,row,                 &
                                                    0,0,0,0,1,0,PoCoef(:,:,:,5))
-        call Compute1DGFMCoefficient(PGrid,PCell,WGrid,WCell,PW,row,           &
+        call Compute1DGFMCoefficient(PGrid,PCell,WGrid,PW,row,                 &
                                                    0,0,0,0,0,1,PoCoef(:,:,:,6))
         p => TVar%p
         u => TPred%u
@@ -92,10 +92,10 @@ Module ProjectionP
         Nullify(w)
     end subroutine PoissonEquationSolver
     
-    subroutine Compute1DGFMCoefficient(PGrid,PCell,TGrid,TCell,PVel,Roref,     &
+    subroutine Compute1DGFMCoefficient(PGrid,PCell,TGrid,PVel,Roref,     &
                                                ium,jvm,kwm,iup,jvp,kwp,TPoCoef)
       type(Grid),intent(in)		  	   :: PGrid,TGrid
-      type(Cell),intent(in)		  	   :: PCell,TCell
+      type(Cell),intent(in)		  	   :: PCell
       type(PoissonCoefficient),intent(in) 	   :: PVel
       real(kind=dp),intent(in)			   :: Roref
       integer(kind=it4b),intent(in)	  	   :: ium,jvm,kwm,iup,jvp,kwp
@@ -309,8 +309,8 @@ Module ProjectionP
                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   &
                             PoCoef(i,j,k,3)*PCell%TEArea(i,j,k-1)*             &
                             PGrid%dx(i,j,k)*PGrid%dy(i,j,k)+                   &
-			    PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
-			    PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
+                            PoCoef(i,j,k,4)*PCell%EEArea(i,j,k)*               &
+                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)+                   &
                             PoCoef(i,j,k,5)*PCell%NEArea(i,j,k)*               &
                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)+                   & 
                             PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &

@@ -1,7 +1,9 @@
 Module Matrix
     use precisionvar
     implicit none
+    public
     contains
+
     subroutine inverse(a,c,n)
 !***********************************************************
 ! Inverse matrix
@@ -148,4 +150,28 @@ subroutine Matrixinv(a,b,n)
     end do
   end do
 end
+
+real(kind=dp) function LangrangePolynomial(Pos,Var,PosTar) result(VarTar)
+  !! Function for computing value based on 1D Langrange polynomial interpolation
+  implicit none
+  real(kind=dp),dimension(:),intent(in) :: Pos
+  !! The position of variables
+  real(kind=dp),dimension(:),intent(in) :: Var
+  !! The value of variables
+  real(kind=dp),intent(in)              :: PosTar
+  !! The position of interpolated variable
+  integer(kind=it4b)                    :: i,j,sizeArr
+  real(kind=dp)                         :: Mult
+  sizeArr = size(Pos)
+  VarTar = 0.d0
+  do i=1,sizeArr
+    Mult = Var(i)
+    do j=1,sizeArr
+      if(j/=i) then
+        Mult=Mult*(PosTar-Pos(j))/(Pos(i)-Pos(j))
+      end if
+    end do
+    VarTar = VarTar+Mult
+  end do      
+end function LangrangePolynomial  
 End module Matrix

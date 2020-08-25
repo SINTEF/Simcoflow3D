@@ -126,7 +126,7 @@ Module PredictorUV
       allocate(vn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
       allocate(wn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
       allocate(pn12(0:Imax+1,0:Jmax+1,0:Kmax+1))
-      if(TimeOrder==2.and.SpaceOrder==2) then
+      if(TimeOrder==2) then
         un12=1.5d0*TVar%u-0.5d0*TVar_n%u
         vn12=1.5d0*TVar%v-0.5d0*TVar_n%v
         wn12=1.5d0*TVar%w-0.5d0*TVar_n%w  
@@ -208,6 +208,7 @@ Module PredictorUV
                RoCeO>UCell%vof(i,j,k)*roa/TVar%Roref.and.                      &
                RoCeO<UCell%vof(i,j,k)*row/TVar%Roref.and.                      &
                UCell%vof(i,j,k)>1.d0-epsi)then
+              ! First order upwind scheme
               Fe=0.5d0*(MFEW(i+1,j,k,1)+dabs(MFEW(i+1,j,k,1)))*un12(i,j,k)+    &
                  0.5d0*(MFEW(i+1,j,k,1)-dabs(MFEW(i+1,j,k,1)))*un12(i+1,j,k)
               Fw=0.5d0*(MFEW(i,j,k,1)+dabs(MFEW(i,j,k,1)))*un12(i-1,j,k)+      &
@@ -221,7 +222,7 @@ Module PredictorUV
               Fb=0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k-1)+      &
                  0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k)   
               ! Compute the correction-based convective flux    
-              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+un12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+TVar%u(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*  &
                               UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
             elseif(UCell%Cell_Type(i,j,k)/=2) then
               Fe = CFEW(i+1,j,k,1)
@@ -232,10 +233,16 @@ Module PredictorUV
               Fb = CFTB(i,j,k,1)
               Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            Fe = CFEW(i+1,j,k,1)
+              Fw = CFEW(i,j,k,1)
+              Fn = CFNS(i,j+1,k,1)
+              Fs = CFNS(i,j,k,1)
+              Ft = CFTB(i,j,k+1,1)
+              Fb = CFTB(i,j,k,1)  
             if(itt==1) then
               FluxDiv(i,j,k,1)=Fluxn0
             else
-              if(SpaceOrder==2.or.TimeOrder==1) then
+              if(TimeOrder==1.or.TimeOrder==2) then
                 FluxDiv(i,j,k,1)=Fluxn0
               else  
                 FluxDiv(i,j,k,1)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,1)
@@ -287,7 +294,7 @@ Module PredictorUV
               Fb=0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k-1)+      &
                  0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k)   
               ! Compute the density-based correction flux
-              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+vn12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+TVar%v(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
                               VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
             elseif(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
               Fe = CFEW(i+1,j,k,2)
@@ -298,10 +305,17 @@ Module PredictorUV
               Fb = CFTB(i,j,k,2)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            Fe = CFEW(i+1,j,k,2)
+              Fw = CFEW(i,j,k,2)
+              Fn = CFNS(i,j+1,k,2)
+              Fs = CFNS(i,j,k,2)
+              Ft = CFTB(i,j,k+1,2)
+              Fb = CFTB(i,j,k,2)
+              Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             if(itt==1) then
               FluxDiv(i,j,k,2)=Fluxn0
             else
-              if(SpaceOrder==2.or.TimeOrder==1) then
+              if(TimeOrder==1.or.TimeOrder==2) then
                 FluxDiv(i,j,k,2)=Fluxn0
               else
                 FluxDiv(i,j,k,2)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,2)
@@ -354,7 +368,7 @@ Module PredictorUV
               Fb=0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k-1)+      &
                  0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k)   
               ! Compute the density-based correction flux    
-              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+wn12(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+              Fluxn0=(Fe-Fw+Fn-Fs)/RoCeN+TVar%w(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
                               WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
             elseif(WCell%Cell_Type(i,j,k)/=2) then ! for WCell
               Fe=CFEW(i+1,j,k,3)
@@ -365,10 +379,17 @@ Module PredictorUV
               Fb=CFTB(i,j,k,3)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            Fe=CFEW(i+1,j,k,3)
+              Fw=CFEW(i,j,k,3)
+              Fn=CFNS(i,j+1,k,3)
+              Fs=CFNS(i,j,k,3)
+              Ft=CFTB(i,j,k+1,3)
+              Fb=CFTB(i,j,k,3)
+              Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             if(itt==1) then
               FluxDiv(i,j,k,3)=Fluxn0
             else
-              if(SpaceOrder==2.or.TimeOrder==1) then
+              if(TimeOrder==1.or.TimeOrder==2) then
                 FluxDiv(i,j,k,3)=Fluxn0
               else
                 FluxDiv(i,j,k,3)=1.5d0*Fluxn0-0.5d0*FluxDivOld(i,j,k,3)
@@ -433,7 +454,9 @@ Module PredictorUV
       call SetVectors(b,x,par_b,par_x,WGrid,WCell,BCw,PW,WWE,WSN,WBT,          &
                                       FluxDiv(:,:,:,3),TVar,dt,0,0,1)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr) 
+    !  print*,'Before error happens PredictPUVW 457'
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
+    !  print*,'After error happens PredictPUVW 459'
     ! Run info - needed logging turned on
       call HYPRE_ParCSRPCGGetNumIterations(solver,num_iterations,ierr)
       call HYPRE_ParCSRPCGGetFinalRelative(solver,final_res_norm,ierr)
@@ -893,7 +916,7 @@ Module PredictorUV
         call HYPRE_IJVectorSetValues(x,local_size,rows,xval,ierr)
         call HYPRE_IJVectorAssemble(b,ierr)
         call HYPRE_IJVectorAssemble(x,ierr)
-	! get the x and b objects
+        ! get the x and b objects
         call HYPRE_IJVectorGetObject(b,par_b,ierr)
         call HYPRE_IJVectorGetObject(x,par_x,ierr)
         deallocate(rhs)
@@ -941,7 +964,6 @@ Module PredictorUV
         Deallocate(values,rows)
     End subroutine DeltaGetValues
     
-    ! Face flux with first order upwind
     Subroutine ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
                                       VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,flux,iu,iv,iw)
       !! The subroutine is used to compute the convective flux.
@@ -1362,7 +1384,7 @@ Module PredictorUV
       REAL(KIND=dp),DIMENSION(:,:,:,:),allocatable,INTENT(INOUT) :: flux
       !! The flux
       REAL(dp), INTENT(in) :: Roref
-      !! The refence density
+      !! The reference density
       INTEGER(kind=it4b)   :: i,j,k
       REAL(KIND=dp)        :: uw,uwn,uwp,eta
       
@@ -2100,9 +2122,9 @@ Module PredictorUV
         do k=1,Kmax
         ! At i = 1   
           ul=un12(0,j,k);ur=un12(1,j,k)
-          alr=(ur+ul)
-          alr=dmax1(dabs(ur),dabs(ul))
-          flux(1,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*           &
+          alr=(ur+ul)                   
+          alr=dmax1(dabs(ur),dabs(ul)) ! Rusanov flux
+          flux(1,j,k,1)=0.5d0*(ur*ur+ul*ul-dabs(alr)*(ur-ul))*           &
                                UCell%EEArea(1,j,k)*UGrid%dy(1,j,k)*UGrid%dz(1,j,k)
           
           vl=vn12(0,j,k);vr=vn12(1,j,k)
@@ -2129,9 +2151,9 @@ Module PredictorUV
                                        PGrid%dx(min(Imax,i+1),j,k)
             ul=un12(i-1,j,k)+0.5d0*(PGrid%dx(i,j,k))*omei
             ur=un12(i,j,k)-0.5d0*(PGrid%dx(i,j,k))*omei1
-            alr=(ur+ul)
-            alr=dmax1(dabs(ur),dabs(ul))
-            flux(i,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*         &
+          !  alr=0.5d0*(ur+ul)
+            alr=dmax1(dabs(ur),dabs(ul)) ! Rusanov flux
+            flux(i,j,k,1)=0.5d0*(ur*ur+ul*ul-dabs(alr)*(ur-ul))*         &
                           UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
             if(i>2.and.i<Imax) then
               if(UCell%vof(i-2,j,k)<1.d0-epsi.or.			                         &
@@ -2168,7 +2190,6 @@ Module PredictorUV
             vl=vn12(i-1,j,k)+0.5d0*(PGrid%dx(i-1,j,k))*omei
             vr=vn12(i,j,k)-0.50d0*(PGrid%dx(i,j,k))*omei1
             alr=0.5d0*(un12(i-1,j,k)+un12(i-1,j+1,k))
-        !  alr=dmax1(dabs(un12(i-1,j)),dabs(un12(i-1,j+1)))
             flux(i,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*             &
                                  VCell%EEArea(i-1,j,k)*                        &
                                  VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
@@ -2311,17 +2332,17 @@ Module PredictorUV
           alr=dmax1(dabs(ur),dabs(ul))
           flux(Imax+1,j,k,1)=0.5d0*(ur**2.d0+ul**2.d0-dabs(alr)*(ur-ul))*      &
                    UCell%EEArea(Imax,j,k)*UGrid%dy(Imax,j,k)*UGrid%dz(Imax,j,k)
-        !  flux(Imax+1,j,k,1)=0.d0
+          ! flux(Imax+1,j,k,1)=0.d0
           vl=vn12(Imax,j,k);vr=vn12(Imax+1,j,k)
           alr=0.5d0*(un12(Imax,j,k)+un12(Imax,j+1,k))
           flux(Imax+1,j,k,2)=alr*BCv%VarE(j,k)*VCell%EEArea(Imax,j,k)*         &
                               VGrid%dy(Imax,j,k)*VGrid%dz(Imax,j,k)
-        !  flux(Imax+1,j,k,2)=0.d0
+          ! flux(Imax+1,j,k,2)=0.d0
           wl=wn12(Imax,j,k);wr=wn12(Imax+1,j,k)
           alr=0.5d0*(un12(Imax,j,k)+un12(Imax,j,k+1))
           flux(Imax+1,j,k,3)=0.5d0*BCw%VarE(j,k)*WCell%EEArea(Imax,j,k)*       &
                               WGrid%dy(Imax,j,k)*WGrid%dz(Imax,j,k) 
-        !  flux(Imax+1,j,k,3)=0.d0
+          ! flux(Imax+1,j,k,3)=0.d0
         end do
       end do
     end subroutine HighOrderConvectiveFluxForXDir
@@ -2419,7 +2440,7 @@ Module PredictorUV
                   vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                   vsp=0.5d0*(vs+dabs(vs))
                   vsn=0.5d0*(vs-dabs(vs))
-                  Flux(i,j,k,1)=(vsp*un12(i,j-1,k)+vsn*un12(i,j,k))*		             &
+                  Flux(i,j,k,1)=(vsp*un12(i,j-1,k)+vsn*un12(i,j,k))*           &
                          UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*UGrid%dz(i,j,k)
                 end if
               end if
@@ -2443,7 +2464,7 @@ Module PredictorUV
             vl=vn12(i,j-1,k)+0.5d0*(PGrid%dy(i,j,k))*omei
             vr=vn12(i,j,k)-0.5d0*(PGrid%dy(i,j,k))*omei1
             alr=(vr+vl)
-            alr=dmax1(dabs(vl),dabs(vr))
+          !  alr=dmax1(dabs(vl),dabs(vr))
             flux(i,j,k,2)=0.5d0*(vr*vr+vl*vl-dabs(alr)*(vr-vl))*               &
                            VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*VGrid%dz(i,j,k)
             if(j>2.and.j<Jmax) then
@@ -2535,8 +2556,6 @@ Module PredictorUV
               pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
             endif
           end do
-        
-        
           ul=un12(i,Jmax,k);ur=un12(i,Jmax+1,k)
           alr=0.5d0*(vn12(i,Jmax,k)+vn12(i+1,Jmax,k))
           flux(i,Jmax+1,k,1)=alr*BCu%VarN(i,k)*UCell%NEArea(i,Jmax,k)*         &
@@ -2584,12 +2603,12 @@ Module PredictorUV
                         UGrid%dx(i,j,1)*UGrid%dy(i,j,1)
           vl=vn12(i,j,0);vr=vn12(i,j,1)
           alr=0.5d0*(wn12(i,j,0)+wn12(i,j+1,0))
-          flux(i,j,1,2)=0.5d0*(vr**2.d0+vl**2.d0-dabs(alr)*(vr-vl))*           &
-                        VCell%TEArea(i,j,1)*VGrid%dx(i,j,1)*VGrid%dy(i,j,1)
+          flux(i,j,1,2)=alr*BCv%VarB(i,j)*VCell%TEArea(i,j,1)*                 &
+                        VGrid%dx(i,j,1)*VGrid%dy(i,j,1)
           wl=wn12(i,j,0);wr=wn12(i,j,1)
           alr=dmax1(dabs(wl),dabs(wr))
-          flux(i,j,1,3)=alr*BCv%VarB(i,j)*WCell%TEArea(i,j,1)*                 &
-                        WGrid%dx(i,j,1)*WGrid%dy(i,j,1) 
+          flux(i,j,1,3)=0.5d0*(wr*wr+wl*wl-alr*(wr-wl))*                       &
+            WCell%TEArea(i,j,1)*WGrid%dx(i,j,1)*WGrid%dy(i,j,1) 
           do k=2,Kmax
             tolim=dmin1(2.d0*UGrid%dz(i,j,k-1)/WGrid%dz(i,j,k-1),              &
                         2.d0*UGrid%dz(i,j,k)/WGrid%dz(i,j,k-1))
@@ -2601,32 +2620,31 @@ Module PredictorUV
             omei1=MUSCLLimiter(ri1,Lim,tolim)*(un12(i,j,k+1)-un12(i,j,k))/WGrid%dz(i,j,k)
             ul=un12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
             ur=un12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
-            alr=0.5d0*(vn12(i,j,k-1)+vn12(i+1,j,k-1))
-       !   alr=dmax1(dabs(vn12(i,j-1)),dabs(vn12(i+1,j-1)))
+            alr=0.5d0*(wn12(i,j,k-1)+wn12(i+1,j,k-1))
             flux(i,j,k,1)=0.5d0*(alr*ur+alr*ul-dabs(alr)*(ur-ul))*             &
                           UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(UCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
-                 UCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
-                 UCell%Vof(i,j,k)<1.d0-epsi.or.				       &
+              if(UCell%vof(i,j,k-2)<1.d0-epsi.or.                              &
+                 UCell%vof(i,j,k-1)<1.d0-epsi.or.                              &
+                 UCell%Vof(i,j,k)<1.d0-epsi.or.                                &
                  UCell%vof(i,j,k+1)<1.d0-epsi) then
                 if(UCell%TEArea(i,j,k-1)<0.5d0) then
                   delhec=dabs(UCell%FCT(i,j,k-1,1)*UCell%nx(i,j,k-1)+          &
-                              UCell%FCT(i,j,k-1,2)*UCell%ny(i,j,k-1)+	       &
+                              UCell%FCT(i,j,k-1,2)*UCell%ny(i,j,k-1)+          &
                               UCell%FCT(i,j,k-1,3)*UCell%nz(i,j,k-1)+          &
                               UCell%phi(i,j,k-1))
-                  if(WCell%MoExCell(i,j,k-1)/=1.and.			       &
+                  if(WCell%MoExCell(i,j,k-1)/=1.and.                           &
                      WCell%Vof(i,j,k-1)>epsi)then
                     delh=dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+    &
                               WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+    &
-                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &	
+                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &
                               WCell%phi(i,j,k-1))+tol
                     wb=wn12(i,j,k-1)
                   elseif(WCell%MoExCell(i+1,j,k-1)/=1.and.                     &
                          WCell%Vof(i-1,j,k+1)>epsi) then
                     delh=dabs(WCell%Cell_Cent(i+1,j,k-1,1)*WCell%nx(i+1,j,k-1)+&
-                    	      WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+&
-                    	      WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+&
+                          WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+    &
+                          WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+    &
                               WCell%phi(i+1,j,k-1))+tol
                     wb=wn12(i+1,j,k-1)
                   else
@@ -2636,7 +2654,7 @@ Module PredictorUV
                  ! wb=vb+(wb-vb)*delhec/delh
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*delhec/delh*&
                            UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
                 else
                   Sx=WCell%SxE(i,j,k-1)
@@ -2646,7 +2664,7 @@ Module PredictorUV
                   wb=(1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*		       &
+                  Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*           &
                          UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
                 end if
               end if
@@ -2661,33 +2679,32 @@ Module PredictorUV
             
             tolim=dmin1(2.d0*VGrid%dz(i,j,k-1)/WGrid%dz(i,j,k-1),              &
                         2.d0*VGrid%dz(i,j,k)/WGrid%dz(i,j,k-1))
-            ri=((vn12(i,j,k-1)-vn12(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/             &
+            ri=((vn12(i,j,k-1)-vn12(i,j,k-2))/WGrid%dz(i,j,max(1,k-2)))/       &
                ((vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1)+tol)
             omei=MUSCLLimiter(ri,Lim,tolim)*(vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1)
-            ri1=((vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1))/                     &
+            ri1=((vn12(i,j,k)-vn12(i,j,k-1))/WGrid%dz(i,j,k-1))/               &
                 ((vn12(i,j,k+1)-vn12(i,j,k))/WGrid%dz(i,j,k)+tol)
             omei1=MUSCLLimiter(ri1,Lim,tolim)*(vn12(i,j,k+1)-vn12(i,j,k))/WGrid%dz(i,j,k)
             vl=vn12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k-1))*omei
             vr=vn12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
-            alr=0.5d0*(vn12(i,j,k-1)+vn12(i,j+1,k-1))
-       !   alr=dmax1(dabs(vn12(i,j-1)),dabs(vn12(i+1,j-1)))
+            alr=0.5d0*(wn12(i,j,k-1)+wn12(i,j+1,k-1))
             flux(i,j,k,2)=0.5d0*(alr*vr+alr*vl-dabs(alr)*(vr-vl))*             &
                           VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(VCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
-                 VCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
-                 VCell%Vof(i,j,k)<1.d0-epsi.or.				       &
+              if(VCell%vof(i,j,k-2)<1.d0-epsi.or.                              &
+                 VCell%vof(i,j,k-1)<1.d0-epsi.or.                              &
+                 VCell%Vof(i,j,k)<1.d0-epsi.or.                                &
                  VCell%vof(i,j,k+1)<1.d0-epsi) then
                 if(VCell%TEArea(i,j,k-1)<0.5d0) then
                   delhec=dabs(VCell%FCT(i,j,k-1,1)*VCell%nx(i,j,k-1)+          &
-                              VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k-1)+	       &
+                              VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k-1)+          &
                               VCell%FCT(i,j,k-1,3)*VCell%nz(i,j,k-1)+          &
                               VCell%phi(i,j,k-1))
-                  if(WCell%MoExCell(i,j,k-1)/=1.and.			       &
+                  if(WCell%MoExCell(i,j,k-1)/=1.and.                           &
                      WCell%Vof(i,j,k-1)>epsi)then
                     delh=dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+    &
                               WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+    &
-                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &	
+                              WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+    &
                               WCell%phi(i,j,k-1))+tol
                     wb=wn12(i,j,k-1)
                   elseif(WCell%MoExCell(i,j+1,k-1)/=1.and.                     &
@@ -2703,7 +2720,7 @@ Module PredictorUV
                   end if
                   wbp=0.5d0*(wb+dabs(wb))
                   wbn=0.5d0*(wb-dabs(wb))
-                  Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*delhec/delh*     &
+                  Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*delhec/delh* &
                            VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*VGrid%dy(i,j,k)
                 else
                   Sy=WCell%SyN(i,j,k-1)
@@ -2728,12 +2745,13 @@ Module PredictorUV
 
             tolim=dmin1(2.d0*WGrid%dz(i,j,k-1)/PGrid%dz(i,j,k),                &
                         2.d0*WGrid%dz(i,j,k)/PGrid%dz(i,j,k))
-            ri=((wn12(i,j,k-1)-wn12(i,j,k-2))/PGrid%dz(i,j,k-1))/                    &
+            ri=((wn12(i,j,k-1)-wn12(i,j,k-2))/PGrid%dz(i,j,k-1))/              &
                ((wn12(i,j,k)-wn12(i,j,k-1))/PGrid%dz(i,j,k)+tol)
-            omei=MUSCLlimiter(ri,Lim,tolim)*(wn12(i,j,k)-wn12(i,j,k-1))/PGrid%dz(i,j,k-1)
-            ri1=((vn12(i,j,k)-vn12(i,j,k-1))/PGrid%dz(i,j,k))/                       &
-                ((vn12(i,j,k+1)-vn12(i,j,k))/PGrid%dz(i,j,min(Kmax,k+1))+tol)
-            omei1=MUSCLLimiter(ri1,Lim,tolim)*(wn12(i,j,k+1)-wn12(i,j,k))/           &
+            omei=MUSCLlimiter(ri,Lim,tolim)*(wn12(i,j,k)-wn12(i,j,k-1))/       &
+                                              PGrid%dz(i,j,k-1)
+            ri1=((wn12(i,j,k)-wn12(i,j,k-1))/PGrid%dz(i,j,k))/                 &
+                ((wn12(i,j,k+1)-wn12(i,j,k))/PGrid%dz(i,j,min(Kmax,k+1))+tol)
+            omei1=MUSCLLimiter(ri1,Lim,tolim)*(wn12(i,j,k+1)-wn12(i,j,k))/     &
                                               PGrid%dz(i,j,min(Kmax,k+1))
             wl=wn12(i,j,k-1)+0.5d0*(PGrid%dz(i,j,k))*omei
             wr=wn12(i,j,k)-0.5d0*(PGrid%dz(i,j,k))*omei1
@@ -2742,9 +2760,9 @@ Module PredictorUV
             flux(i,j,k,3)=0.5d0*(wr*wr+wl*wl-dabs(alr)*(wr-wl))*               &
                            WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*WGrid%dy(i,j,k)
             if(k>2.and.k<Kmax) then
-              if(WCell%vof(i,j,k-2)<1.d0-epsi.or.			       &
-                 WCell%vof(i,j,k-1)<1.d0-epsi.or.            		       &
-                 WCell%Vof(i,j,k)<1.d0-epsi.or.				       &
+              if(WCell%vof(i,j,k-2)<1.d0-epsi.or.                             &
+                 WCell%vof(i,j,k-1)<1.d0-epsi.or.                             &
+                 WCell%Vof(i,j,k)<1.d0-epsi.or.                               &
                  WCell%vof(i,j,k+1)<1.d0-epsi) then
                 eta=WCell%EtaT(i,j,k-1)
                 wb=(1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j,k)
@@ -2770,7 +2788,7 @@ Module PredictorUV
           alr=0.5d0*(wn12(i,j,kmax)+wn12(i,j+1,kmax))
           flux(i,j,kmax+1,2)=alr*BCv%VarT(i,j)*VCell%TEArea(i,j,kmax)*         &
                               VGrid%dx(i,j,kmax)*VGrid%dy(i,j,kmax)
-          wl=wn12(i,Jmax,k);wr=wn12(i,Jmax+1,k)
+          wl=wn12(i,j,kmax);wr=wn12(i,j,kmax+1)
           alr=dmax1(dabs(wl),dabs(wr))
           flux(i,j,kmax+1,3)=0.5d0*(wr**2.d0+wl**2.d0-dabs(alr)*(wr-wl))*      &
                    WCell%TEArea(i,j,kmax)*WGrid%dx(i,j,kmax)*WGrid%dy(i,j,kmax)	       
@@ -2797,54 +2815,54 @@ Module PredictorUV
             If(iu==1) then
               If(i==Imax+iu) then
                 ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=UCell%vofL(min(i,Imax),j,k)/(UCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                   (1.d0-UCell%vofL(min(i,Imax),j,k)/(UCell%vof(min(i,Imax),j,k)+tol))*nua/nuref
                 flux(i,j,k,1) = UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*NuF*   &
                                 UGrid%dz(i-1,j,k)/PGrid%dx(i-1,j,k)/Rey
                 ! Compute the mixing viscosity for V-Cell
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=VCell%vofL(min(i,Imax),j,k)/(VCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                    (1.d0-VCell%vofL(min(i,Imax),j,k))/(VCell%vof(min(i,Imax),j,k)+tol)*nua/nuref
                 flux(i,j,k,2) = VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*NuF*   &
                                 VGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
                 ! Compute the mixing viscosity for W-Celll
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=WCell%vofL(min(i,Imax),j,k)/(WCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                    (1.d0-WCell%vofL(min(i,Imax),j,k)/(WCell%vof(min(i,Imax),j,k)+tol))*nua/nuref
                 flux(i,j,k,3) = WCell%EEArea(i-1,j,k)*WGrid%dy(i-1,j,k)*NuF*   &
                                 WGrid%dz(i-1,j,k)/UGrid%dx(i-1,j,k)/Rey
               Elseif(i==1) then
                 ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=UCell%vofL(min(i,Imax),j,k)/(UCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                    (1.d0-UCell%vofL(min(i,Imax),j,k)/(UCell%vof(min(i,Imax),j,k)+tol))*nua/nuref
                 flux(i,j,k,1)=UCell%EEArea(i,j,k)*UGrid%dy(i,j,k)*NuF*         &
                               UGrid%dz(i,j,k)/PGrid%dx(i,j,k)/Rey
                 ! Compute the mixing viscosity for V-Cell
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=VCell%vofL(min(i,Imax),j,k)/(VCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                    (1.d0-VCell%vofL(min(i,Imax),j,k)/(VCell%vof(min(i,Imax),j,k)+tol))*nua/nuref
                 flux(i,j,k,2)=VCell%EEArea(i,j,k)*VGrid%dy(i,j,k)*nuF*         &
                                    VGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
                 ! Compute the mixing viscosity for W-Celll
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=WCell%vofL(min(i,Imax),j,k)/(WCell%vof(min(i,Imax),j,k)+tol)*nuw/nuref+        &
+                    (1.d0-WCell%vofL(min(i,Imax),j,k)/(WCell%vof(min(i,Imax),j,k)+tol))*nua/nuref
                 flux(i,j,k,3)=WCell%EEArea(i,j,k)*WGrid%dy(i,j,k)*nuF*         &
                                    WGrid%dz(i,j,k)/UGrid%dx(i,j,k)/Rey
               Else
                 Sx=UCell%SxE(i-1,j,k)
                 Sy=UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i-1,j,k,2)
                 Sz=UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i-1,j,k,3)
-                if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i+1,j,k)>epsi) then
-                  VflF=(1.d0-UCell%EtaE(i,j,k))*			       &
-                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                     UCell%EtaE(i,j,k)*UCell%vofL(i+1,j,k)/(UCell%vof(i+1,j,k)+tol)
+                if(UCell%vof(min(i,Imax),j,k)>epsi.and.UCell%vof(min(imax,i+1),j,k)>epsi) then
+                  VflF=(1.d0-UCell%EtaE(i,j,k))*			                        &
+                     UCell%vofL(i,j,k)/(UCell%vof(min(i,Imax),j,k)+tol)+		            &
+                     UCell%EtaE(i,j,k)*UCell%vofL(min(imax,i+1),j,k)/(UCell%vof(min(imax,i+1),j,k)+tol)
                 else
-                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),         &
-                             UCell%vofL(i+1,j,k)/(UCell%vof(i+1,j,k)+tol))
+                  VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(min(i,Imax),j,k)+tol),         &
+                             UCell%vofL(min(imax,i+1),j,k)/(UCell%vof(min(imax,i+1),j,k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
               !  if(dabs(NuF-1.d0)>1.d-5) then
               !    print*, vflF
-              !    print*, UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)
-              !    print*, UCell%vofL(i+1,j,k),UCell%vof(i+1,j,k)
-              !    print*, UCell%vofL(i+1,j,k)/(UCell%vof(i+1,j,k)+tol)
+              !    print*, UCell%vofL(i,j,k)/(UCell%vof(min(i,Imax),j,k)+tol)
+              !    print*, UCell%vofL(min(imax,i+1),j,k),UCell%vof(min(imax,i+1),j,k)
+              !    print*, UCell%vofL(min(imax,i+1),j,k)/(UCell%vof(min(imax,i+1),j,k)+tol)
               !    pause 'PredicUVW 1052'
               !  end if
                 flux(i,j,k,1)=UCell%EEArea(i-1,j,k)*UGrid%dy(i,j,k)*NuF*       &
@@ -2858,19 +2876,16 @@ Module PredictorUV
                 Sy=VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i-1,j,k,2)
                 Sz=VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i-1,j,k,3)
 
-                if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i+1,j,k)>epsi) then
+                if(VCell%vof(min(i,Imax),j,k)>epsi.and.VCell%vof(min(imax,i+1),j,k)>epsi) then
                   VflF=(1.d0-VCell%EtaE(i,j,k))*			       &
-                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                     VCell%EtaE(i,j,k)*VCell%vofL(i+1,j,k)/(VCell%vof(i+1,j,k)+tol)
+                     VCell%vofL(i,j,k)/(VCell%vof(min(i,Imax),j,k)+tol)+		       &
+                     VCell%EtaE(i,j,k)*VCell%vofL(min(imax,i+1),j,k)/(VCell%vof(min(imax,i+1),j,k)+tol)
                 else
-                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),         &
-                             VCell%vofL(i+1,j,k)/(VCell%vof(i+1,j,k)+tol))
+                  VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(min(i,Imax),j,k)+tol),         &
+                             VCell%vofL(min(imax,i+1),j,k)/(VCell%vof(min(imax,i+1),j,k)+tol))
                 end if
 
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-              !  if(dabs(NuF-1.d0)>1.d-5) then
-              !    pause 'PredicUVW 1069'
-              !  end if
                 flux(i,j,k,2)=VCell%EEArea(i-1,j,k)*VGrid%dy(i,j,k)*NuF*       &
                                                       VGrid%dz(i,j,k)/Sx/Rey
                 If(dabs(Sy)>1.d-4*VGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
@@ -2882,18 +2897,15 @@ Module PredictorUV
                 Sy=WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i-1,j,k,2)
                 Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i-1,j,k,3)
 
-                if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i+1,j,k)>epsi) then
+                if(WCell%vof(min(i,Imax),j,k)>epsi.and.WCell%vof(min(imax,i+1),j,k)>epsi) then
                   VflF=(1.d0-WCell%EtaE(i,j,k))*			       &
-                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
-                     WCell%EtaE(i,j,k)*WCell%vofL(i+1,j,k)/(WCell%vof(i+1,j,k)+tol)
+                     WCell%vofL(i,j,k)/(WCell%vof(min(i,Imax),j,k)+tol)+		       &
+                     WCell%EtaE(i,j,k)*WCell%vofL(min(imax,i+1),j,k)/(WCell%vof(min(imax,i+1),j,k)+tol)
                 else
-                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),         &
-                             WCell%vofL(i+1,j,k)/(WCell%vof(i+1,j,k)+tol))
+                  VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(min(i,Imax),j,k)+tol),         &
+                             WCell%vofL(min(imax,i+1),j,k)/(WCell%vof(min(imax,i+1),j,k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-             !   if(dabs(NuF-1.d0)>1.d-5) then
-             !     pause 'PredicUVW 1088'
-             !   end if
                 flux(i,j,k,3)=WCell%EEArea(i-1,j,k)*WGrid%dy(i,j,k)*NuF*       &
                                                       WGrid%dz(i,j,k)/Sx/Rey
                 If(dabs(Sy)>1.d-4*WGrid%dy(i,j,k).or.dabs(Sz)>1.d-4*           &
@@ -2906,18 +2918,18 @@ Module PredictorUV
             If(iv==1) then
               If(j==Jmax+iv) then
                 ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=UCell%vofL(i,min(j,Jmax),k)/(UCell%vof(i,min(j,Jmax),k)+tol)*nuw/nuref+        &
+                    (1.d0-UCell%vofL(i,min(j,Jmax),k)/(UCell%vof(i,min(j,Jmax),k)+tol))*nua/nuref
                 flux(i,j,k,1) = UCell%NEArea(i,j-1,k)*UGrid%dx(i,j-1,k)*NuF*   &
                                      UGrid%dz(i,j-1,k)/VGrid%dy(i,j-1,k)/Rey
                 ! Compute the mixing viscosity for V-Cell
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=VCell%vofL(i,min(j,Jmax),k)/(VCell%vof(i,min(j,Jmax),k)+tol)*nuw/nuref+        &
+                    (1.d0-VCell%vofL(i,min(j,Jmax),k)/(VCell%vof(i,min(j,Jmax),k)+tol))*nua/nuref
                 flux(i,j,k,2) = VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*NuF*   &
                                      VGrid%dz(i,j-1,k)/PGrid%dy(i,j-1,k)/Rey
                 ! Compute the mixing viscosity for W-Cell
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=WCell%vofL(i,min(j,Jmax),k)/(WCell%vof(i,min(j,Jmax),k)+tol)*nuw/nuref+        &
+                    (1.d0-WCell%vofL(i,min(j,Jmax),k)/(WCell%vof(i,min(j,Jmax),k)+tol))*nua/nuref
                 flux(i,j,k,3) = WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*NuF*   &
                                      WGrid%dz(i,j-1,k)/VGrid%dy(i,j-1,k)/Rey
               Elseif(j==1) then
@@ -2940,18 +2952,15 @@ Module PredictorUV
                 Sx = UCell%Cell_Cent(i,j,k,1)-UCell%Cell_Cent(i,j-1,k,1)
                 Sy = UCell%SyN(i,j-1,k)
                 Sz = UCell%Cell_Cent(i,j,k,3)-UCell%Cell_Cent(i,j-1,k,3)
-                if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,j+1,k)>epsi) then
+                if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,min(Jmax,j+1),k)>epsi) then
                   VflF=(1.d0-UCell%EtaN(i,j,k))*			       &
                      UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                     UCell%EtaN(i,j,k)*UCell%vofL(i,j+1,k)/(UCell%vof(i,j+1,k)+tol)
+                     UCell%EtaN(i,j,k)*UCell%vofL(i,min(j+1,Jmax),k)/(UCell%vof(i,min(Jmax,j+1),k)+tol)
                 else
                   VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),	       &
-                             UCell%vofL(i,j+1,k)/(UCell%vof(i,j+1,k)+tol))
+                             UCell%vofL(i,min(j+1,Jmax),k)/(UCell%vof(i,min(Jmax,j+1),k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-              !  if(dabs(NuF-1.d0)>1.d-5) then
-              !    pause 'PredicUVW 1141'
-              !  end if
                 flux(i,j,k,1)=UCell%NEArea(i,j-1,k)*UGrid%dx(i,j,k)*NuF*       &
                                                       UGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*UGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
@@ -2962,18 +2971,15 @@ Module PredictorUV
                 Sx = VCell%Cell_Cent(i,j,k,1)-VCell%Cell_Cent(i,j-1,k,1)
                 Sy = VCell%SyN(i,j-1,k)
                 Sz = VCell%Cell_Cent(i,j,k,3)-VCell%Cell_Cent(i,j-1,k,3)
-                if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,j+1,k)>epsi) then
-                  VflF=(1.d0-VCell%EtaN(i,j,k))*			       &
-                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                     VCell%EtaN(i,j,k)*VCell%vofL(i,j+1,k)/(VCell%vof(i,j+1,k)+tol)
+                if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,min(Jmax,j+1),k)>epsi) then
+                  VflF=(1.d0-VCell%EtaN(i,j,k))*                               &
+                     VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		             &
+                     VCell%EtaN(i,j,k)*VCell%vofL(i,min(j+1,Jmax),k)/(VCell%vof(i,min(Jmax,j+1),k)+tol)
                 else
                   VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),	       &
-                             VCell%vofL(i,j+1,k)/(VCell%vof(i,j+1,k)+tol))
+                             VCell%vofL(i,min(j+1,Jmax),k)/(VCell%vof(i,min(Jmax,j+1),k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-              !  if(dabs(NuF-1.d0)>1.d-5) then
-              !    pause 'PredicUVW 1158'
-              !  end if
                 flux(i,j,k,2)=VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*NuF*       &
                                                       VGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*VGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
@@ -2984,18 +2990,15 @@ Module PredictorUV
                 Sx=WCell%Cell_Cent(i,j,k,1)-WCell%Cell_Cent(i,j-1,k,1)
                 Sy=WCell%SyN(i,j-1,k)
                 Sz=WCell%Cell_Cent(i,j,k,3)-WCell%Cell_Cent(i,j-1,k,3)
-                if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,j+1,k)>epsi) then
-                  VflF=(1.d0-WCell%EtaN(i,j,k))*			       &
-                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
-                     WCell%EtaN(i,j,k)*WCell%vofL(i,j+1,k)/(WCell%vof(i,j+1,k)+tol)
+                if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,min(Jmax,j+1),k)>epsi) then
+                  VflF=(1.d0-WCell%EtaN(i,j,k))*			                         &
+                     WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		             &
+                     WCell%EtaN(i,j,k)*WCell%vofL(i,min(j+1,Jmax),k)/(WCell%vof(i,min(Jmax,j+1),k)+tol)
                 else
                   VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),	       &
-                             WCell%vofL(i,j+1,k)/(WCell%vof(i,j+1,k)+tol))
+                             WCell%vofL(i,min(j+1,Jmax),k)/(WCell%vof(i,min(Jmax,j+1),k)+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-             !   if(dabs(NuF-1.d0)>1.d-5) then
-             !     pause 'PredicUVW 1175'
-             !   end if
                 flux(i,j,k,3)=WCell%NEArea(i,j-1,k)*WGrid%dx(i,j,k)*NuF*       &
                                                       WGrid%dz(i,j,k)/Sy/Rey
                 If(dabs(Sx)>1.d-4*WGrid%dx(i,j,k).or.dabs(Sz)>1.d-4*           &
@@ -3008,18 +3011,18 @@ Module PredictorUV
             If(iw==1) then
               If(k==Kmax+iw) then
                 ! Compute the mixing viscosity for U-Cell
-                NuF=UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=UCell%vofL(i,j,min(k,Kmax))/(UCell%vof(i,j,min(k,Kmax))+tol)*nuw/nuref+        &
+                    (1.d0-UCell%vofL(i,j,min(k,Kmax))/(UCell%vof(i,j,min(k,Kmax))+tol))*nua/nuref
                 flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k-1)*NuF*   &
                                      UGrid%dy(i,j,k-1)/WGrid%dz(i,j,k-1)/Rey
                 ! Compute the mixing viscosity for V-Cell
-                NuF=VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=VCell%vofL(i,j,min(k,Kmax))/(VCell%vof(i,j,min(k,Kmax))+tol)*nuw/nuref+        &
+                    (1.d0-VCell%vofL(i,j,min(k,Kmax))/(VCell%vof(i,j,min(k,Kmax))+tol))*nua/nuref
                 flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*NuF*   &
                                      VGrid%dy(i,j,k-1)/WGrid%dz(i,j,k-1)/Rey
                 ! Compute the mixing viscosity for W-Cell
-                NuF=WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)*nuw/nuref+        &
-                    (1.d0-WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol))*nua/nuref
+                NuF=WCell%vofL(i,j,min(k,Kmax))/(WCell%vof(i,j,min(k,Kmax))+tol)*nuw/nuref+        &
+                    (1.d0-WCell%vofL(i,j,min(k,Kmax))/(WCell%vof(i,j,min(k,Kmax))+tol))*nua/nuref
                 flux(i,j,k,3) = WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k-1)*NuF*   &
                                      WGrid%dy(i,j,k-1)/PGrid%dz(i,j,k-1)/Rey
               Elseif(k==1) then
@@ -3042,18 +3045,15 @@ Module PredictorUV
                 Sx = UCell%Cell_Cent(i,j,k,1)-UCell%Cell_Cent(i,j,k-1,1)
                 Sy = UCell%Cell_Cent(i,j,k,2)-UCell%Cell_Cent(i,j,k-1,2)
                 Sz = UCell%SzT(i,j,k-1)
-                if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,j,k+1)>epsi) then
-                  VflF=(1.d0-UCell%EtaT(i,j,k))*			       &
-                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		       &
-                     UCell%EtaT(i,j,k)*UCell%vofL(i,j,k+1)/(UCell%vof(i,j,k+1)+tol)
+                if(UCell%vof(i,j,k)>epsi.and.UCell%vof(i,j,min(kmax,k+1))>epsi) then
+                  VflF=(1.d0-UCell%EtaT(i,j,k))*			                         &
+                     UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol)+		             &
+                     UCell%EtaT(i,j,k)*UCell%vofL(i,j,min(k+1,Kmax))/(UCell%vof(i,j,min(kmax,k+1))+tol)
                 else
                   VflF=dmax1(UCell%vofL(i,j,k)/(UCell%vof(i,j,k)+tol),	       &
-                             UCell%vofL(i,j,k+1)/(UCell%vof(i,j,k+1)+tol))
+                             UCell%vofL(i,j,min(k+1,Kmax))/(UCell%vof(i,j,min(kmax,k+1))+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-             !   if(dabs(NuF-1.d0)>1.d-5) then
-             !     pause 'PredicUVW 1228'
-             !   end if
                 flux(i,j,k,1) = UCell%TEArea(i,j,k-1)*UGrid%dx(i,j,k)*NuF*     &
                                                       UGrid%dy(i,j,k)/Sz/Rey
                 If(dabs(Sx)>1.d-4*UGrid%dx(i,j,k).or.dabs(Sy)>1.d-4*           &
@@ -3065,18 +3065,15 @@ Module PredictorUV
                 Sx = VCell%Cell_Cent(i,j,k,1)-VCell%Cell_Cent(i,j,k-1,1)
                 Sy = VCell%Cell_Cent(i,j,k,2)-VCell%Cell_Cent(i,j,k-1,2)
                 Sz = VCell%SzT(i,j,k-1)
-                if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,j,k+1)>epsi) then
+                if(VCell%vof(i,j,k)>epsi.and.VCell%vof(i,j,min(kmax,k+1))>epsi) then
                   VflF=(1.d0-VCell%EtaT(i,j,k))*			       &
                      VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol)+		       &
-                     VCell%EtaT(i,j,k)*VCell%vofL(i,j,k+1)/(VCell%vof(i,j,k+1)+tol)
+                     VCell%EtaT(i,j,k)*VCell%vofL(i,j,min(k+1,Kmax))/(VCell%vof(i,j,min(kmax,k+1))+tol)
                 else
                   VflF=dmax1(VCell%vofL(i,j,k)/(VCell%vof(i,j,k)+tol),	       &
-                             VCell%vofL(i,j,k+1)/(VCell%vof(i,j,k+1)+tol))
+                             VCell%vofL(i,j,min(k+1,Kmax))/(VCell%vof(i,j,min(kmax,k+1))+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-             !   if(dabs(NuF-1.d0)>1.d-5) then
-             !     pause 'PredicUVW 1246'
-             !   end if
                 flux(i,j,k,2) = VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k)*NuF*     &
                                                       VGrid%dy(i,j,k)/Sz/Rey
                 If(dabs(Sx)>1.d-4*VGrid%dx(i,j,k).or.dabs(Sy)>1.d-4*           &
@@ -3087,18 +3084,15 @@ Module PredictorUV
                 Sx = WCell%Cell_Cent(i,j,k,1)-WCell%Cell_Cent(i,j,k-1,1)
                 Sy = WCell%Cell_Cent(i,j,k,2)-WCell%Cell_Cent(i,j,k-1,2)
                 Sz = WCell%SzT(i,j,k-1)
-                if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,j,k+1)>epsi) then
+                if(WCell%vof(i,j,k)>epsi.and.WCell%vof(i,j,min(kmax,k+1))>epsi) then
                   VflF=(1.d0-WCell%EtaT(i,j,k))*			       &
                      WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol)+		       &
-                     WCell%EtaT(i,j,k)*WCell%vofL(i,j,k+1)/(WCell%vof(i,j,k+1)+tol)
+                     WCell%EtaT(i,j,k)*WCell%vofL(i,j,min(k+1,Kmax))/(WCell%vof(i,j,min(kmax,k+1))+tol)
                 else
                   VflF=dmax1(WCell%vofL(i,j,k)/(WCell%vof(i,j,k)+tol),	       &
-                             WCell%vofL(i,j,k+1)/(WCell%vof(i,j,k+1)+tol))
+                             WCell%vofL(i,j,min(k+1,Kmax))/(WCell%vof(i,j,min(kmax,k+1))+tol))
                 end if
                 NuF=VflF*nuw/nuref+(1.d0-VflF)*nua/nuref
-              !  if(dabs(NuF-1.d0)>1.d-5) then
-              !    pause 'PredicUVW 1263'
-              !  end if
                 flux(i,j,k,3)=WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*NuF*       &
                                                       WGrid%dy(i,j,k)/Sz/Rey
 
@@ -3161,23 +3155,23 @@ Module PredictorUV
       else ! Dirichlet boundary condition
         do i = 1,Imax
           do k = 1,Kmax
-            Pred%v(i,1-jght,k)=BCv%VarW(i,k)
+            Pred%v(i,1-jght,k)=BCv%VarS(i,k)
           end do
         end do 
       end if
-      ! At the Western boundary
+      ! At the Northern boundary
       if(BCv%flag(4)==1) then
         do i=1,Imax
           do k=1,Kmax
             Pred%v(i,Jmax,k)=Pred%v(i,Jmax-1,k)
-            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarE(i,j)-Pred%v(i,Jmax-1,k)
+            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarN(i,k)-Pred%v(i,Jmax-1,k)
           end do
         end do
       else
         do i=1,Imax
           do k=1,Kmax
-            Pred%v(i,Jmax,k)=BCv%VarE(i,k)
-            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarE(i,j)-Pred%v(i,Jmax-1,k)
+            Pred%v(i,Jmax,k)=BCv%VarN(i,k)
+            Pred%v(i,Jmax+1,k)=2.d0*BCv%VarN(i,k)-Pred%v(i,Jmax-1,k)
           end do
         end do
       end if

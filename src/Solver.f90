@@ -123,25 +123,20 @@ Module Solver
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
         end if  
         dt = Time%dt!/3.d0
-     !  First Runge-Kutta substep
         if(itt>1) then
-          call Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
+          call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &
+                                                        Time%NondiT,dt,itt)
           call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
         end if
         call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,        &
               BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
               dt,itt)
-     !   print*,'Set v velocity to 0'      
-     !   TVar%v(:,:,:)=0.d0
-     !  Call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,TVar_n, &
-     !                                                          TVar,dt,itt)
         call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
-        ! Second Runge-Kutta substep
         ! Calculate the three kind of norm for convergence
-        call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
-        call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
-        call ResidualNormCalculate(WCell,TVar%w,TVar_n%w,TVar%wres,WConv)
-        call ResidualNormCalculate(PCell,TVar%p,TVar_n%p,TVar%pres,PConv)
+      !  call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
+      !  call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
+      !  call ResidualNormCalculate(WCell,TVar%w,TVar_n%w,TVar%wres,WConv)
+      !  call ResidualNormCalculate(PCell,TVar%p,TVar_n%p,TVar%pres,PConv)
         do i = 1,Imax
           do j = 1,Jmax
             do k = 1,Kmax
@@ -158,7 +153,6 @@ Module Solver
           end do
         end do
     end Subroutine AdamBasforthBDF2
-
 
     Subroutine ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         implicit none
@@ -181,13 +175,13 @@ Module Solver
          !                     Time%cfl*Ugrid%dx(1,j,k)/(TVar%Uint/TVar%Uref))
               Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dx(i,j,k)/	       &
                      (dabs(TVar%u(i,j,k))+dsqrt(TVar%u(i,j,k)**2.d0+	       &
-                      4.d0*VGrid%dx(i,j,k)*dabs(gx/g)/Fr)))
+                      4.d0*VGrid%dx(i,j,k)*dabs(gx/g)/Fr)+tol))
               Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dy(i,j,k)/	       &
                      (dabs(TVar%v(i,j,k))+dsqrt(TVar%v(i,j,k)**2.d0+	       &
-                      4.d0*VGrid%dy(i,j,k)*dabs(gy/g)/Fr)))
+                      4.d0*VGrid%dy(i,j,k)*dabs(gy/g)/Fr)+tol))
               Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dz(i,j,k)/	       &
                      (dabs(TVar%w(i,j,k))+dsqrt(TVar%w(i,j,k)**2.d0+	       &
-                      4.d0*VGrid%dz(i,j,k)*dabs(gz/g)/Fr)))           
+                      4.d0*VGrid%dz(i,j,k)*dabs(gz/g)/Fr)+tol))           
             end do
           end do
         end do

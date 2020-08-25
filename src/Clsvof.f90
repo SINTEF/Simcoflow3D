@@ -1,9 +1,25 @@
 Module Clsvof
+   !! Description:
+   !! The module tracks the interface movement. The transport equation for volume of fluid
+   !! and level set function is solved to get their value
+   !! Method:
+   !! The spilting operator is applied for discretizing the transport equations.
+   !! It means that equations will be solved in each direction seperately.
+   ! Current Code Owner: SIMCOFlow
+   ! Code Description:
+   ! Language: Fortran 90.
+   ! Software Standards: "European Standards for Writing and
+   ! Documenting Exchangeable Fortran 90 Code".
+   !++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+   ! Author : Son Tung Dang
+   !        : NTNU,SINTEF
+   ! Date : 20.09.2019
     USE ieee_arithmetic
     USE PrecisionVar
     USE Mesh
     USE Cutcell
     USE StateVariables
+    USE BoundaryFunction
 
     implicit none
     private
@@ -175,15 +191,18 @@ Module Clsvof
       if(iw==1) Varout(:,:,Kmax)=Varout(:,:,Kmax-1)
     end subroutine DirectionAverageArray
 
-    subroutine Clsvof_Scheme(PGrid,PCell,TVar,dt,itt)
+    subroutine Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,Time,dt,itt)
       implicit none
-      type(Grid),intent(in) 		    :: PGrid
-      type(Cell),intent(inout),target       :: PCell
-      type(Variables),intent(in)	    :: TVar
-      integer(it8b),intent(in)	    	    :: itt
-      real(dp),intent(in)		    :: dt
-      integer(it4b)			    :: i,j,k,kk
-      real(dp)				    :: dtv
+      type(Grid),intent(in)           :: PGrid
+      type(Cell),intent(inout),target :: PCell
+      type(Variables),intent(in)      :: TVar
+      type(BCBase),intent(in)         :: BCu,BCv,BCw
+      type(BCBase),intent(inout)      :: BCLvs,BCvof
+      real(kind=dp),intent(in)        :: Time
+      integer(it8b),intent(in)        :: itt
+      real(dp),intent(in)             :: dt
+      integer(it4b)			              :: i,j,k,kk
+      real(dp)				                :: dtv
       real(dp),dimension(:,:,:),allocatable :: ue,ve,we,nx,ny,nz,dis
       real(dp),dimension(:,:,:),allocatable :: temvfx,temvfy,temvfz
       real(dp),dimension(:,:,:),allocatable :: temlsx,temlsy,temlsz
@@ -192,9 +211,9 @@ Module Clsvof
       allocate(ny(imax,jmax,kmax))
       allocate(nz(imax,jmax,kmax))
       allocate(dis(imax,jmax,kmax))
-      allocate(ue(imax,jmax,kmax))
-      allocate(ve(imax,jmax,kmax))
-      allocate(we(imax,jmax,kmax))
+      allocate(ue(0:imax+1,0:jmax+1,0:kmax+1))
+      allocate(ve(0:imax+1,0:jmax+1,0:kmax+1))
+      allocate(we(0:imax+1,0:jmax+1,0:kmax+1))
       allocate(temvfx(imax,jmax,kmax))
       allocate(temvfy(imax,jmax,kmax))
       allocate(temvfz(imax,jmax,kmax))
@@ -213,25 +232,11 @@ Module Clsvof
 
       dtv=dt/dble(nv)
 
-      do i = 1,imax
-        do j = 1,jmax
-          do k = 1,kmax
+      do i = 0,imax+1
+        do j = 0,jmax+1
+          do k = 0,kmax+1
             ue(i,j,k) = TVar%u(i,j,k)
-          end do
-        end do
-      end do
-
-      do j = 1,jmax
-        do i = 1,imax
-          do k = 1,kmax
             ve(i,j,k) = Tvar%v(i,j,k)
-          end do
-        end do
-      end do
-
-      do k = 1,kmax
-        do i = 1,imax
-          do j = 1,jmax
             we(i,j,k) = TVar%w(i,j,k)
           end do
         end do
@@ -241,174 +246,211 @@ Module Clsvof
         if(mod(kk,3)==0) then
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
-                temvfx(i,j,k) = temvfx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*(ue(i,j,k)-ue(i-1,j,k)))
-                temlsx(i,j,k) = temlsx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*(ue(i,j,k)-ue(i-1,j,k)))
+          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+                                                              nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
+                temvfx(i,j,k)=temvfx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*         &
+                                     (ue(i,j,k)-ue(i-1,j,k)))
+                temlsx(i,j,k)=temlsx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*         &
+                                     (ue(i,j,k)-ue(i-1,j,k)))
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k) = 0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
+                if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k))) then
+                  print*, i,j,k
+                  print*, ue(i,j,k)-ue(i-1,j,k)
+                  pause 'X_Sweep 277'
+                end if  
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
-          call Boundary_Condition(temvfx)
-          call Boundary_Condition(temlsx)
 
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+                                                              nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 temvfy(i,j,k)=temvfy(i,j,k)+dtv/PGrid%dy(i,j,k)*temvfx(i,j,k)* &
                                                 (ve(i,j,k)-ve(i,j-1,k))
                 temlsy(i,j,k)=temlsy(i,j,k)+dtv/PGrid%dy(i,j,k)*temlsx(i,j,k)* &
                                                 (ve(i,j,k)-ve(i,j-1,k))
                 if(temvfy(i,j,k)<=vofeps) temvfy(i,j,k) = 0.d0
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
+                if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k))) then
+                  print*, i,j,k
+                  print*, ve(i,j,k)-ve(i,j-1,k)
+                  pause 'Y_Sweep 305'
+                end if  
                 vfl(i,j,k) = temvfy(i,j,k)
                 phi(i,j,k) = temlsy(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
-
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+                                                              nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 vfl(i,j,k) = temvfz(i,j,k)+dtv/PGrid%dz(i,j,k)*temvfx(i,j,k)*  &
                                                         (we(i,j,k)-we(i,j,k-1))
                 phi(i,j,k) = temlsz(i,j,k)+dtv/PGrid%dz(i,j,k)*temlsx(i,j,k)*  &
                                                       (we(i,j,k)-we(i,j,k-1))
+                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k))) then
+                  print*, i,j,k
+                  print*, we(i,j,k)-we(i,j,k-1)
+                  pause 'X_Sweep 329'
+                end if  
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k) = 0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
               end do
             end do
           end do
+          call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         elseif(mod(kk,3)==1) then
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+                                                              nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 temvfy(i,j,k) = temvfy(i,j,k)/(1.d0-dtv/PGrid%dy(i,j,k)*       &
                                                         (ve(i,j,k)-ve(i,j-1,k)))
                 temlsy(i,j,k) = temlsy(i,j,k)/(1.d0-dtv/PGrid%dy(i,j,k)*       &
                                                         (ve(i,j,k)-ve(i,j-1,k)))
                 if(temvfy(i,j,k)<=vofeps) temvfy(i,j,k) = 0.d0
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
+                if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k))) then
+                  print*,i,j,k
+                  print*,ve(i,j,k)-ve(i,j-1,k)
+                  print*,ve(i,j-1,k)
+                  pause 'Y_Sweep 354'
+                end if  
                 vfl(i,j,k) = temvfy(i,j,k)
                 phi(i,j,k) = temlsy(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
-          call Boundary_Condition(temvfy)
-          call Boundary_Condition(temlsy)
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+                                                               nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 temvfz(i,j,k)=temvfz(i,j,k)+dtv/PGrid%dz(i,j,k)*temvfy(i,j,k)* &
                                                       (we(i,j,k)-we(i,j,k-1))
                 temlsz(i,j,k)=temlsz(i,j,k)+dtv/PGrid%dz(i,j,k)*temlsy(i,j,k)* &
                                                       (we(i,j,k)-we(i,j,k-1))
                 if(temvfz(i,j,k)<=vofeps) temvfz(i,j,k)=0.d0
                 if(temvfz(i,j,k)>=(1.d0-vofeps)) temvfz(i,j,k)=1.d0
+                if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k))) then
+                  print*,i,j,k
+                  print*,we(i,j,k)-we(i,j,k-1)
+                  pause 'Z_Sweep 381'
+                end if  
                 vfl(i,j,k) = temvfz(i,j,k)
                 phi(i,j,k) = temlsz(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+                                                               nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 vfl(i,j,k)=temvfx(i,j,k)+dtv/PGrid%dx(i,j,k)*temvfy(i,j,k)*    &
                                                    (ue(i,j,k)-ue(i-1,j,k))
                 phi(i,j,k)=temlsx(i,j,k)+dtv/PGrid%dx(i,j,k)*temlsy(i,j,k)*    &
                                                    (ue(i,j,k)-ue(i-1,j,k))
+                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k))) then
+                  print*,i,j,k
+                  print*,ue(i,j,k)-ue(i-1,j,k)
+                  pause 'X_Sweep 404'
+                end if  
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k)=0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
               end do
             end do
           end do
+          call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         else
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+                                                               nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 temvfz(i,j,k)=temvfz(i,j,k)/(1.d0-dtv/PGrid%dz(i,j,k)*         &
                                                    (we(i,j,k)-we(i,j,k-1)))
                 temlsz(i,j,k) = temlsz(i,j,k)/(1.d0-dtv/PGrid%dz(i,j,k)*       &
                                                    (we(i,j,k)-we(i,j,k-1)))
                 if(temvfz(i,j,k)<=vofeps) temvfz(i,j,k)=0.d0
                 if(temvfz(i,j,k)>=(1.d0-vofeps)) temvfz(i,j,k)=1.d0
+                if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k))) then
+                  print*,we(i,j,k)-we(i,j,k-1)
+                  pause 'Z_Sweep 428'  
+                endif  
                 vfl(i,j,k) = temvfz(i,j,k)
                 phi(i,j,k) = temlsz(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
-          call Boundary_Condition(temvfz)
-          call Boundary_Condition(temlsz)
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+                                                               nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 temvfx(i,j,k)=temvfx(i,j,k)+dtv/PGrid%dx(i,j,k)*temvfz(i,j,k)* &
                                                          (ue(i,j,k)-ue(i-1,j,k))
                 temlsx(i,j,k)=temlsx(i,j,k)+dtv/PGrid%dx(i,j,k)*temlsz(i,j,k)* &
                                                          (ue(i,j,k)-ue(i-1,j,k))
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k)=0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
+                if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k))) then
+                  print*, ue(i,j,k)-ue(i-1,j,k)
+                  pause 'X_Sweep 454'
+                end if  
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
               end do
             end do
           end do
-          call Boundary_Condition(vfl)
-          call Boundary_Condition(phi)
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,nx,ny,nz,dis,dtv)
-          do i = 2,imax-1
-            do j = 2,jmax-1
-              do k = 2,kmax-1
+          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+                                                               nx,ny,nz,dis,dtv)
+          do i = 1,imax
+            do j = 1,jmax
+              do k = 1,kmax
                 vfl(i,j,k)=temvfy(i,j,k)+dtv/PGrid%dy(i,j,k)*temvfz(i,j,k)*    &
                                                       (ve(i,j,k)-ve(i,j-1,k))
                 phi(i,j,k)=temlsy(i,j,k)+dtv/PGrid%dy(i,j,k)*temlsz(i,j,k)*    &
                                                       (ve(i,j,k)-ve(i,j-1,k))
+                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k))) then
+                  print*,temlsy(i,j,k),temlsz(i,j,k)
+                  print*, ve(i,j,k)-ve(i,j-1,k)
+                  pause 'Y_Sweep 476'
+                end if                                      
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k) = 0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
               end do
             end do
           end do
+          call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         end if
-        call Boundary_Condition(vfl)
-        call Boundary_Condition(phi)
         call Interface_Reconstruct(PGrid,nx,ny,nz,dis)
         do i = 1,imax
           do j = 1,jmax
@@ -449,32 +491,34 @@ Module Clsvof
 
     ! build-up interface
     subroutine Isinterface(i,j,k,flag)
-       implicit none
-       real(dp):: esp
-       integer i,j,k
-       logical flag
-       esp = 1.d-14
-       flag = .false.
-       if(vfl(i,j,k)>esp.and.vfl(i,j,k)<(1.d0-esp)) flag = .true.
-       if(dabs(vfl(i-1,j,k)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       if(dabs(vfl(i+1,j,k)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       if(dabs(vfl(i,j-1,k)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       if(dabs(vfl(i,j+1,k)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       if(dabs(vfl(i,j,k-1)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       if(dabs(vfl(i,j,k+1)-vfl(i,j,k))>=(1.0d0-2.1d0*esp)) flag = .true.
-       return
+      implicit none
+      real(dp):: esp
+      integer i,j,k
+      logical flag
+      esp = 1.d-14
+      flag = .false.
+      if(vfl(i,j,k)>esp.and.vfl(i,j,k)<(1.d0-esp)) flag = .true.
+      if(dabs(vfl(max(i-1,1),j,k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(dabs(vfl(min(i+1,Imax),j,k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(dabs(vfl(i,max(j-1,1),k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(dabs(vfl(i,min(j+1,Jmax),k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(dabs(vfl(i,j,max(1,k-1))-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(dabs(vfl(i,j,min(k+1,Kmax))-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      return
     end subroutine Isinterface
 
-    subroutine X_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
+    subroutine X_Sweep(PGrid,temvf,temls,ue,ve,we,BCu,BCVof,BCLvs,             &
+                                                         nxx,nyy,nzz,diss,dtv)
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
-       real(dp),intent(in)				   :: dtv
+       real(dp),intent(in)                                 :: dtv
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
-       real(dp),dimension(:,:,:),intent(inout) 		   :: nxx,nyy,nzz
+       type(BCBase),intent(in)                             :: BCu,BCVof,BCLvs
+       real(dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
        real(dp),dimension(:,:,:),intent(inout),allocatable :: diss
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
-       integer i,j,k
-       real(dp):: flux,lse
+       integer                                             :: i,j,k
+       real(dp)                                            :: flux,lse
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
@@ -503,15 +547,17 @@ Module Clsvof
                end if
              end if
          
-             if(i>=2) temvf(i,j,k) = temvf(i,j,k)-flux
-             if(i<=imax-1) temvf(i+1,j,k) = temvf(i+1,j,k)+flux
+             temvf(i,j,k) = temvf(i,j,k)-flux
+             if(i<imax) temvf(i+1,j,k) = temvf(i+1,j,k)+flux
            end do
            ! for i=1
-           ! flux = vfl(1,j,k)*ue(1,j,k)*dtv/PGrid%dx(1,j,k)
-           ! temvf(2,j,k)=temvf(2,j,k)+flux
+           ! flux=BCVof%VarW(j,k)*BCu%VarW(j,k)*dtv/PGrid%dx(1,j,k)
+           flux=vfl(1,j,k)*ue(0,j,k)*dtv/PGrid%dx(1,j,k)
+           temvf(1,j,k)=temvf(1,j,k)+flux
            ! for i=imax
-           ! flux = vfl(imax,j,k)*ue(imax,j,k)*dtv/PGrid%dx(imax,j,k)
-           ! temvf(imax-1,j,k)=temvf(imax,j,k)-flux
+           ! flux=BCVof%VarE(j,k)*BCu%VarE(j,k)*dtv/PGrid%dx(imax,j,k)
+           flux=vfl(imax,j,k)*ue(imax,j,k)*dtv/PGrid%dx(imax,j,k)
+           temvf(imax,j,k)=temvf(imax,j,k)-flux
          end do
        end do
        ! level set
@@ -521,60 +567,62 @@ Module Clsvof
          do k = 1,kmax
            do i = 2,imax-1
              if(ue(i,j,k)>=0.d0) then
-               lse=phi(i,j,k)+PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*         &
-                   dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/        &
+               lse=phi(i,j,k)+PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*            &
+                   dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/           &
                    (2.d0*PGrid%dx(i,j,k))
              else
                if(i<=imax-2) then
-                 lse=phi(i+1,j,k)-PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*     &
-                     dtv/PGrid%dx(i,j,k))*(phi(i+2,j,k)-phi(i,j,k))/        &
+                 lse=phi(i+1,j,k)-PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*        &
+                     dtv/PGrid%dx(i,j,k))*(phi(i+2,j,k)-phi(i,j,k))/           &
                      (2.d0*PGrid%dx(i,j,k))
                else
-                 lse=phi(i+1,j,k)-PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*     &
-                     dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i,j,k))/        &
+                 lse=phi(i+1,j,k)-PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*        &
+                     dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i,j,k))/           &
                      (PGrid%dx(i,j,k))
                end if
              end if
              flux = ue(i,j,k)*lse*dtv/PGrid%dx(i,j,k)
-             if(i>=2) temls(i,j,k) = temls(i,j,k)-flux
-             if(i<=imax-1) temls(i+1,j,k) = temls(i+1,j,k)+flux
+             if(i>1) temls(i,j,k) = temls(i,j,k)-flux
+             if(i<imax) temls(i+1,j,k) = temls(i+1,j,k)+flux
            end do
-         end do
-       end do
-       do j=1,jmax
-         do k=1,kmax
+           ! Reduce to the first order
            if(ue(1,j,k)>=0.d0) then
-             lse=phi(1,j,k)+PGrid%dx(1,j,k)/2.d0*(1.d0-ue(1,j,k)*dtv/	       &
+             lse=phi(1,j,k)+PGrid%dx(1,j,k)/2.d0*(1.d0-ue(1,j,k)*dtv/          &
                             PGrid%dx(1,j,k))*(phi(2,j,k)-phi(1,j,k))/PGrid%dx(1,j,k)
            else
-             lse=phi(2,j,k)-PGrid%dx(2,j,k)/2.d0*(1.d0+ue(1,j,k)*dtv/	       &
+             lse=phi(2,j,k)-PGrid%dx(2,j,k)/2.d0*(1.d0+ue(1,j,k)*dtv/          &
                             PGrid%dx(2,j,k))*(phi(3,j,k)-phi(1,j,k))/2.d0*PGrid%dx(2,j,k)
            end if
            flux=lse*ue(1,j,k)*dtv
            temls(1,j,k)=temls(1,j,k)-flux/PGrid%dx(1,j,k)
            temls(2,j,k)=temls(2,j,k)+flux/PGRid%dx(2,j,k)
+           ! For boundary value
+           flux=BCu%VarW(j,k)*BCLvs%VarW(j,k)*dtv/PGrid%dx(1,j,k)
+           temls(1,j,k)=temls(1,j,j)+flux
            if(ue(Imax,j,k)>0.d0) then
-             lse=phi(Imax,j,k)+PGrid%dx(Imax,j,k)/2.d0*		       	       &
-                 (1.d0-ue(Imax,j,k)*dtv/PGrid%dx(Imax,j,k))*		       &
-                 (phi(Imax,j,k)-phi(Imax-1,j,k))/               	       &
+             lse=phi(Imax,j,k)+PGrid%dx(Imax,j,k)/2.d0*                        &
+                 (1.d0-ue(Imax,j,k)*dtv/PGrid%dx(Imax,j,k))*                   &
+                 (phi(Imax,j,k)-phi(Imax-1,j,k))/                              &
                  (PGrid%x(Imax,j,k)-PGrid%x(Imax-1,j,k))
            else
-             lse=phi(Imax,j,k)-PGrid%dx(Imax-1,j,k)/2.d0*		       &
-                 (1.d0+ue(Imax,j,k)*dtv/PGrid%dx(Imax-1,j,k))*	       	       &
-                 (phi(Imax,j,k)-phi(Imax-1,j,k))/             	       	       &
+             lse=phi(Imax,j,k)-PGrid%dx(Imax-1,j,k)/2.d0*                      &
+                 (1.d0+ue(Imax,j,k)*dtv/PGrid%dx(Imax-1,j,k))*                 &
+                 (phi(Imax,j,k)-phi(Imax-1,j,k))/                              &
                  (PGrid%x(Imax,j,k)-PGrid%x(Imax-1,j,k))
            end if
-           flux=lse*ue(Imax,j,k)*dtv
-           temls(Imax,j,k)=temls(Imax,j,k)-flux/PGrid%dx(Imax,j,k)
+           flux=lse*ue(Imax,j,k)*dtv/PGrid%dx(Imax,j,k)
+           temls(Imax,j,k)=temls(Imax,j,k)-flux
          end do
-       end do  
+       end do
     end subroutine X_Sweep
 
-    subroutine Y_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
+    subroutine Y_Sweep(PGrid,temvf,temls,ue,ve,we,BCv,BCVof,BCLvs,             &
+                                                        nxx,nyy,nzz,diss,dtv)
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
-       real(dp),intent(in)				   :: dtv
+       type(BCBase),intent(in)                             :: BCv,BCVof,BCLvs
+       real(dp),intent(in)                                 :: dtv
        real(dp),dimension(:,:,:),intent(inout),allocatable :: nxx,nyy,nzz,diss
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer :: i,j,k
@@ -606,19 +654,25 @@ Module Clsvof
                  flux = -flux
                end if
              end if
-             if(j>=2) temvf(i,j,k) = temvf(i,j,k)-flux
-             if(j<=jmax-1) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
+             temvf(i,j,k) = temvf(i,j,k)-flux
+             if(j<jmax) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
            end do
            ! for j = 1
-            
+           ! flux=BCVof%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
+           flux=vfl(i,1,k)*ve(i,0,k)*dtv/PGrid%dy(i,1,k)
+           temvf(i,1,k)=temvf(i,1,k)+flux
+           ! for j = jmax
+           ! flux=BCVof%VarN(i,k)*BCv%VarN(i,k)*dtv/PGrid%dy(i,jmax,k)
+           flux=vfl(i,jmax,k)*ve(i,jmax,k)*dtv/PGrid%dy(i,jmax,k)
+           temvf(i,jmax,k)=temvf(i,jmax,k)-flux 
          end do
        end do
        lsn = 0.d0
        flux = 0.d0
     ! level set
        do i = 1,imax
-         do j = 2,jmax-1
-           do k = 1,kmax
+         do k = 1,kmax
+           do j = 2,jmax-1 
              if(ve(i,j,k)>=0.d0) then
                lsn=phi(i,j,k)+PGrid%dy(i,j,k)/2.d0*(1.d0-ve(i,j,k)*dtv/        &
                    PGrid%dy(i,j,k))*(phi(i,j+1,k)-phi(i,j-1,k))/               &
@@ -635,49 +689,49 @@ Module Clsvof
              end if
              flux=lsn*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
              if(j>=2) temls(i,j,k) = temls(i,j,k)-flux
-             if(j<=jmax-1) temls(i,j+1,k) = temls(i,j+1,k)+flux
+             if(j<jmax) temls(i,j+1,k) = temls(i,j+1,k)+flux
            end do
-         end do
-       end do
-       
-       do i=1,imax
-         do k=1,kmax
            if(ve(i,1,k)>=0.d0) then
-             lsn=phi(i,1,k)+PGrid%dy(i,1,k)/2.d0*(1.d0-ve(i,1,k)*	       &
-                 dtv/PGrid%dy(i,1,k))*(phi(i,2,k)-phi(i,1,k))/		       &
+             lsn=phi(i,1,k)+PGrid%dy(i,1,k)/2.d0*(1.d0-ve(i,1,k)*              &
+                 dtv/PGrid%dy(i,1,k))*(phi(i,2,k)-phi(i,1,k))/                 &
                 (PGrid%y(i,2,k)-PGrid%y(i,1,k))
            else
-             lsn=phi(i,2,k)-PGrid%dy(i,2,k)/2.d0*(1.d0+ve(i,1,k)*	       &
-                 dtv/PGrid%dy(i,2,k))*(phi(i,3,k)-phi(i,1,k))/		       &
+             lsn=phi(i,2,k)-PGrid%dy(i,2,k)/2.d0*(1.d0+ve(i,1,k)*              &
+                 dtv/PGrid%dy(i,2,k))*(phi(i,3,k)-phi(i,1,k))/                 &
                 (PGrid%y(i,3,k)-PGrid%y(i,1,k))
            end if
            flux=lsn*ve(i,1,k)*dtv
            temls(i,1,k)=temls(i,1,k)-flux/PGrid%dy(i,1,k)
            temls(i,2,k)=temls(i,2,k)+flux/PGrid%dy(i,2,k)
+           ! for i=1
+           flux=BCLvs%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
+           temls(i,1,k)=temls(i,1,k)+flux
            if(ve(i,jmax,k)>0.d0) then
              lsn=phi(i,jmax,k)+PGrid%dy(i,jmax,k)/2.d0*(1.d0-ve(i,jmax,k)*dtv/ &
                  PGrid%dy(i,jmax,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/          &
                 (PGrid%y(i,jmax,k)-PGrid%y(i,jmax-1,k))
            else
              lsn=phi(i,jmax,k)-PGrid%dy(i,jmax-1,k)/2.d0*(1.d0+ve(i,jmax,k)*dtv/&
-                 PGrid%dy(i,jmax-1,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/            &
+                 PGrid%dy(i,jmax-1,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/        &
                  (PGrid%y(i,jmax,k)-PGrid%y(i,jmax-1,k))
            end if
            flux=lsn*ve(i,jmax,k)*dtv
-           temls(i,jmax,k)=temls(i,jmax,k)-flux/PGrid%dy(i,jmax,k)   
+           temls(i,jmax,k)=temls(i,jmax,k)-flux/PGrid%dy(i,jmax,k) 
          end do
-       end do  
+       end do
     end subroutine Y_Sweep
 
-    subroutine Z_Sweep(PGrid,temvf,temls,ue,ve,we,nxx,nyy,nzz,diss,dtv)
+    subroutine Z_Sweep(PGrid,temvf,temls,ue,ve,we,BCw,BCVof,BCLvs,             &
+                                                          nxx,nyy,nzz,diss,dtv)
        implicit none
        type(Grid),intent(in)                               :: PGrid
-       real(dp),intent(in)				   :: dtv
+       real(dp),intent(in)                                 :: dtv
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
+       type(BCBase),intent(in)                             :: BCw,BCVof,BCLvs
        real(dp),dimension(:,:,:),intent(inout),allocatable :: nxx,nyy,nzz,diss
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
-       integer 						   :: i,j,k
-       real(dp)						   :: flux,lst
+       integer                                             :: i,j,k
+       real(dp)						                                 :: flux,lst
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
@@ -705,10 +759,22 @@ Module Clsvof
                  flux = -flux
                end if
              end if
-             if(k>=2) temvf(i,j,k) = temvf(i,j,k)-flux
-             if(k<=kmax-1) temvf(i,j,k+1) = temvf(i,j,k+1)+flux
-             if(isnan(flux)) pause 'Vof-scheme 361'
+             temvf(i,j,k) = temvf(i,j,k)-flux
+             if(k<kmax) temvf(i,j,k+1) = temvf(i,j,k+1)+flux
+             if(isnan(flux)) then 
+               print*, i,j,k
+               print*, flux, vfl(i,j,k)
+               pause 'Vof-scheme 361'
+             end if  
            end do
+           ! for k=1 at bottom boundary
+           ! flux = BCVof%VarB(i,j)*BCw%VarB(i,j)*dtv/PGrid%dz(i,j,1)
+           flux=vfl(i,j,1)*we(i,j,0)*dtv/PGrid%dz(i,j,1)
+           temvf(i,j,1)=temvf(i,j,1)+flux
+           ! fro k=kmax at top boundary
+           ! flux = BCVof%VarT(i,j)*BCw%VarT(i,j)*dtv/PGrid%dz(i,j,kmax)
+           flux=vfl(i,j,kmax)*we(i,j,kmax)*dtv/PGrid%dz(i,j,kmax)
+           temvf(i,j,kmax)=temvf(i,j,kmax)-flux
          end do
        end do
        ! level set
@@ -733,130 +799,96 @@ Module Clsvof
              if(k>=2) temls(i,j,k) = temls(i,j,k)-flux
              if(k<=kmax-1) temls(i,j,k+1) = temls(i,j,k+1)+flux
            end do
-         end do
-       end do
-       do i=1,imax
-         do j=1,jmax
            if(we(i,j,1)>=0.d0) then
-             lst=phi(i,j,1)+PGrid%dz(i,j,1)/2.d0*(1.d0-we(i,j,1)*	       &
-                 dtv/PGrid%dz(i,j,1))*(phi(i,j,2)-phi(i,j,1))/		       &
+             lst=phi(i,j,1)+PGrid%dz(i,j,1)/2.d0*(1.d0-we(i,j,1)*              &
+                 dtv/PGrid%dz(i,j,1))*(phi(i,j,2)-phi(i,j,1))/                 &
                 (PGrid%z(i,j,2)-PGrid%z(i,j,1))
            else
-             lst=phi(i,j,2)+PGrid%dz(i,j,2)/2.d0*(1.d0+we(i,j,1)*	       &
-                 dtv/PGrid%dz(i,j,2))*(phi(i,j,3)-phi(i,j,1))/		       &
+             lst=phi(i,j,2)+PGrid%dz(i,j,2)/2.d0*(1.d0+we(i,j,1)*              &
+                 dtv/PGrid%dz(i,j,2))*(phi(i,j,3)-phi(i,j,1))/                 &
                 (PGrid%z(i,j,3)-PGrid%z(i,j,1))
            end if
            flux=lst*we(i,j,1)*dtv
            temls(i,j,1)=temls(i,j,1)-flux/PGrid%dz(i,j,1)
            temls(i,j,2)=temls(i,j,2)+flux/PGrid%dz(i,j,2)
+           ! For boundary cell
+           flux=BCw%VarB(i,j)*BCLvs%VarB(i,j)*dtv/PGrid%dz(i,j,1)
+           temls(i,j,1)=temls(i,j,1)+flux
            if(we(i,j,kmax)>0.d0) then
              lst=phi(i,j,kmax)+PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/ &
                  PGrid%dz(i,j,kmax))*(phi(i,j,kmax)-phi(i,j,kmax-1))/          &
                 (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
            else
-             lst=phi(i,j,kmax)-PGrid%dz(i,j,kmax-1)/2.d0*		       &
-                 (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*		       &
-                 (phi(i,j,kmax)-phi(i,j,kmax-1))/            		       &
+             lst=phi(i,j,kmax)-PGrid%dz(i,j,kmax-1)/2.d0*                      &
+                 (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*                 &
+                 (phi(i,j,kmax)-phi(i,j,kmax-1))/                              &
                  (PGrid%z(i,j,kmax)-PGrid%y(i,j,kmax-1))
            end if
            flux=lst*we(i,j,kmax)*dtv
            temls(i,j,kmax)=temls(i,j,kmax)-flux/PGrid%dz(i,j,kmax)
          end do
-       end do  
+       end do
     end subroutine Z_Sweep
 
     subroutine Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       implicit none
-       type(Grid),intent(in)                               :: PGrid
-       real(dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
-       real(dp),dimension(:,:,:),allocatable,intent(inout) :: diss
-       integer						   :: i,j,k
-       real(dp)						   :: nxx1,nyy1,nzz1,diss1
-       do i = 2,imax-1
-         do j = 2,jmax-1
-           do k = 2,kmax-1
-             call Interface_Reconstruct_ijk(i,j,k,PGrid%dx(i,j,k),             &
-                  PGrid%dy(i,j,k),PGrid%dz(i,j,k),nxx1,nyy1,nzz1,diss1)
-             nxx(i,j,k)=nxx1
-             nyy(i,j,k)=nyy1
-             nzz(i,j,k)=nzz1
-             diss(i,j,k)=diss1
-           end do
-         end do
-       end do
-       do i = 1,imax
-         do k = 1,kmax
-           nxx(i,jmax,k)=nxx(i,jmax-1,k)
-           nyy(i,jmax,k)=nyy(i,jmax-1,k)
-           nzz(i,jmax,k)=nzz(i,jmax-1,k)
-           diss(i,jmax,k)=diss(i,jmax-1,k)
-           nxx(i,1,k)=nxx(i,2,k)
-           nyy(i,1,k)=nyy(i,2,k)
-           nzz(i,1,k)=nzz(i,2,k)
-           diss(i,1,k)=diss(i,2,k)
-         end do
-       end do
-       do j = 1,jmax
-         do k = 1,kmax
-           nxx(1,j,k)=nxx(2,j,k)
-           nyy(1,j,k)=nyy(2,j,k)
-           nzz(1,j,k)=nzz(2,j,k)
-           diss(1,j,k)=diss(2,j,k)
-           nxx(imax,j,k)=nxx(imax-1,j,k)
-           nyy(imax,j,k)=nyy(imax-1,j,k)
-           nzz(imax,j,k)=nzz(imax-1,j,k)
-           diss(imax,j,k)=diss(imax-1,j,k)
-         end do
-       end do
-       do i = 1,imax
-         do j = 1,jmax
-           nxx(i,j,1)=nxx(i,j,2)
-           nyy(i,j,1)=nyy(i,j,2)
-           nzz(i,j,1)=nzz(i,j,2)
-           diss(i,j,1)=diss(i,j,2)
-           nxx(i,j,kmax)=nxx(i,j,kmax-1)
-           nyy(i,j,kmax)=nyy(i,j,kmax-1)
-           nzz(i,j,kmax)=nzz(i,j,kmax-1)
-           diss(i,j,kmax)=diss(i,j,kmax-1)
-         end do
-       end do
+      implicit none
+      type(Grid),intent(in)                                    :: PGrid
+      real(kind=dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
+      real(kind=dp),dimension(:,:,:),allocatable,intent(inout) :: diss
+      integer                                                  :: i,j,k
+      real(kind=dp)						                            :: nxx1,nyy1,nzz1,diss1
+      real(kind=dp)                                       :: temp
+      logical                                             :: flag
+      do i = 1,imax
+        do j = 1,jmax
+          do k = 1,kmax
+            call Isinterface(i,j,k,flag)
+            if(flag.eqv..true.) then
+              if(i>1.and.i<Imax.and.j>1.and.j<jmax.and.k>1.and.k<kmax) then
+                call Normal_Vector_Irre(PGrid,i,j,k,nxx1,nyy1,nzz1)
+              else
+                nxx1=(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
+                     (PGrid%x(min(imax,i+1),j,k)-PGrid%x(max(1,i-1),j,k))  
+                nyy1=(phi(i,min(jmax,j+1),k)-phi(i,max(1,j-1),k))/             &
+                     (PGrid%y(i,min(jmax,j+1),k)-PGrid%y(i,max(1,j-1),k))
+                nzz1=(phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
+                     (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))
+              end if  
+              temp = dsqrt(nxx1**2.d0+nyy1**2.d0+nzz1**2.d0)
+              if(isnan(temp)) then
+                print*, i,j,k
+                print*, nxx1,nyy1,nzz1
+                print*, phi(i,j,k+1),phi(i,j,k),phi(i,j,k-1)
+                pause 'vof 903'
+              end if
+              if(temp<1.d-14) then
+                nxx1 = 0.d0
+                nyy1 = 0.d0
+                nzz1 = 1.d0
+              else
+                nxx1 = nxx1/temp
+                nyy1 = nyy1/temp
+                nzz1 = nzz1/temp
+              end if
+              call Find_Distance(PGrid%dx(i,j,k),PGrid%dy(i,j,k),             &
+                   PGrid%dz(i,j,k),nxx1,nyy1,nzz1,vfl(i,j,k),diss1)
+              if(isnan(diss1)) then
+                pause 'reconstruct 245'
+              end if
+            else
+              nxx1 = 0.d0
+              nyy1 = 0.d0
+              nzz1 = 1.d0
+              diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)
+            end if
+            nxx(i,j,k)=nxx1
+            nyy(i,j,k)=nyy1
+            nzz(i,j,k)=nzz1
+            diss(i,j,k)=diss1
+          end do
+        end do
+      end do
     end subroutine Interface_Reconstruct
-
-    subroutine Interface_Reconstruct_ijk(i,j,k,dx,dy,dz,nxx,nyy,nzz,diss)
-       implicit none
-       integer:: i,j,k,ii,jj,kk
-       real(dp):: dx,dy,dz,nxx,nyy,nzz,diss,temp,vofeps
-       real(dp):: nx(3),ny(3),nz(3),delt
-       real(dp):: dxp,dxn,dyp,dyn,dzp,dzn,nxx1,nyy1,nzz1,nxy,nyz,nxz
-       logical:: flag
-       vofeps = 1.d-14
-       delt = 2.d0
-       nxx = 0.d0
-       nyy = 0.d0
-       nzz = 0.d0
-       diss = 0.d0
-       call Isinterface(i,j,k,flag)
-       if(flag.eqv..true.) then
-          call Normal_Vector_Irre(i,j,k,dx,dy,dz,nxx,nyy,nzz)
-          temp = dsqrt(nxx**2.d0+nyy**2.d0+nzz**2.d0)
-          if(isnan(temp)) then
-            pause 'vof 903'
-          end if
-          if(temp<1.d-14) then
-             nxx = 0.d0
-             nyy = 0.d0
-             nzz = 1.d0
-          else
-             nxx = nxx/temp
-             nyy = nyy/temp
-             nzz = nzz/temp
-          end if
-          call Find_Distance(dx,dy,dz,nxx,nyy,nzz,vfl(i,j,k),diss)
-          if(isnan(diss)) then
-             pause 'reconstruct 245'
-          end if
-       end if
-    end subroutine Interface_Reconstruct_ijk
 
     subroutine Find_Distance(dx,dy,dz,nxx,nyy,nzz,f,s)
        real(dp),intent(in):: dx,dy,dz,nxx,nyy,nzz,f
@@ -1592,99 +1624,192 @@ Module Clsvof
        return
     end subroutine Boundary_Condition
 
-    subroutine Normal_Vector_Irre(i,j,k,delx,dely,delz,nxx,nyy,nzz)
+    subroutine BoundaryConditionLvsVof(PGrid, PCell, Vari, BCLvs, BCVof, Time)
+      type(Grid), intent(in)         :: PGrid
+      type(Cell), intent(in)         :: PCell
+      type(Variables), intent(in)    :: Vari
+      type(BCBase), intent(inout)    :: BCLvs,BCVof
+      real(kind=dp), intent(in)      :: Time
+      integer(kind=it4b)             :: i,j,k
+
+      ! For the western boundary
+      call BCLvs%West(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, PGrid%y(1,:,:),     &
+                    PGrid%z(1,:,:), PGrid%dx(1,:,:), PGrid%dy(1,:,:),          &
+                    PGrid%dz(1,:,:), Vari%p(1,:,:), Vari%u(1,:,:),             &
+                    Vari%v(1,:,:), Vari%w(1,:,:), PCell%vofL(1,:,:),            &
+                    PCell%phiL(1,:,:), Time)
+
+      ! For the eastern boundary
+      call BCLvs%East(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0, PGrid%y(Imax,:,:), &
+                    PGrid%z(Imax,:,:), PGrid%dx(Imax,:,:), PGrid%dy(Imax,:,:), &
+                    PGrid%dz(Imax,:,:), Vari%p(Imax,:,:), Vari%u(Imax-1,:,:),  &
+                    Vari%v(Imax,:,:), Vari%w(Imax,:,:), PCell%vofL(Imax,:,:),   &
+                    PCell%phiL(Imax,:,:), Time)
+      
+      ! For the southern boundary
+      call BCLvs%South(PGrid%x(:,1,:), PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0,    &
+                       PGrid%z(:,1,:), PGrid%dx(:,1,:), PGrid%dy(:,1,:),       &
+                       PGrid%dz(:,1,:), Vari%p(:,1,:), Vari%u(:,1,:),          &
+                       Vari%v(:,1,:), Vari%w(:,1,:), PCell%vofL(:,1,:),         &
+                       PCell%phiL(:,1,:), Time)
+
+      ! For the northern boundary
+      call BCLvs%North(PGrid%x(:,Jmax,:), PGrid%y(:,Jmax,:)+PGrid%dy(:,Jmax,:)/2.d0, &
+                     PGrid%z(:,Jmax,:), PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),&
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vofL(:,Jmax,:),  &
+                     PCell%phiL(:,Jmax,:), Time) 
+
+      ! For the bottom boundary
+      call BCLvs%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1),                        &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1),         &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1),             &
+                      PCell%vofL(:,:,1), PCell%phiL(:,:,1), Time)
+
+      ! For the top boundary
+      call BCVof%Top(PGrid%x(:,:,Kmax),PGrid%y(:,:,Kmax), PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,&
+                  PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax),  &
+                  Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),        &
+                  Vari%w(:,:,Kmax), PCell%vofL(:,:,Kmax), PCell%phiL(:,:,Kmax), Time)
+
+      call BCVof%West(PGrid%x(1,:,:)-PGrid%dx(1,:,:)/2.d0, PGrid%y(1,:,:),     &
+                    PGrid%z(1,:,:), PGrid%dx(1,:,:), PGrid%dy(1,:,:),          &
+                    PGrid%dz(1,:,:), Vari%p(1,:,:), Vari%u(1,:,:),             &
+                    Vari%v(1,:,:), Vari%w(1,:,:), PCell%vofL(1,:,:),            &
+                    PCell%phiL(1,:,:), Time)
+
+      ! For the eastern boundary
+      call BCVof%East(PGrid%x(Imax,:,:)+PGrid%dx(Imax,:,:)/2.d0,               &
+                    PGrid%y(Imax,:,:), PGrid%z(Imax,:,:), PGrid%dx(Imax,:,:),  &
+                    PGrid%dy(Imax,:,:), PGrid%dz(Imax,:,:), Vari%p(Imax,:,:),  &
+                    Vari%u(Imax-1,:,:), Vari%v(Imax,:,:), Vari%w(Imax,:,:),    &
+                    PCell%vofL(Imax,:,:), PCell%phiL(Imax,:,:), Time)
+      
+      ! For the southern boundary
+      call BCVof%South(PGrid%x(:,1,:), PGrid%y(:,1,:)-PGrid%dy(:,1,:)/2.d0,    &
+                       PGrid%z(:,1,:), PGrid%dx(:,1,:), PGrid%dy(:,1,:),       &
+                       PGrid%dz(:,1,:), Vari%p(:,1,:), Vari%u(:,1,:),          &
+                       Vari%v(:,1,:), Vari%w(:,1,:), PCell%vofL(:,1,:),         &
+                       PCell%phiL(:,1,:), Time)
+
+      ! For the northern boundary
+      call BCVof%North(PGrid%x(:,Jmax,:),                                      &
+                     PGrid%y(:,Jmax,:)+PGrid%dy(:,Jmax,:)/2.d0,                &
+                     PGrid%z(:,Jmax,:), PGrid%dx(:,Jmax,:), PGrid%dy(:,Jmax,:),&
+                     PGrid%dz(:,Jmax,:), Vari%p(:,Jmax,:), Vari%u(:,Jmax,:),   &
+                     Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vofL(:,Jmax,:),  &
+                     PCell%phiL(:,Jmax,:), Time) 
+
+      ! For the bottom boundary
+      call BCVof%Bottom(PGrid%x(:,:,1), PGrid%y(:,:,1),                         &
+                      PGrid%z(:,:,1)-PGrid%dz(:,:,1)/2.d0, PGrid%dx(:,:,1),    &
+                      PGrid%dy(:,:,1), PGrid%dz(:,:,1), Vari%p(:,:,1),         &
+                      Vari%u(:,:,1), Vari%v(:,:,1), Vari%w(:,:,1),             &
+                      PCell%vofL(:,:,1), PCell%phiL(:,:,1), Time)
+
+      ! For the top boundary
+      call BCVof%Top(PGrid%x(:,:,Kmax),PGrid%y(:,:,Kmax),                      &
+                  PGrid%z(:,:,Kmax)+PGrid%dz(:,:,Kmax)/2.d0,                   &
+                  PGrid%dx(:,:,Kmax), PGrid%dy(:,:,Kmax), PGrid%dz(:,:,Kmax),  &
+                  Vari%p(:,:,Kmax), Vari%u(:,:,Kmax), Vari%v(:,:,Kmax),        &
+                  Vari%w(:,:,Kmax), PCell%vofL(:,:,Kmax), PCell%phiL(:,:,Kmax), Time)
+    
+    end subroutine BoundaryConditionLvsVof  
+    
+    subroutine Normal_Vector_Irre(PGrid,i,j,k,nxx,nyy,nzz)
        implicit none
-       integer,intent(in)   :: i,j,k
-       real(dp),intent(in)  :: delx,dely,delz
-       real(dp),intent(out) :: nxx,nyy,nzz
-       integer              :: case_deri,dx,dy,dz
-       real(dp)             :: qi(-1:1),qj(-1:1),qk(-1:1)
-       real(dp)             :: vx,vy,vz
+       type(Grid),intent(in) :: PGrid
+       integer,intent(in)    :: i,j,k
+       real(dp),intent(out)  :: nxx,nyy,nzz
+       integer               :: case_deri,dx,dy,dz
+       real(dp)              :: qi(-1:1),qj(-1:1),qk(-1:1)
+       real(dp)              :: vx,vy,vz
        ! define qi for Dx
        if(i>=3) then
        ! for qi(-1)
-          vx = 0.5d0*(phi(i,j,k)-phi(i-2,j,k))/delx
+         vx=(phi(i,j,k)-phi(i-2,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-2,j,k))
        else
-          vx = (phi(i,j,k)-phi(i-1,j,k))/delx
+         vx=(phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
        end if
-       vy = 0.5d0*(phi(i-1,j+1,k)-phi(i-1,j-1,k))/dely
-       vz = 0.5d0*(phi(i-1,j,k+1)-phi(i-1,j,k-1))/delz
-       qi(-1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+       vy=(phi(i-1,j+1,k)-phi(i-1,j-1,k))/(PGrid%y(i-1,j+1,k)-PGrid%y(i-1,j-1,k))
+       vz=(phi(i-1,j,k+1)-phi(i-1,j,k-1))/(PGrid%z(i-1,j,k+1)-PGrid%z(i-1,j,k-1))
+       qi(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        ! for qi(1)
        if(i<=imax-2) then
-          vx = 0.5d0*(phi(i+2,j,k)-phi(i,j,k))/delx
+         vx=(phi(i+2,j,k)-phi(i,j,k))/(PGrid%x(i+2,j,k)-PGrid%x(i,j,k))
        else
-          vx = (phi(i+1,j,k)-phi(i,j,k))/delx
+         vx=(phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
        end if
-       vy = 0.5d0*(phi(i+1,j+1,k)-phi(i+1,j-1,k))/dely
-       vz = 0.5d0*(phi(i+1,j,k+1)-phi(i+1,j,k-1))/delz
+       vy=(phi(i+1,j+1,k)-phi(i+1,j-1,k))/(PGrid%y(i+1,j+1,k)-PGrid%y(i+1,j-1,k))
+       vz=(phi(i+1,j,k+1)-phi(i+1,j,k-1))/(PGrid%z(i+1,j,k+1)-PGrid%z(i+1,j,k-1))
        qi(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        if(qi(-1)<eta.and.qi(1)>=eta) then
-          dx = -1
+         dx=-1
        elseif(qi(-1)>=eta.and.qi(1)<eta) then
-          dx = 1
+         dx=1
        else
-          dx = 0
+         dx=0
        end if
        ! define qj for Dy
        if(j>=3) then
-          vy = 0.5d0*(phi(i,j,k)-phi(i,j-2,k))/dely
+         vy=(phi(i,j,k)-phi(i,j-2,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-2,k))
        else
-          vy = (phi(i,j,k)-phi(i,j-1,k))/dely
+         vy=(phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
        end if
-       vx = 0.5d0*(phi(i+1,j-1,k)-phi(i-1,j-1,k))/delx
-       vz = 0.5d0*(phi(i,j-1,k+1)-phi(i,j-1,k-1))/delz
-       qj(-1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+       vx=(phi(i+1,j-1,k)-phi(i-1,j-1,k))/(PGrid%x(i+1,j-1,k)-PGrid%x(i-1,j-1,k))
+       vz=(phi(i,j-1,k+1)-phi(i,j-1,k-1))/(PGrid%z(i,j-1,k+1)-PGrid%z(i,j-1,k-1))
+       qj(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        ! define qj(1)
-       vx = 0.5d0*(phi(i+1,j+1,k)-phi(i-1,j+1,k))/delx
+       vx=(phi(i+1,j+1,k)-phi(i-1,j+1,k))/(PGrid%x(i+1,j+1,k)-PGrid%x(i-1,j+1,k))
        if(j<=jmax-2) then
-          vy = 0.5d0*(phi(i,j+2,k)-phi(i,j,k))/dely
+         vy=(phi(i,j+2,k)-phi(i,j,k))/(PGrid%y(i,j+2,k)-PGrid%y(i,j,k))
        else
-          vy = (phi(i,j+1,k)-phi(i,j,k))/dely
+         vy=(phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
        end if
-       vz = 0.5d0*(phi(i,j+1,k+1)-phi(i,j+1,k-1))/delz
-       qj(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+       vz=(phi(i,j+1,k+1)-phi(i,j+1,k-1))/(PGrid%z(i,j+1,k+1)-PGrid%z(i,j+1,k-1))
+       qj(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        if(qj(-1)<eta.and.qj(1)>=eta) then
-          dy = -1
+         dy=-1
        elseif(qj(-1)>=eta.and.qj(1)<eta) then
-          dy = 1
+         dy=1
        else
-          dy = 0
+         dy=0
        end if
        ! define qk for dz
        ! qk(-1)
-       vx = 0.5d0*(phi(i+1,j,k-1)-phi(i-1,j,k-1))/delx
-       vy = 0.5d0*(phi(i,j+1,k-1)-phi(i,j-1,k-1))/dely
+       vx=(phi(i+1,j,k-1)-phi(i-1,j,k-1))/(PGrid%x(i+1,j,k-1)-PGrid%x(i-1,j,k-1))
+       vy=(phi(i,j+1,k-1)-phi(i,j-1,k-1))/(PGrid%y(i,j+1,k-1)-PGrid%y(i,j-1,k-1))
        if(k>=3) then
-          vz = 0.5d0*(phi(i,j,k)-phi(i,j,k-2))/delz
+         vz=(phi(i,j,k)-phi(i,j,k-2))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-2))
        else
-          vz = (phi(i,j,k)-phi(i,j,k-1))/delz
+         vz=(phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
        end if
        qk(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        ! qk(1)
-       vx = 0.5d0*(phi(i+1,j,k+1)-phi(i-1,j,k+1))/delx
-       vy = 0.5d0*(phi(i,j+1,k+1)-phi(i,j-1,k+1))/dely
+       vx=(phi(i+1,j,k+1)-phi(i-1,j,k+1))/(PGrid%x(i+1,j,k+1)-PGrid%x(i-1,j,k+1))
+       vy=(phi(i,j+1,k+1)-phi(i,j-1,k+1))/(PGrid%y(i,j+1,k+1)-PGrid%y(i,j-1,k+1))
        if(k<=kmax-2) then
-          vz = 0.5d0*(phi(i,j,k+2)-phi(i,j,k))/delz
+         vz=(phi(i,j,k+2)-phi(i,j,k))/(PGrid%z(i,j,k+2)-PGrid%z(i,j,k))
        else
-          vz = (phi(i,j,k+1)-phi(i,j,k))/delz
+         vz=(phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
        end if
        qk(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
        if(qk(-1)<eta.and.qk(1)>=eta) then
-          dz = -1
+         dz=-1
        elseif(qk(-1)>=eta.and.qk(1)<eta) then
-          dz = 1
+         dz=1
        else
-          dz = 0
+         dz=0
        end if
-       if(dx==-1) nxx = (phi(i,j,k)-phi(i-1,j,k))/delx
-       if(dx==1) nxx = (phi(i+1,j,k)-phi(i,j,k))/delx
-       if(dx==0) nxx = 0.5d0*(phi(i+1,j,k)-phi(i-1,j,k))/delx
-       if(dy==-1) nyy = (phi(i,j,k)-phi(i,j-1,k))/dely
-       if(dy==1) nyy = (phi(i,j+1,k)-phi(i,j,k))/dely
-       if(dy==0) nyy = 0.5d0*(phi(i,j+1,k)-phi(i,j-1,k))/dely
-       if(dz==-1) nzz = (phi(i,j,k)-phi(i,j,k-1))/delz
-       if(dz==1) nzz = (phi(i,j,k+1)-phi(i,j,k))/delz
-       if(dz==0) nzz = 0.5d0*(phi(i,j,k+1)-phi(i,j,k-1))/delz
+       if(dx==-1) nxx = (phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
+       if(dx==1) nxx = (phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
+       if(dx==0) nxx = (phi(i+1,j,k)-phi(i-1,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i-1,j,k))
+       if(dy==-1) nyy = (phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
+       if(dy==1) nyy = (phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
+       if(dy==0) nyy = (phi(i,j+1,k)-phi(i,j-1,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j-1,k))
+       if(dz==-1) nzz = (phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
+       if(dz==1) nzz = (phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
+       if(dz==0) nzz = 0.5d0*(phi(i,j,k+1)-phi(i,j,k-1))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k-1))
     end subroutine Normal_Vector_Irre
 end module Clsvof

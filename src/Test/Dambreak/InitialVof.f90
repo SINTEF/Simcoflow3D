@@ -13,16 +13,15 @@ Module InitialVof
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid level set function
     
-    public:: InitialClsvofFluidFieldDamBreak,				       &
-             InitialClsvofLiquidFieldDambreak,				       &
-             InitialVarDambreak,					       &
-             InitialGridDamBreak
+    public:: InitialClsvofFluidFieldDamBreak,                                  &
+             InitialClsvofLiquidFieldDambreak,                                 &
+             InitialVarDambreak,InitialGridDamBreak
              
     interface InitialVarDambreak
       module procedure InitialVarDambreak
     end interface InitialVarDambreak
     
-    interface InitialClsvofFluidFieldDamBreak	
+    interface InitialClsvofFluidFieldDamBreak
       module procedure InitialClsvofFluidFieldDamBreak
     end interface
     

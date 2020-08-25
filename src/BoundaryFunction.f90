@@ -694,11 +694,11 @@ module BoundaryFunction
 
   subroutine TypicalBC(Array, Varin, dxyz, flag, const, Array2D1, Array2D2)
     real(kind=dp), dimension(:,:), ALLOCATABLE, intent(inout) :: Array
-    real(kind=dp), dimension(:,:), intent(in)    	      :: Varin, dxyz
+    real(kind=dp), dimension(:,:), intent(in)    	            :: Varin, dxyz
     integer(kind=it4b), intent(in)    	                      :: flag
-    integer(kind=it4b), intent(in)			      :: Array2D1, Array2D2
-    real(kind=dp), intent(in)				      :: const
-    integer(kind=it4b)	   	  			      :: i,j
+    integer(kind=it4b), intent(in)			                      :: Array2D1, Array2D2
+    real(kind=dp), intent(in)				                          :: const
+    integer(kind=it4b)	   	  			                          :: i,j
      
     if(flag == 0) then ! Dirichlet BC
       do i = 1, Array2D1

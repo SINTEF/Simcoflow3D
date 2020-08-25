@@ -112,11 +112,11 @@ Module PrintResult
                                        TVar%v(1:IMax,1:JMax,1:Kmax),		&
                                        TVar%w(1:Imax,1:Jmax,1:Kmax))
       call VTR_write_var(fd,"Pressure",TVar%p(1:IMax,1:JMax,1:KMax))
-      call VTR_write_var(fd,"FluidLvs",TCell%phi(:,:,:))
-      call VTR_write_var(fd,"LiquidLvs",TCell%phiL(:,:,:))
-      call VTR_Write_var(fd,"FluidVof",TCell%vof(:,:,:))
-      call VTR_Write_var(fd,"LiquidVof",TCell%vofL(:,:,:))
-      call VTR_Write_var(fd,"Mass error",Tvar%mres)
+      call VTR_write_var(fd,"FluidLvs",TCell%phi(1:Imax,1:Jmax,1:Kmax))
+      call VTR_write_var(fd,"LiquidLvs",TCell%phiL(1:Imax,1:Jmax,1:Kmax))
+      call VTR_Write_var(fd,"FluidVof",TCell%vof(1:Imax,1:Jmax,1:Kmax))
+      call VTR_Write_var(fd,"LiquidVof",TCell%vofL(1:Imax,1:Jmax,1:Kmax))
+      call VTR_Write_var(fd,"Mass error",Tvar%mres(1:Imax,1:Jmax,1:Kmax))
       call VTR_close_file(fd)
     end subroutine PrintResultVTR3D
 

@@ -1,4 +1,4 @@
 Imax    Jmax    Kmax   Irec   Jrec    Krec  Reynold    Referencelength    Print	
-161     15      60     42     42      42    300.d0     0.6d0               10
+161     15      60     42     42      42    300.d0     0.3d0               10
 Timeoder	SpaceOrder
-1			1
+3			1

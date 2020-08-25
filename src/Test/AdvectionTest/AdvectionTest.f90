@@ -9,6 +9,7 @@ program main
     USE Solver
     USE BoundaryInterface
     USE BoundaryFunction
+    USE ComputePUV
     USE InitialVof
     
     implicit none
@@ -17,10 +18,14 @@ program main
     Type(Cell)      :: PCell
     Type(Point)     :: SPoint,EPoint,ReS,ReE
     Type(Variables) :: Var
+    type(BCBase)    :: BCp,BCu,BCv,BCw,BCVof,BCLvs
     
     real(kind=dp)   :: dt,t,tp,eta,nv,cfl
     integer(kind=it4b) :: i,j,k,iprint,iprint1
     integer(kind=it8b) :: itt
+    real(kind=dp), dimension(:), allocatable :: Constin
+    
+    allocate(Constin(6))
     
     open(unit=1,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/AdvectionTest/input.txt',status='old',action='read')
     read(1,*)
@@ -70,6 +75,61 @@ program main
         end do
       end do
     end do
+    BCu = BCBase(Imax,Jmax,Kmax)
+    BCv = BCBase(Imax,Jmax,Kmax)
+    BCw = BCBase(Imax,Jmax,Kmax)
+    BCvof = BCBase(Imax,Jmax,Kmax)
+    BClvs = BCBase(Imax,Jmax,Kmax)
+    
+    ! Advection Test
+    call BCu%SetDN(0,0,0,0,0,0)
+    call BCv%SetDN(0,0,0,0,0,0)
+    call BCw%SetDN(0,0,0,0,0,0)
+    call BCVof%SetDN(0,0,0,0,0,0)
+    call BCLvs%SetDN(0,0,0,0,0,0)
+    ! Set Constant for boundary condition  
+    Constin(:) = 0.d0
+    call BCu%SetConstant(Constin)   
+    call BCv%SetConstant(Constin)
+    call BCw%SetConstant(Constin)
+    call BCVof%SetConstant(Constin)
+    call BCLvs%SetConstant(Constin)
+    BCu%West   => BCUW
+    BCu%East   => BCUE
+    BCu%South  => BCUS
+    BCu%North  => BCUN
+    BCu%Bottom => BCUB
+    BCu%Top    => BCUT
+    
+    BCv%West   => BCVW
+    BCv%East   => BCVE
+    BCv%South  => BCVS
+    BCv%North  => BCVN
+    BCv%Bottom => BCVB
+    BCv%Top    => BCVT
+    
+    BCw%West   => BCWW
+    BCw%East   => BCWE
+    BCw%South  => BCWS
+    BCw%North  => BCWN
+    BCw%Bottom => BCWB
+    BCw%Top    => BCWT
+    
+    BCVof%West   => BCVofW
+    BCVof%East   => BCVofE
+    BCVof%South  => BCVofS
+    BCVof%North  => BCVofN
+    BCVof%Bottom => BCVofB
+    BCVof%Top    => BCVofT
+    
+    BCLvs%West   => BCLvsW
+    BCLvs%East   => BCLvsE
+    BCLvs%South  => BCLvsS
+    BCLvs%North  => BCLvsN
+    BCLvs%Bottom => BCLvsB
+    BCLvs%Top    => BCLvsT
+    
+    deallocate(Constin)
     call InitialClsvofFluidFieldAdvectionTest(PGrid,PCell)
     call InitialClsvofLiquidFieldAdvectionTest(PGrid,PCell)
     call PrintResultVTR3D(PGrid,Var,PCell,INT8(0))
@@ -85,33 +145,34 @@ program main
                PGrid%y(i,j,k)))**2.d0*dsin(2.d0*pi*PGrid%z(i,j,k))*dcos(pi*t/tp)
             Var%w(i,j,k)=-dsin(2.d0*pi*PGrid%x(i,j,k))*dsin(2.d0*pi*           &
                PGrid%y(i,j,k))*(dsin(pi*PGrid%z(i,j,k)))**2.d0*dcos(pi*t/tp)
-            dt=dmin1(dt,cfl*PGrid%dx(1,1,1)/dabs(Var%u(i,j,k)+1.d-30),        &
-                     cfl*PGrid%dy(1,1,1)/dabs(Var%v(i,j,k)+1.d-30),  	       &
+            dt=dmin1(dt,cfl*PGrid%dx(1,1,1)/dabs(Var%u(i,j,k)+1.d-30),         &
+                     cfl*PGrid%dy(1,1,1)/dabs(Var%v(i,j,k)+1.d-30),  	         &
                      cfl*PGrid%dz(1,1,1)/dabs(Var%w(i,j,k)+1.d-30))
              end do
           end do
        end do  
+       call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, t)
        if(dt>=cfl*PGrid%dx(1,1,1)/0.2d0) dt = cfl*PGrid%dx(1,1,1)/0.2d0
        if(t<tp.and.(t+dt)>=tp) then
-          pause ' do you want to continue '
-          dt = tp - t
-          call Clsvof_Scheme(PGrid,PCell,Var,dt,itt)
-          iprint = iprint1
+         pause ' do you want to continue '
+         dt = tp - t
+         call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
+         iprint = iprint1
        else
-          call Clsvof_Scheme(PGrid,PCell,Var,dt,itt)
+         call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
        end if
        t = t+dt
        if(mod(itt,iprint)==0) then
-          call PrintResultVTR3D(PGrid,Var,PCell,itt)
+         call PrintResultVTR3D(PGrid,Var,PCell,itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
-          print*,'Iteration number and time:', itt , t
+         print*,'Iteration number and time:', itt , t
        end if
        if(t>=tp/2.d0.and.t-dt<tp/2.d0) then
-          call PrintResultVTR3D(PGrid,Var,PCell,itt)
+         call PrintResultVTR3D(PGrid,Var,PCell,itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
-          print*,'Iteration number, time and time step:0', itt,t,dt,t-dt
+         print*,'Iteration number, time and time step:0', itt,t,dt,t-dt
        end if 
        if(t>1.2d0*tp) exit
     end do       
