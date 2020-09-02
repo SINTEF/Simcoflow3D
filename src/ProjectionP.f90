@@ -121,8 +121,8 @@ Module ProjectionP
                     dble(jvm+jvp)*TGrid%dy(im,jm,km)+		               &
                     dble(kwm+kwp)*TGrid%dz(im,jm,km)
                     
-            Lamda=dabs(PCell%phi(i,j,k))/(dabs(PCell%phi(i,j,k))+              &
-                                          dabs(PCell%phi(ii,jj,kk))+tol)                  
+            Lamda=dabs(PCell%phiL(i,j,k))/(dabs(PCell%phiL(i,j,k))+              &
+                                          dabs(PCell%phiL(ii,jj,kk))+tol)                  
             if((PCell%vofL(i,j,k)>=0.5d0.and.				       &
                 PCell%vof(i,j,k)>1.d0-epsi).or.      			       &
                (PCell%phiL(i,j,k)<0.d0.and.				       &
@@ -199,7 +199,7 @@ Module ProjectionP
         Call HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD,solver,ierr)
 !       Set some parameters
         Call HYPRE_ParCSRPCGSetMaxIter(solver,50,ierr)
-        Call HYPRE_ParCSRPCGSetTol(solver,1.d-30,ierr)
+        Call HYPRE_ParCSRPCGSetTol(solver,1.d-12,ierr)
         Call HYPRE_ParCSRPCGSetTwoNorm(solver,0,ierr)
 !        Call HYPRE_ParCSRPCGSetPrintLevel(solver,2,ierr)
         Call HYPRE_ParCSRPCGSetLogging(solver,1,ierr)
@@ -216,7 +216,7 @@ Module ProjectionP
 !        Sweeeps on each level
           Call HYPRE_BoomerAMGSetNumSweeps(precond,1,ierr)
 !        conv. tolerance
-          Call HYPRE_BoomerAMGSetTol(precond,0.0d0,ierr)
+          Call HYPRE_BoomerAMGSetTol(precond,1.d-12,ierr)
 !        do only one iteration!
           Call HYPRE_BoomerAMGSetMaxIter(precond,10,ierr)
 !        set amg as the pcg preconditioner

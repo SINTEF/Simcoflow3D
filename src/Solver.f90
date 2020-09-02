@@ -77,7 +77,7 @@ Module Solver
           if(mod(itt,iprint)==0)then
             write(*,*), itt,Time%PhysT,Time%NondiT
           !  call PrintResultVTK(PGrid,TVar,PCell,itt)
-            call PrintResultVTR3D(PGrid,TVar,PCell,itt)
+            call PrintResultVTR3D(PGrid,TVar,PCell,'FlowFieldP',itt)
           ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXZ(PGrid,TVar,PCell,itt)

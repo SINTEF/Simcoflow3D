@@ -157,7 +157,7 @@ Program Main
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
     Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,INT8(0))
+    Call PrintResultVTR3D(PGrid,Var,PCell,'FlowField',INT8(0))
     
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
     Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)

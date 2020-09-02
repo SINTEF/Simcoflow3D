@@ -94,22 +94,23 @@ Module PrintResult
       Deallocate(p)
     End Subroutine PrintResultTecplotPCent
 
-    Subroutine PrintResultVTR3D(TGrid,TVar,TCell,itt)
+    Subroutine PrintResultVTR3D(TGrid,TVar,TCell,PrintName,itt)
       IMPLICIT NONE
       TYPE(Grid),INTENT(IN)         :: TGrid
       TYPE(Variables),INTENT(IN)    :: TVar
       TYPE(Cell),INTENT(IN)         :: TCell
+      CHARACTER(len=*),INTENT(IN)   :: PrintName
       INTEGER(kind=it8b),INTENT(IN) :: itt
       TYPE(VTR_file_handle)         :: fd
       CHARACTER(len=70)              :: dir
       dir = trim("/home/sontd/code/CutCell3DGFMCLSVOF/Result/")
 
-      call VTR_open_file(Prefix="FlowField",dir=dir, itera=itt,FD=fd)
+      call VTR_open_file(Prefix=trim(PrintName),dir=dir,itera=itt,FD=fd)
     ! use keyword argument due to huge number of optional dummy argument
     ! so we need keyword argument to specify the location of actual argument
       call VTR_write_mesh(fd,TGrid%x(:,1,1),TGrid%y(1,:,1),TGrid%z(1,1,:))
-      call VTR_write_var(fd,"Velocity",TVar%u(1:IMax,1:JMax,1:KMax),		&
-                                       TVar%v(1:IMax,1:JMax,1:Kmax),		&
+      call VTR_write_var(fd,"Velocity",TVar%u(1:IMax,1:JMax,1:KMax),    &
+                                       TVar%v(1:IMax,1:JMax,1:Kmax),    &
                                        TVar%w(1:Imax,1:Jmax,1:Kmax))
       call VTR_write_var(fd,"Pressure",TVar%p(1:IMax,1:JMax,1:KMax))
       call VTR_write_var(fd,"FluidLvs",TCell%phi(1:Imax,1:Jmax,1:Kmax))
