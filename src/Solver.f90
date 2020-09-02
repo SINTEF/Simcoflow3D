@@ -77,7 +77,8 @@ Module Solver
           if(mod(itt,iprint)==0)then
             write(*,*), itt,Time%PhysT,Time%NondiT
           !  call PrintResultVTK(PGrid,TVar,PCell,itt)
-            call PrintResultVTR3D(PGrid,TVar,PCell,itt)
+            call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
+            call PrintResultVTR3D(UGrid,TVar,UCell,"FlowFieldU",itt)
           ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
           ! call PrintResultTecplotPCentXZ(PGrid,TVar,PCell,itt)
@@ -126,7 +127,8 @@ Module Solver
         if(itt>1) then
           call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &
                                                         Time%NondiT,dt,itt)
-          call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell)
+          call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
+                                                 UGrid,VGrid,WGrid)
         end if
         call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,        &
               BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &

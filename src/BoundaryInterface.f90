@@ -22,13 +22,15 @@ module Boundaryinterface
   
   abstract interface
      
-     subroutine BCinterface(this,xin,yin,zin,dxin,dyin,dzin,pin,uin,vin,win,vofin,lvsin,time)
+     subroutine BCinterface(this,xin,yin,zin,dxin,dyin,dzin,pin,uin,vin,win,   &
+                                             vofin,lvsin,time,nxin,nyin,nzin)
         import :: dp, BCBase
         class(BCBase),intent(inout)             :: this
         real(kind=dp),dimension(:,:),intent(in) :: xin,yin,zin,dxin,dyin,dzin
         real(kind=dp),dimension(:,:),intent(in) :: pin,uin,vin,win
         real(kind=dp),dimension(:,:),intent(in) :: vofin,lvsin
         real(kind=dp),               intent(in) :: time 
+        real(kind=dp),dimension(:,:),intent(in),optional :: nxin,nyin,nzin
      
      end subroutine BCinterface
 !

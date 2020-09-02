@@ -163,9 +163,9 @@ Module InitialVof
               nzF(i,j,k) = 1.d0
             else
               phi(i,j,k) = dsqrt((dx**2.d0+dz**2.d0))
-              nxF(i,j,k) = -dx/dsqrt(dx**2.d0+dz**2.d0)
+              nxF(i,j,k) = dx/dsqrt(dx**2.d0+dz**2.d0)
               nyF(i,j,k) = 0.d0
-              nzF(i,j,k) = -dz/dsqrt(dx**2.d0+dz**2.d0) 
+              nzF(i,j,k) = dz/dsqrt(dx**2.d0+dz**2.d0) 
             end if
             s=phi(i,j,k)+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+	       		&
                                dabs(nyF(i,j,k))*TGrid%dy(i,j,k)+	       &
@@ -176,7 +176,6 @@ Module InitialVof
           end do
         end do
       end do
-      
       nullify(vfl)
       nullify(phi)
       nullify(nxF)
@@ -207,6 +206,7 @@ Module InitialVof
             Vari%p(i,j,k) = Pint/Vari%Pref
             Vari%Gpu(i,j,k) = 0.d0
             Vari%Gpv(i,j,k) = 0.d0
+            Vari%Gpw(i,j,k) = 0.d0
             Vari%t(i,j,k) = Tint/Tref
             Vari%mres(i,j,k) = 0.d0
             Vari%pres(i,j,k) = 0.d0

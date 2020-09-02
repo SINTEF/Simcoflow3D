@@ -27,9 +27,10 @@ Module PredictorUV
     USE MPI
     use BoundaryInterface
     use BoundaryFunction
+    use Clsvof
     Implicit none
     Private
-    Real(dp),parameter :: alpha=0.d0,beta=1.d0,betaVis=0.5d0
+    Real(dp),parameter :: alpha=0.d0,beta=1.d0,betaVis=0.5d0,tolpar=1.d-14
     Type, public :: Predictor
         Real(kind=dp), dimension(:,:,:), allocatable :: u,v,w
     End Type
@@ -177,11 +178,6 @@ Module PredictorUV
                         un12,vn12,wn12,MFTB,dt,TVar%Roref)
     ! Step 2: Calculate the diffusive coefficient
 
-      EDFEW = 0.d0
-      EDFNS = 0.d0
-      EDFTB = 0.d0
-      FluxDiv = 0.d0
-
       Call DiffusiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,      &
                                          DFEW,EDFEW,nuw,1,0,0)
       Call DiffusiveFlux(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,      &
@@ -190,7 +186,7 @@ Module PredictorUV
                                          DFTB,EDFTB,nuw,0,0,1)
 
     ! Step 3: Calculate source term coefficient as wall function
-
+      FluxDiv=0.d0
       Do i = 1,Imax-1
         Do j = 1,Jmax
           Do k = 1,Kmax
@@ -414,7 +410,7 @@ Module PredictorUV
       end do
     ! Solving for UCell
       call SetBasicSolver(solver,precond)
-    ! call SetBasicSolver(solver=solver,ierr=ierr)
+    ! Call SetBasicSolver(solver=solver,ierr=ierr)
       call SetMatrix(A,parcsr_A,UGrid,UCell,BCu,DFEW,DFNS,DFTB, 		           &
                        EDFEW,EDFNS,EDFTB,UFric,PU,UWE,USN,UBT,dt,1,0,0)
       call SetVectors(b,x,par_b,par_x,UGrid,UCell,BCu,PU,UWE,USN,UBT,          &
@@ -511,7 +507,8 @@ Module PredictorUV
         Call HYPRE_ParCSRPCGCreate(MPI_COMM_WORLD,solver,ierr)
 !       Set some parameters
         Call HYPRE_ParCSRPCGSetMaxIter(solver,50,ierr)
-        Call HYPRE_ParCSRPCGSetTol(solver,1.0d-30,ierr)
+!       Set the tolerance for solver. Very small value can lead to overflow or underflow. 
+        Call HYPRE_ParCSRPCGSetTol(solver,1.d-10,ierr)
         Call HYPRE_ParCSRPCGSetTwoNorm(solver,0,ierr)
 !        Call HYPRE_ParCSRPCGSetPrintLevel(solver,2,ierr)
         Call HYPRE_ParCSRPCGSetLogging(solver,1,ierr)
@@ -528,7 +525,7 @@ Module PredictorUV
 !        Sweeeps on each level
           Call HYPRE_BoomerAMGSetNumSweeps(precond,1,ierr)
 !        conv. tolerance
-          Call HYPRE_BoomerAMGSetTol(precond,0.0d0,ierr)
+          Call HYPRE_BoomerAMGSetTol(precond,1.d-10,ierr)
 !        do only one iteration!
           Call HYPRE_BoomerAMGSetMaxIter(precond,10,ierr)
 !        set amg as the pcg preconditioner
@@ -852,18 +849,19 @@ Module PredictorUV
         Call HYPRE_IJVectorCreate(MPI_COMM_WORLD,ilower,iupper,x,ierr)
         Call HYPRE_IJVectorSetObjectType(x,HYPRE_PARCSR,ierr)
         Call HYPRE_IJVectorInitialize(x,ierr)
-        rhs(:) = 0.d0
+        rhs(:)=0.d0
+        xval(:)=0.d0
         Do i = 1,Imax-iu
           Do j = 1,Jmax-iv
             Do k = 1,Kmax-iw
               If(TCell%Cell_Type(i,j,k)/=2) then
                 ictr = TCell%PosNu(i,j,k)
-                rhs(ictr)=(iu*TVar%u(i,j,k)+iv*TVar%v(i,j,k)+              &
-                           iw*TVar%w(i,j,k))*TCell%vof(i,j,k)*               &
+                rhs(ictr)=(iu*TVar%u(i,j,k)+iv*TVar%v(i,j,k)+                  &
+                           iw*TVar%w(i,j,k))*TCell%vof(i,j,k)*                 &
                            TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt+ &
-                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*		       &
+                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*                     &
                            TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*    &
-                           (gx*dble(iu)+gy*dble(iv)+gz*dble(iw))/g
+                           (gx*dble(iu)+gy*dble(iv)+gz*dble(iw))/g        
                 If(TCell%MoExCell(i,j,k)/=1) then
                 !  rhs(ictr) = rhs(ictr)-TCell%vof(i,j,k)*TGrid%dx(i,j,k)*      &
                 !             TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*(p(i+iu,j+iv,k+iw)&
@@ -883,18 +881,17 @@ Module PredictorUV
                                    TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*PUVW%Dp(i,j,k)
                 End if
                 
-                rhs(ictr) = rhs(ictr)-IJKFlux(i,j,k)
+                rhs(ictr)=rhs(ictr)-IJKFlux(i,j,k)
                 if(i==1)rhs(ictr)=rhs(ictr)+CWE(j,k,1)*BC%VarW(j,k)
                 if(i==Imax-iu)rhs(ictr)=rhs(ictr)+CWE(j,k,2)*BC%VarE(j,k)
                 if(j==1)rhs(ictr)=rhs(ictr)+CSN(i,k,1)*BC%VarS(i,k)
                 if(j==Jmax-iv)rhs(ictr)=rhs(ictr)+CSN(i,k,2)*BC%VarN(i,k)
                 if(k==1)rhs(ictr)=rhs(ictr)+CBT(i,j,1)*BC%VarB(i,j)
                 if(k==Kmax-iw)rhs(ictr)=rhs(ictr)+CBT(i,j,2)*BC%VarT(i,j)
-                xval(ictr) = 0.d0
                 if(isnan(PUVW%Dp(i,j,k)).or.isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
-                  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*           &
-                         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*  &
-                         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+   &
+                  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*                     &
+                         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*            &
+                         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+             &
                          dble(iw)*TGrid%dz(i,j,k))
                   print*,i,j,k
                   print*,iu,iv,iw
@@ -957,7 +954,7 @@ Module PredictorUV
                 ctr = ctr+1
               Else
                 Var(i,j,k) = 0.d0
-              End if
+              End if  
             End do
           End do
         End do
@@ -986,6 +983,7 @@ Module PredictorUV
       Real(kind=dp)      :: eta,sx,sy,sz,uw,vs,wb,uwp,uwn,vsp,vsn,wbp,wbn
       Real(kind=dp)      :: vw,vb,ww,ws,us,ub
       epsi = 1.d-20
+      Flux=0.d0
       Do i = 1,Imax+iu
         Do j = 1,Jmax+iv
           Do k = 1,Kmax+iw
@@ -1386,8 +1384,8 @@ Module PredictorUV
       REAL(dp), INTENT(in) :: Roref
       !! The reference density
       INTEGER(kind=it4b)   :: i,j,k
-      REAL(KIND=dp)        :: uw,uwn,uwp,eta
-      
+      REAL(KIND=dp)        :: uw,uwn,uwp,eta,phinew,dist,vofFace
+      flux=0.d0
       do j = 1,Jmax
         do k = 1,Kmax
           ! For i = 1, u velocity continuity equation flux
@@ -1413,7 +1411,7 @@ Module PredictorUV
                   WCell%vofL(1,j,k)*row/Roref)*WGrid%dy(1,j,k)*VGrid%dz(1,j,k)
           else
             flux(1,j,k,3)=0.d0
-          endif  
+          end if  
           ! For i = Imax, u velocity continuity  equation flux   
           uw=0.5d0*(un12(Imax,j,k)+un12(Imax+1,j,k))
           if(UCell%EEArea(Imax,j,k)>=epsi) then
@@ -1441,14 +1439,27 @@ Module PredictorUV
           else
             flux(Imax+1,j,k,3)=0.d0
           end if
+
           do i=2,Imax
           ! Convective velocity: u, scalar advective : rho in u continuity equation
             flux(i,j,k,1)=0.d0
             if(UCell%EEArea(i-1,j,k)>=epsi) then
               eta=UCell%EtaE(i-1,j,k)
               uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
-              Flux(i,j,k,1)=((PCell%Vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
-                              PCell%vofL(i,j,k)*row/Roref)
+              if(PCell%vofL(i,j,k)>1.d0-tolpar.or.PCell%vofL(i,j,k)<tolpar) then
+                VofFace=PCell%vofL(i,j,k)
+              else 
+                phinew=PCell%phiL(i,j,k)+uw*dt/2.d0*PCell%nxL(i,j,k)
+                dist=ConvertTheCoordinateSystem(dabs(uw*dt),PGrid%dy(i,j,k),   &
+                   PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),          &
+                   PCell%nzL(i,j,k),phinew)
+                call Volume_Fraction_Calc(dabs(uw*dt),PGrid%dy(i,j,k),         &
+                    PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),         &
+                    PCell%nzL(i,j,k),Dist,VofFace)   
+                VofFace=1.d0-VofFace/dmax1(dabs(uw*dt),tolpar)/                     &
+                              PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
+              end if  
+              Flux(i,j,k,1)=((PCell%Vof(i,j,k)-VofFace)*roa/Roref+VofFace*row/Roref)
               Flux(i,j,k,1)=uw*UCell%AlE(i-1,j,k)*Flux(i,j,k,1)*               &
                              UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
             end if
@@ -1504,7 +1515,8 @@ Module PredictorUV
       REAL(dp), INTENT(in)  :: Roref
       !! The reference density
       INTEGER(kind=it4b)    :: i,j,k
-      REAL(KIND=dp)         :: vs,vsn,vsp,eta
+      REAL(KIND=dp)         :: vs,vsn,vsp,eta,phinew,dist,vofFace
+      flux=0.d0
       do i=1,Imax
         do k=1,Kmax
           ! For j=1, u velocity continuity equation
@@ -1581,9 +1593,22 @@ Module PredictorUV
             if(VCell%NEArea(i,j-1,k)>epsi) then
               eta=VCell%EtaN(i,j-1,k)
               vs=eta*vn12(i,j,k)+(1.d0-eta)*vn12(i,j-1,k)
-              flux(i,j,k,2)=vs*((PCell%vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
-                                 PCell%vofL(i,j,k)*row/Roref)*                 &
-                                 VGrid%dx(i,j,k)*VGrid%dz(i,j,k)   
+              if(PCell%vofL(i,j,k)>1.d0-tolpar.or.PCell%vofL(i,j,k)<tolpar) then
+                VofFace=PCell%vofL(i,j,k)
+              else 
+                phinew=PCell%phiL(i,j,k)+vs*dt/2.d0*PCell%nyL(i,j,k)
+                dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k),dabs(vs*dt),   &
+                   PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),          &
+                   PCell%nzL(i,j,k),phinew)
+                call Volume_Fraction_Calc(PGrid%dx(i,j,k),dabs(vs*dt),         &
+                      PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),       &
+                      PCell%nzL(i,j,k),Dist,VofFace) 
+                VofFace=1.d0-VofFace/PGrid%dx(i,j,k)/dmax1(dabs(vs*dt),tolpar)/&
+                                                         PGrid%dz(i,j,k)
+              end if                                           
+              flux(i,j,k,2)=(PCell%vof(i,j,k)-VofFace)*roa/Roref+VofFace*row/Roref
+              flux(i,j,k,2)=vs*VCell%AlN(i,j-1,k)*flux(i,j,k,2)*               &
+                            VGrid%dx(i,j,k)*VGrid%dz(i,j,k)   
             endif
             ! Convective velocity: v, scalar advective : rho in w continuity equation
             if(WCell%NEArea(i,j-1,k)>epsi) then
@@ -1622,8 +1647,8 @@ Module PredictorUV
       REAL(dp), INTENT(in)  :: Roref
       !! The refence density
       INTEGER(kind=it4b)    :: i,j,k
-      REAL(KIND=dp)         :: wb,wbn,wbp,eta
-      
+      REAL(KIND=dp)         :: wb,wbn,wbp,eta,phinew,dist,vofFace
+      flux=0.d0
       do i=1,Imax
         do j=1,Jmax
           ! For k=1, u velocity continuity equation
@@ -1712,8 +1737,21 @@ Module PredictorUV
             if(WCell%TEArea(i,j,k-1)>epsi) then
               eta=WCell%EtaT(i,j,k-1)
               wb=eta*wn12(i,j,k)+(1.d0-eta)*wn12(i,j,k-1)
-              flux(i,j,k,3)=wb*((PCell%vof(i,j,k)-PCell%vofL(i,j,k))*roa/Roref+&
-                            PCell%vofL(i,j,k)*row/Roref)*                      &
+              if(PCell%vofL(i,j,k)>1.d0-tolpar.or.PCell%vofL(i,j,k)<tolpar) then
+                VofFace=PCell%vofL(i,j,k)
+              else 
+                phinew=PCell%phiL(i,j,k)+wb*dt/2.d0*PCell%nzL(i,j,k)
+                dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k),               &
+                   PGrid%dy(i,j,k),dabs(wb*dt),PCell%nxL(i,j,k),               &
+                   PCell%nyL(i,j,k),PCell%nzL(i,j,k),phinew)
+                call Volume_Fraction_Calc(PGrid%dx(i,j,k),PGrid%dy(i,j,k),     &
+                    dabs(wb*dt),PCell%nxL(i,j,k),PCell%nyL(i,j,k),             &
+                    PCell%nzL(i,j,k),Dist,VofFace) 
+                VofFace=1.d0-VofFace/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)/          &
+                        dmax1(dabs(wb*dt),tolpar)
+              endif
+              flux(i,j,k,3)=(PCell%vof(i,j,k)-VofFace)*roa/Roref+VofFace*row/Roref
+              flux(i,j,k,3)=wb*flux(i,j,k,3)*WCell%AlT(i,j,k-1)*               &
                             WGrid%dx(i,j,k)*WGrid%dy(i,j,k) 
             endif  
           enddo  
@@ -1745,6 +1783,7 @@ Module PredictorUV
       Real(kind=dp):: eta,sx,sy,sz,uw,vs,wb,uwp,uwn,vsp,vsn,wbp,wbn
       Real(kind=dp):: vw,vb,ww,ws,us,ub
       epsi = 1.d-20
+      flux=0.d0
       Do i = 1,Imax+iu
         Do j = 1,Jmax+iv
           Do k = 1,Kmax+iw
@@ -2118,6 +2157,7 @@ Module PredictorUV
       REAL(KIND=dp):: omei,omei1,ri,ri1,tolim,tol
       tol=1.d-40
       Lim=1
+      flux=0.d0
       do j=1,Jmax
         do k=1,Kmax
         ! At i = 1   
@@ -2369,6 +2409,7 @@ Module PredictorUV
       REAL(KIND=dp):: omei,omei1,ri,ri1,tolim,Sx,Sy,Sz,vs,vsp,vsn,eta
       Lim=1
       tol=1.d-40
+      flux=0.d0
       do i=1,Imax
         do k=1,Kmax
           ul=un12(i,0,k);ur=un12(i,1,k)
@@ -2595,6 +2636,7 @@ Module PredictorUV
       REAL(KIND=dp)            :: omei,omei1,ri,ri1,tolim,Sx,Sy,Sz,wb,wbp,wbn,eta
       Lim=1
       tol=1.d-40
+      flux=0.d0
       do i=1,Imax
         do j=1,Jmax
           ul=un12(i,j,0);ur=un12(i,j,1)
@@ -2800,15 +2842,17 @@ Module PredictorUV
                                                      flux,EFlux,nuref,iu,iv,iw)
       !! The subroutine is used to compute the coefficient for diffusive flux.
       Implicit none
-      Integer(kind=it4b),intent(in)				 :: iu,iv,iw
-      Type(Cell),intent(in)					 :: PCell,UCell,VCell,WCell
-      Type(Grid),intent(in)					 :: PGrid,UGrid,VGrid,WGrid
+      Integer(kind=it4b),intent(in) :: iu,iv,iw
+      Type(Cell),intent(in)         :: PCell,UCell,VCell,WCell
+      Type(Grid),intent(in)         :: PGrid,UGrid,VGrid,WGrid
       Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: flux,EFlux
-      Real(kind=dp),intent(in)					 :: nuref
-      Integer(kind=it4b)					 :: i,j,k
-      Real(kind=dp)						 :: Sx,Sy,Sz,tol
-      real(kind=dp)						 :: NuF,VflF
+      Real(kind=dp),intent(in)      :: nuref
+      Integer(kind=it4b)			      :: i,j,k
+      Real(kind=dp)						      :: Sx,Sy,Sz,tol
+      real(kind=dp)						      :: NuF,VflF
       tol = 1.d-30
+      flux=0.d0
+      EFlux=0.d0
       Do i = 1,Imax+iu
         Do j = 1,Jmax+iv
           Do k = 1,Kmax+iw

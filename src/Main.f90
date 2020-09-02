@@ -29,7 +29,7 @@ Program Main
     Type(Cell)      :: UCell,VCell,WCell,PCell
     Type(Point)     :: SPoint,EPoint,ReS,ReE
     Type(Variables) :: Var
-    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs
+    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
@@ -71,6 +71,8 @@ Program Main
     BCw = BCBase(Imax,Jmax,Kmax)
     BCvof = BCBase(Imax,Jmax,Kmax)
     BClvs = BCBase(Imax,Jmax,Kmax)
+    BCVofF = BCBase(Imax,Jmax,Kmax)
+    BCLvsF = BCBase(Imax,Jmax,Kmax)
     
     ! For flow over sphere
     call BCp%SetDN(1,0,1,1,1,1)
@@ -157,7 +159,7 @@ Program Main
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
     Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,INT8(0))
+    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowFieldP",INT8(0))
     
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
     Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)

@@ -132,7 +132,7 @@ program main
     deallocate(Constin)
     call InitialClsvofFluidFieldAdvectionTest(PGrid,PCell)
     call InitialClsvofLiquidFieldAdvectionTest(PGrid,PCell)
-    call PrintResultVTR3D(PGrid,Var,PCell,INT8(0))
+    call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",INT8(0))
     print*, 'After print result at initial stage'
     do itt = 1,INT8(100000)
       dt = 1.d0
@@ -163,13 +163,13 @@ program main
        end if
        t = t+dt
        if(mod(itt,iprint)==0) then
-         call PrintResultVTR3D(PGrid,Var,PCell,itt)
+         call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
          print*,'Iteration number and time:', itt , t
        end if
        if(t>=tp/2.d0.and.t-dt<tp/2.d0) then
-         call PrintResultVTR3D(PGrid,Var,PCell,itt)
+         call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
          print*,'Iteration number, time and time step:0', itt,t,dt,t-dt

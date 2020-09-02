@@ -108,50 +108,56 @@ Module ProjectionP
       
       BetaP = 1.d0/(row/Roref)
       BetaM = 1.d0/(roa/Roref)
-      do i=1+ium,Imax-iup
-        do j=1+jvm,JMax-jvp
-          do k=1+kwm,KMax-kwp
+      do i=1,Imax
+        do j=1,JMax
+          do k=1,KMax
             ii = i-ium+iup
             jj = j-jvm+jvp
             kk = k-kwm+kwp
             im = i-ium
             jm = j-jvm
             km = k-kwm
-            DGrid = dble(ium+iup)*TGrid%dx(im,jm,km)+                          &
-                    dble(jvm+jvp)*TGrid%dy(im,jm,km)+		               &
-                    dble(kwm+kwp)*TGrid%dz(im,jm,km)
+            DGrid = dble(ium+iup)*TGrid%dx(max(im,1),max(jm,1),max(km,1))+                          &
+                    dble(jvm+jvp)*TGrid%dy(max(im,1),max(jm,1),max(km,1))+		               &
+                    dble(kwm+kwp)*TGrid%dz(max(im,1),max(jm,1),max(km,1))
                     
-            Lamda=dabs(PCell%phi(i,j,k))/(dabs(PCell%phi(i,j,k))+              &
-                                          dabs(PCell%phi(ii,jj,kk))+tol)                  
-            if((PCell%vofL(i,j,k)>=0.5d0.and.				       &
-                PCell%vof(i,j,k)>1.d0-epsi).or.      			       &
-               (PCell%phiL(i,j,k)<0.d0.and.				       &
+            Lamda=dabs(PCell%phiL(i,j,k))/(dabs(PCell%phiL(i,j,k))+            &
+                                           dabs(PCell%phiL(ii,jj,kk))+tol)                  
+            if((PCell%vofL(i,j,k)>=0.5d0.and.                                  &
+                PCell%vof(i,j,k)>1.d0-epsi).or.                                &
+               (PCell%phiL(i,j,k)<0.d0.and.                                    &
                 PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then 	 ! The cell is in liquid and it is assigned wet cell 
-              if((PCell%vofL(ii,jj,kk)<0.5d0.and.        		       &
-                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		       &
-                 (PCell%phiL(ii,jj,kk)>=0.d0.and.        		       &
+              if((PCell%vofL(ii,jj,kk)<0.5d0.and.                              &
+                  PCell%vof(ii,jj,kk)>1.d0-epsi).or.                           &
+                 (PCell%phiL(ii,jj,kk)>=0.d0.and.                              &
                   PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell            
                 BetaW=Lamda*BetaM+(1.d0-Lamda)*BetaP           
-              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.   		       &
-                      PCell%vof(ii,jj,kk)>1.d0-epsi).or.    		       &
-                     (PCell%phiL(ii,jj,kk)<0.d0.and.     		       &
+              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.   		                   &
+                      PCell%vof(ii,jj,kk)>1.d0-epsi).or.    		               &
+                     (PCell%phiL(ii,jj,kk)<0.d0.and.     		                   &
                   PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then ! The neighbour cell is in liquid and assigned wet cell
                 BetaW=BetaM
               end if
               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaW
               if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
+                print*,'print out values'
+                print*,Lamda*BetaM,(1.d0-Lamda)*BetaP 
+                print*,BetaM 
                 print*,Lamda
                 print*,i,j,k
                 print*,ii,jj,kk
                 print*,'++++++++'
-                print*,BetaD,TPoCoef(i,j,k),PVel%Dp(im,jm,km)
+                print*,BetaP,BetaM,BetaW,DGrid
+                print*,TPoCoef(i,j,k),PVel%Dp(im,jm,km)
                 print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
-                print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
+                print*,PCell%phiL(ii,jj,kk),PCell%vof(ii,jj,kk)
+                print*, 'Level set test'
+                print*, PCell%phiL(i,j,k),PCell%phiL(ii,jj,kk)
                 pause 'Test Lamda 142'
               end if  
-            elseif((PCell%vofL(i,j,k)<0.5d0.and.			       &
-                    PCell%vof(i,j,k)>1.d0-epsi).or.   			       &
-                   (PCell%phiL(i,j,k)>=0.d0.and.			       &
+            elseif((PCell%vofL(i,j,k)<0.5d0.and.			                         &
+                    PCell%vof(i,j,k)>1.d0-epsi).or.   			                   &
+                   (PCell%phiL(i,j,k)>=0.d0.and.			                         &
                     PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then  ! The cell is in gas and it is assigned dry cell
               if((PCell%vofL(ii,jj,kk)>=0.5d0.and.        		       &
                   PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		       &
@@ -179,15 +185,18 @@ Module ProjectionP
           end do
         end do
       end do    
-      ! Set up value for variables at boundary cells 
+      ! Set up value for poisson coefficients at boundary cells 
+      ! We need a better method to compute poisson coefficients at boundary
+      ! Now, we assume the poisson coefficient at boudnary is equal to the neighbour cell
+      ! The better approach is calculate these values based on geometry shape at pressure cell. 
       if(ium==1.or.iup==1) then
-        TPoCoef(ium*1+iup*Imax,:,:)=TPoCoef(ium*2+iup*(Imax-1),:,:)/2.d0
+        TPoCoef(ium*1+iup*Imax,:,:)=TPoCoef(ium*2+iup*(Imax-1),:,:)
       end if
       if(jvm==1.or.jvp==1) then  
-        TPoCoef(:,jvm*1+jvp*JMax,:)=TPoCoef(:,jvm*2+jvp*(JMax-1),:)/2.d0
+        TPoCoef(:,jvm*1+jvp*JMax,:)=TPoCoef(:,jvm*2+jvp*(JMax-1),:)
       end if
       if(kwm==1.or.kwp==1) then
-        TPoCoef(:,:,kwm*1+kwp*KMax)=TPoCoef(:,:,kwm*2+kwp*(KMax-1))/2.d0
+        TPoCoef(:,:,kwm*1+kwp*KMax)=TPoCoef(:,:,kwm*2+kwp*(KMax-1))
       end if  
     end subroutine Compute1DGFMCoefficient
     

@@ -22,7 +22,7 @@ Module ComputePUV
 
     Contains
     Subroutine UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,      &
-                         BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,	       &
+                         BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,	             &
                          TVar_n,TVar,Time,dt,itt)
       Implicit none
       Type(Grid),intent(in)         :: UGrid,VGrid,WGrid,PGrid
@@ -36,7 +36,7 @@ Module ComputePUV
       Type(PoissonCoefficient)      :: PU,PV,PW
       Type(Predictor)		            :: Pred
       Type(Projection)              :: Proj
-      Integer(kind=it4b) 	          :: i,j,k,ii,jj,kk
+      Integer(kind=it4b) 	          :: i,j,k,ii,jj,kk,iu,iv,iw
       Real(kind=dp)                 :: dps,ute,GradPUVW,maxPoCoef
       real(kind=dp),dimension(:,:,:,:),allocatable :: PoCoef
 
@@ -101,10 +101,35 @@ Module ComputePUV
            !   TVar%w(i,j,k)=Pred%w(i,j,k)-GradPUVW
               TVar%w(i,j,k)=0.d0
             end if
-             TVar%p(i,j,k)=Proj%Pp(i,j,k)
+            TVar%p(i,j,k)=Proj%Pp(i,j,k)
+            if(dabs(Tvar%u(i,j,k))>MaxPocoef) then
+              MaxPocoef=dabs(TVar%u(i,j,k))
+              iu=i
+              iv=j
+              iw=k
+            endif 
+            if(i==58.and.j==12.and.k==30) then
+              print*,'Check PoCoef'
+              print*,PoCoef(i,j,k,:),PCell%vofL(i,j,k)
+              print*,'Check predicted velocity'
+              print*,Pred%u(i,j,k),Pred%u(i-1,j,k)
+              print*,Pred%v(i,j,k),Pred%v(i,j-1,k)
+              print*,Pred%w(i,j,k),Pred%w(i,j,k-1)
+              print*,'+++++++++++++++++++++++++++++++'
+            endif  
           end do
         end do
       end do
+      print*,'Check maximum velocity ComputePUV 114'
+      print*,iu,iv,iw
+      print*,MaxPocoef
+      print*,'Check PoCoef'
+  !    print*,PoCoef(iu,iv,iw,:)
+  !    print*,'Check predicted velocity'
+  !    print*,Pred%u(iu,iv,iw),Pred%u(iu-1,iv,iw)
+  !    print*,Pred%v(iu,iv,iw),Pred%v(iu,iv-1,iw)
+  !    print*,Pred%w(iu,iv,iw),Pred%w(iu,iv,iw-1)
+  !    print*,'================================='
   !    call BoundaryConditionVar(TVar)
       call BoundaryConditionVarNew(PGrid, PCell, TVar, BCp, BCu, BCv, BCw, Time)
       if(BCp%flag(1)==0) then
