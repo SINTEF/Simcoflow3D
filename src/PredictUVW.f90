@@ -1567,11 +1567,11 @@ Module PredictorUV
           ! For j=Jmax, w velocity continuity equation
           vs=0.5d0*(vn12(i,Jmax+1,k-1)+vn12(i,Jmax+1,k))
           if(WCell%NEArea(i,1,k)>epsi) then
-            flux(i,1,k,3)=vs*((WCell%vof(i,1,k)-WCell%vofL(i,1,k)*roa/Roref+   &
+            flux(i,Jmax+1,k,3)=vs*((WCell%vof(i,1,k)-WCell%vofL(i,1,k)*roa/Roref+   &
                              WCell%vof(i,1,k)*row/Roref))*                     &
                              WGrid%dx(i,1,k)*WGrid%dz(i,1,k)
           else
-            flux(i,1,k,3)=0.d0
+            flux(i,Jmax+1,k,3)=0.d0
           endif   
 
           do j=2,Jmax
