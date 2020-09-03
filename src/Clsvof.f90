@@ -28,7 +28,10 @@ Module Clsvof
     real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
-    real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14
+    real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14,toldeno=1.d-14
+    ! Parameters for setting normal vector to avoid underflow problem
+    real(dp),parameter                     :: n1=1.d0-1.d-14, n2=dsqrt((2.d0*1.d-14-1.d-28)/2.d0)
+
 
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc,ConvertTheCoordinateSystem, &
@@ -567,6 +570,8 @@ Module Clsvof
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         end if
         call Interface_Reconstruct(PGrid,nx,ny,nz,dis)
+        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30)
+        print*,'Normal vector'
         do i = 1,imax
           do j = 1,jmax
             do k = 1,kmax
@@ -953,9 +958,9 @@ Module Clsvof
       real(kind=dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
       real(kind=dp),dimension(:,:,:),allocatable,intent(inout) :: diss
       integer                                                  :: i,j,k
-      real(kind=dp)						                            :: nxx1,nyy1,nzz1,diss1
-      real(kind=dp)                                       :: temp
-      logical                                             :: flag
+      real(kind=dp)						                                 :: nxx1,nyy1,nzz1,diss1
+      real(kind=dp)                                            :: temp
+      logical                                                  :: flag
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
@@ -963,19 +968,6 @@ Module Clsvof
             if(flag.eqv..true.) then
               if(i>1.and.i<Imax.and.j>1.and.j<jmax.and.k>1.and.k<kmax) then
                 call Normal_Vector_Irre(PGrid,i,j,k,nxx1,nyy1,nzz1)
-                if(i==2.and.j==2.and.k==29) then
-                  print*,nxx1
-                  print*,nyy1
-                  print*,nzz1
-                  print*,'test the 123123'
-                  print*,phi(i,j,k),phi(i-1,j,k),phi(i+1,j,k)
-                  print*,vfl(i,j,k),vfl(i-1,j,k),vfl(i+1,j,k)
-                  print*,'000000000000'
-                  print*,(phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
-                  print*,(phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
-                  print*,(phi(i+1,j,k)-phi(i-1,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i-1,j,k))
-                  print*,'Test compute normal vector'
-                end if  
               else
                 nxx1=(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
                      (PGrid%x(min(imax,i+1),j,k)-PGrid%x(max(1,i-1),j,k))  
@@ -983,33 +975,29 @@ Module Clsvof
                      (PGrid%y(i,min(jmax,j+1),k)-PGrid%y(i,max(1,j-1),k))
                 nzz1=(phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
                      (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))
+              end if   
+              if(i==1.and.j==15.and.k==30) then
+                print*,nxx1,nyy1,nzz1
+                print*,(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
+                     (PGrid%x(min(imax,i+1),j,k)-PGrid%x(max(1,i-1),j,k)) 
+                print*,(phi(i,min(jmax,j+1),k)-phi(i,max(1,j-1),k))/             &
+                     (PGrid%y(i,min(jmax,j+1),k)-PGrid%y(i,max(1,j-1),k))
+                print*, (phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
+                     (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))          
+                print*,'Test normal vector 981 clsovf'
               end if  
-              temp = dsqrt(nxx1**2.d0+nyy1**2.d0+nzz1**2.d0)
-              if(isnan(temp)) then
-                print*, i,j,k
-                print*, nxx1,nyy1,nzz1
-                print*, phi(i,j,k+1),phi(i,j,k),phi(i,j,k-1)
-                pause 'vof 903'
-              end if
-              if(temp<1.d-14) then
-                nxx1 = 0.d0
-                nyy1 = 0.d0
-                nzz1 = 1.d0
-              else
-                nxx1 = nxx1/temp
-                nyy1 = nyy1/temp
-                nzz1 = nzz1/temp
-              end if
+              call CorrectNormalVector(nxx1,nyy1,nzz1)
+
               call Find_Distance(PGrid%dx(i,j,k),PGrid%dy(i,j,k),             &
                    PGrid%dz(i,j,k),nxx1,nyy1,nzz1,vfl(i,j,k),diss1)
               if(isnan(diss1)) then
                 pause 'reconstruct 245'
               end if
             else
-              nxx1 = 0.d0
-              nyy1 = 0.d0
-              nzz1 = 1.d0
-              diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)
+              nxx1 = n2
+              nyy1 = n2
+              nzz1 = n1
+              diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)*dsqrt(2.d0)
             end if
             nxx(i,j,k)=nxx1
             nyy(i,j,k)=nyy1
@@ -1420,6 +1408,12 @@ Module Clsvof
                         nxx=Tnx(i,j,k)
                         nyy=Tny(i,j,k)
                         nzz=Tnz(i,j,k)
+                        if(dabs(nxx)<1.d-15.or.dabs(nyy)<1.d-15.or.dabs(nzz)<1.d-15) then
+                          print*, 'too small normal vector Clsvof 1424'
+                          print*, nxx,nyy,nzz
+                          print*, vfl(i,j,k)
+                          print*, i,j,k
+                        end if  
                         diss=Tdis(i,j,k)
                         l=max(-1,min(1,ii))
                         m=max(-1,min(1,jj))
@@ -1647,10 +1641,10 @@ Module Clsvof
        real(dp)               :: temp,nxx,nyy,nzz,diss
        real(dp)               :: dij1,xp,yp,zp,xoff,yoff,zoff,xfc,yfc,zfc
        logical                :: pointp
-       real(dp)		      :: epsi=1.d-30
+       real(dp)		            :: epsi=1.d-14
        select case(cas)
          case(1) ! for x face
-           temp=dsqrt(ny1**2.d0+nz1**2.d0+epsi**2.d0)
+           temp=dsqrt(ny1**2.d0+nz1**2.d0)+epsi
            nyy=ny1/temp
            nzz=nz1/temp
            diss=dis1/temp
@@ -1673,8 +1667,13 @@ Module Clsvof
                zs = (diss+nyy*ys)/(-nzz)
                return
              else
+               if(dabs(nyy)<1.d-14) then
+                 print*,'Underflow Clsvof 1677'
+                 print*, nyy,nzz,diss,zs
+                 print*, ii,jj,kk,zfc
+               end if 
                zs = zfc
-               ys = (diss+nzz*zs)/(-nyy)
+               ys = (diss+nzz*zs)/(-nyy)  
                return
              end if
            end if
@@ -2118,4 +2117,61 @@ Module Clsvof
       
       dout=phiIn+0.5d0*(dabs(NxIn)*dx+dabs(NyIn)*dy+dabs(NzIn)*dz)
     end Function  
+    real(kind=dp) Function DivideError(nume,deno,opt) result(rs)
+      real(kind=dp),intent(in)      :: nume,deno
+      integer(kind=it4b),intent(in) :: opt
+      real(kind=dp)                 :: tol=1.d-15
+      
+      select case(opt)
+      case(1)
+        rs=nume/deno
+        if(isnan(rs).or.rs>1.d100) then
+          print*,'Overflow with division!!!'
+          print*,nume,deno
+          print*,'result will be set to 1.d15'
+          rs=1.d15
+        elseif(dabs(rs)<1.d-20.and.dabs(rs)>1.d-100) then
+          print*,'Underflow with division!!!'
+          print*,nume,deno
+          print*,'result will be set to 1.d-15'
+          rs=1.d-15
+        end if  
+      case(2)
+        rs=(nume+tol)/(deno+tol)
+      end select    
+    end function  
+    subroutine CorrectNormalVector(nxx,nyy,nzz)
+      real(kind=dp),intent(inout) :: nxx,nyy,nzz
+      real(kind=dp)               :: temp
+      
+      temp = dsqrt(nxx**2.d0+nyy**2.d0+nzz**2.d0)
+      if(isnan(temp)) then
+        print*, nxx,nyy,nzz
+        pause 'clsvof 2138'
+      end if
+      if(temp<1.d-14) then
+        nxx=dsign(1.d0,nxx)*n2
+        nyy=dsign(1.d0,nyy)*n2
+        nzz=dsign(1.d0,nzz)*n1
+      else
+        nxx = nxx/temp
+        nyy = nyy/temp
+        nzz = nzz/temp
+        if(nxx>=n1) then
+          nxx=dsign(1.d0,nxx)*n1
+          nyy=dsign(1.d0,nyy)*n2
+          nzz=dsign(1.d0,nzz)*n2
+        end if
+        if(nyy>=n1) then
+          nxx=dsign(1.d0,nxx)*n2
+          nyy=dsign(1.d0,nyy)*n1
+          nzz=dsign(1.d0,nzz)*n2
+        end if
+        if(nzz>=n1) then
+          nxx=dsign(1.d0,nxx)*n2
+          nyy=dsign(1.d0,nyy)*n2
+          nzz=dsign(1.d0,nzz)*n1
+        end if
+      end if  
+    end subroutine  
 end module Clsvof

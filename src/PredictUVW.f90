@@ -1616,7 +1616,7 @@ Module PredictorUV
               vs=eta*vn12(i,j-1,k+1)+(1.d0-eta)*vn12(i,j-1,k)
               vsp=0.5d0*(vs+dabs(vs))
               vsn=0.5d0*(vs-dabs(vs))
-              flux(i,j,k,1)=(vsp*(WCell%vofL(i,j-1,k)*row/Roref+               &
+              flux(i,j,k,3)=(vsp*(WCell%vofL(i,j-1,k)*row/Roref+               &
                     (WCell%vof(i,j-1,k)-WCell%vofL(i,j-1,k))*roa/Roref)+       &
                              vsn*(WCell%vofL(i,j,k)*row/Roref+                 &
                     (WCell%vof(i,j,k)-WCell%vofL(i,j,k))*roa/Roref))*          &
