@@ -938,6 +938,10 @@ Module Cutcell
             TCell%AlT(i,j,k) = TCell%AlT(i,j,k-1)
           end do
         end do
+        TCell%SzT(:,:,0) = TCell%SzT(:,:,1)
+        TCell%EtaT(:,:,0) = TCell%EtaT(:,:,1)
+        TCell%AlT(:,:,0) = TCell%AlT(:,:,1)
+        TCell%DAlT(:,:,0) = TCell%DAlT(:,:,1)
       End Subroutine TopFaceInterpolationInf
 
       Subroutine CellLinking(TGrid,TCell,i,j,k)
