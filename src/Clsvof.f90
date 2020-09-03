@@ -31,7 +31,7 @@ Module Clsvof
     real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14
 
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
-             ComputeUVWLiquidField,volume_fraction_calc
+             ComputeUVWLiquidField,volume_fraction_calc,InitialiseClsvof
 
     interface InitialClsvofFluidField
       module procedure InitialClsvofFluidField
@@ -54,6 +54,22 @@ Module Clsvof
     end interface
 
     contains
+
+    subroutine initialiseClsvof(PGrid,PCell,TVar,BCLvs,BCvof)
+
+        Implicit none 
+        Type(Grid),intent(in)         		   :: PGrid
+        Type(Cell),intent(inout)      		   :: PCell
+        Type(Variables),intent(inout) 		   :: TVar
+        type(BCBase),intent(inout)		   :: BCVof,BCLvs
+
+        nullify(vfl,vflF)
+        nullify(phi,phiF)
+        nullify(nxF,nyF,nzF)
+
+        call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
+
+    end subroutine initialiseClsvof
 
     subroutine InitialClsvofFluidField(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
