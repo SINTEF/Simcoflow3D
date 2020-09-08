@@ -68,9 +68,25 @@ Module Clsvof
     interface BoundaryConditionLvsVofFluid
       module procedure BoundaryConditionLvsVofFluid
     end interface 
-
+ 
     contains
 
+    subroutine initialiseClsvof(PGrid,PCell,TVar,BCLvs,BCvof)
+
+        Implicit none 
+        Type(Grid),intent(in)                :: PGrid
+        Type(Cell),intent(inout)             :: PCell
+        Type(Variables),intent(inout)        :: TVar
+        type(BCBase),intent(inout)       :: BCVof,BCLvs
+
+        nullify(vfl,vflF)
+        nullify(phi,phiF)
+        nullify(nxF,nyF,nzF)
+
+        call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
+
+    end subroutine initialiseClsvof
+    
     subroutine InitialClsvofFluidField(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
