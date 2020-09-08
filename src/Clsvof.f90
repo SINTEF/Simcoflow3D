@@ -36,7 +36,7 @@ Module Clsvof
 
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc,ConvertTheCoordinateSystem, &
-             BoundaryConditionLvsVof, BoundaryConditionLvsVofFluid
+             BoundaryConditionLvsVof, BoundaryConditionLvsVofFluid,InitialiseClsvof
 
     interface InitialClsvofFluidField
       module procedure InitialClsvofFluidField
@@ -74,10 +74,10 @@ Module Clsvof
     subroutine initialiseClsvof(PGrid,PCell,TVar,BCLvs,BCvof)
 
         Implicit none 
-        Type(Grid),intent(in)                :: PGrid
-        Type(Cell),intent(inout)             :: PCell
-        Type(Variables),intent(inout)        :: TVar
-        type(BCBase),intent(inout)       :: BCVof,BCLvs
+        Type(Grid),intent(in)         		   :: PGrid
+        Type(Cell),intent(inout)      		   :: PCell
+        Type(Variables),intent(inout) 		   :: TVar
+        type(BCBase),intent(inout)		   :: BCVof,BCLvs
 
         nullify(vfl,vflF)
         nullify(phi,phiF)
@@ -86,7 +86,7 @@ Module Clsvof
         call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
 
     end subroutine initialiseClsvof
-    
+
     subroutine InitialClsvofFluidField(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
@@ -166,7 +166,7 @@ Module Clsvof
       !! The subroutine is used to compute the liquid volume fraction for UCell,VCell,WCell
       !! based on the volume fraction from PCell.
       implicit none
-      type(Grid),intent(in)	    :: PGrid
+      type(Grid),intent(in)	:: PGrid
       type(Cell),intent(in)     :: PCell
       type(Cell),intent(inout)  :: UCell,VCell,WCell
       type(Grid),intent(in)     :: UGrid,VGrid,WGrid
@@ -952,6 +952,7 @@ Module Clsvof
            flux=lst*we(i,j,1)*dtv
            temls(i,j,1)=temls(i,j,1)-flux/PGrid%dz(i,j,1)
            temls(i,j,2)=temls(i,j,2)+flux/PGrid%dz(i,j,2)
+           ! For boundary cell
            flux=BCw%VarB(i,j)*BCLvs%VarB(i,j)*dtv/PGrid%dz(i,j,1)
            temls(i,j,1)=temls(i,j,1)+flux
            ! For boundary cell k=kmax
@@ -1000,20 +1001,34 @@ Module Clsvof
                      (PGrid%y(i,min(jmax,j+1),k)-PGrid%y(i,max(1,j-1),k))
                 nzz1=(phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
                      (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))
-              end if   
-              call CorrectNormalVector(nxx1,nyy1,nzz1)
+              end if  
+              temp = dsqrt(nxx1**2.d0+nyy1**2.d0+nzz1**2.d0)
+              if(isnan(temp)) then
+                print*, i,j,k
+                print*, nxx1,nyy1,nzz1
+                print*, phi(i,j,k+1),phi(i,j,k),phi(i,j,k-1)
+                pause 'vof 903'
+              end if
+              if(temp<1.d-14) then
+                nxx1 = 0.d0
+                nyy1 = 0.d0
+                nzz1 = 1.d0
+              else
+                nxx1 = nxx1/temp
+                nyy1 = nyy1/temp
+                nzz1 = nzz1/temp
+              end if
               call Find_Distance(PGrid%dx(i,j,k),PGrid%dy(i,j,k),             &
                    PGrid%dz(i,j,k),nxx1,nyy1,nzz1,vfl(i,j,k),diss1)
               if(isnan(diss1)) then
                 pause 'reconstruct 245'
               end if
             else
-              nxx1 = 0.d0 !n2
-              nyy1 = 0.d0 !n2
-              nzz1 = 1.d0 !n1
-              diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)*dsqrt(2.d0)
+              nxx1 = 0.d0
+              nyy1 = 0.d0
+              nzz1 = 1.d0
+              diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)
             end if
-             
             nxx(i,j,k)=nxx1
             nyy(i,j,k)=nyy1
             nzz(i,j,k)=nzz1
@@ -1431,12 +1446,6 @@ Module Clsvof
                         nxx=Tnx(i,j,k)
                         nyy=Tny(i,j,k)
                         nzz=Tnz(i,j,k)
-                      !  if(dabs(nxx)<1.d-15.or.dabs(nyy)<1.d-15.or.dabs(nzz)<1.d-15) then
-                      !    print*, 'too small normal vector Clsvof 1424'
-                      !    print*, nxx,nyy,nzz
-                      !    print*, vfl(i,j,k)
-                      !    print*, i,j,k
-                      !  end if  
                         diss=Tdis(i,j,k)
                         l=max(-1,min(1,ii))
                         m=max(-1,min(1,jj))
@@ -1454,7 +1463,7 @@ Module Clsvof
                                          dmin1(deuc,dabs(phiaux(i+ii,j+jj,k+kk)))
                      ! third step: find the projection of x' onto the interface
                         else
-                          dij1=nxx*PGrid%dx(i,j,k)*dble(ii)+                   &
+                          dij1=nxx*PGrid%dx(i,j,k)*dble(ii)+       	       &
                                nyy*PGrid%dy(i,j,k)*dble(jj)+                   &
                                nzz*PGrid%dz(i,j,k)*dble(kk)+diss
                           xp=PGrid%dx(i,j,k)*dble(ii)-dij1*nxx
@@ -1480,7 +1489,7 @@ Module Clsvof
                             zfc=sign(1.d0,zp)*0.5d0*PGrid%dz(i,j,k)
                             if(xoff*dabs(nxx)>=yoff*dabs(nyy).and.             &
                                xoff*dabs(nxx)>=zoff*dabs(nzz)) then
-                              face=iscutface(xfc,nxx,nyy,nzz,diss,	           &
+                              face=iscutface(xfc,nxx,nyy,nzz,diss,	       &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),1)
                               if(face.eqv..true.) then
@@ -1664,7 +1673,7 @@ Module Clsvof
        real(dp)               :: temp,nxx,nyy,nzz,diss
        real(dp)               :: dij1,xp,yp,zp,xoff,yoff,zoff,xfc,yfc,zfc
        logical                :: pointp
-       real(dp)         :: epsi=1.d-30
+       real(dp)		      :: epsi=1.d-30
        select case(cas)
          case(1) ! for x face
            temp=dsqrt(ny1**2.d0+nz1**2.d0+epsi**2.d0)
