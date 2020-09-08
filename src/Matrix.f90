@@ -2,6 +2,10 @@ Module Matrix
     use precisionvar
     implicit none
     public
+
+    interface SetArraytoZero
+      module procedure SetArraytoZero1DReal,SetArraytoZero2DReal,SetArraytoZero3DReal
+    end interface
     contains
 
     subroutine inverse(a,c,n)
@@ -174,4 +178,43 @@ real(kind=dp) function LangrangePolynomial(Pos,Var,PosTar) result(VarTar)
     VarTar = VarTar+Mult
   end do      
 end function LangrangePolynomial  
+
+subroutine SetArraytoZero3DReal(Arr)
+  implicit none
+  real(kind=dp),dimension(:,:,:),intent(inout) :: Arr
+  integer(kind=it4b)                           :: i,j,k,ArrD1,ArrD2,ArrD3
+  ArrD1=size(Arr,1)
+  ArrD2=size(Arr,2)
+  ArrD3=size(Arr,3)
+  do i=1,ArrD1
+    do j=1,ArrD2
+      do k=1,ArrD3
+        Arr(i,j,k)=0.d0
+      end do
+    end do
+  end do   
+end subroutine SetArraytoZero3DReal
+
+subroutine SetArraytoZero2DReal(Arr)
+  implicit none
+  real(kind=dp),dimension(:,:),intent(inout) :: Arr
+  integer(kind=it4b)                         :: i,j,ArrD1,ArrD2
+  ArrD1=size(Arr,1)
+  ArrD2=size(Arr,2)
+  do i=1,ArrD1
+    do j=1,ArrD2
+      Arr(i,j)=0.d0
+    end do
+  end do   
+end subroutine SetArraytoZero2DReal  
+
+subroutine SetArraytoZero1DReal(Arr)
+  implicit none
+  real(kind=dp),dimension(:),intent(inout) :: Arr
+  integer(kind=it4b)                         :: i,ArrD1
+  ArrD1=size(Arr,1)
+  do i=1,ArrD1
+    Arr(i)=0.d0
+  end do   
+end subroutine SetArraytoZero1DReal    
 End module Matrix

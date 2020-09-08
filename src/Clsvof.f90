@@ -15,6 +15,7 @@ Module Clsvof
    !        : NTNU,SINTEF
    ! Date : 20.09.2019
     USE ieee_arithmetic
+    USE Matrix
     USE PrecisionVar
     USE Mesh
     USE Cutcell
@@ -30,8 +31,8 @@ Module Clsvof
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
     real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14,toldeno=1.d-14
     ! Parameters for setting normal vector to avoid underflow problem
-    real(dp),parameter                     :: n1=1.d0-1.d-14, n2=dsqrt((2.d0*1.d-14-1.d-28)/2.d0)
-
+    real(kind=dp),parameter                :: n1=1.d0-1.d-14, n2=dsqrt((2.d0*1.d-14-1.d-28)/2.d0)
+    real(kind=dp),parameter                :: tolpar=1.d-14
 
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc,ConvertTheCoordinateSystem, &
@@ -304,9 +305,9 @@ Module Clsvof
         end do
       end do
 
-      if(iu==1) Varout(Imax,1:Jmax,1:Kmax)=Varout(Imax-1,:,:)
-      if(iv==1) Varout(1:Imax,Jmax,1:Kmax)=Varout(:,Jmax-1,:)
-      if(iw==1) Varout(1:Imax,1:Jmax,Kmax)=Varout(:,:,Kmax-1)
+      if(iu==1) Varout(Imax,1:Jmax,1:Kmax)=Varout(Imax-1,1:Jmax,1:Kmax)
+      if(iv==1) Varout(1:Imax,Jmax,1:Kmax)=Varout(1:Imax,Jmax-1,1:Kmax)
+      if(iw==1) Varout(1:Imax,1:Jmax,Kmax)=Varout(1:Imax,1:Jmax,Kmax-1)
     end subroutine DirectionAverageArray
 
     subroutine Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,Time,dt,itt)
@@ -569,9 +570,11 @@ Module Clsvof
           end do
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         end if
+        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30),vfl(1,15,30)
         call Interface_Reconstruct(PGrid,nx,ny,nz,dis)
-        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30)
-        print*,'Normal vector'
+      !  nx(1,15,30)=0.d0;ny(1,15,30)=0.d0;nz(1,15,30)=1.d0
+        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30),vfl(1,15,30)
+        print*,'Normal vector clsvof 575'
         do i = 1,imax
           do j = 1,jmax
             do k = 1,kmax
@@ -954,16 +957,22 @@ Module Clsvof
 
     subroutine Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
       implicit none
-      type(Grid),intent(in)                                    :: PGrid
-      real(kind=dp),dimension(:,:,:),intent(inout)             :: nxx,nyy,nzz
-      real(kind=dp),dimension(:,:,:),allocatable,intent(inout) :: diss
-      integer                                                  :: i,j,k
-      real(kind=dp)						                                 :: nxx1,nyy1,nzz1,diss1
-      real(kind=dp)                                            :: temp
-      logical                                                  :: flag
+      type(Grid),intent(in)                      :: PGrid
+      real(kind=dp),dimension(:,:,:),intent(out) :: nxx,nyy,nzz
+      real(kind=dp),dimension(:,:,:),intent(out) :: diss
+      integer                                    :: i,j,k
+      real(kind=dp)						                   :: nxx1,nyy1,nzz1,diss1
+      real(kind=dp)                              :: temp
+      logical                                    :: flag
+      call SetArraytoZero(nxx)
+      call SetArraytoZero(nyy)
+      call SetArraytoZero(nzz)
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
+            nxx(i,j,k)=0.d0
+            nyy(i,j,k)=0.d0
+            nzz(i,j,k)=1.d0
             call Isinterface(i,j,k,flag)
             if(flag.eqv..true.) then
               if(i>1.and.i<Imax.and.j>1.and.j<jmax.and.k>1.and.k<kmax) then
@@ -976,29 +985,19 @@ Module Clsvof
                 nzz1=(phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
                      (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))
               end if   
-              if(i==1.and.j==15.and.k==30) then
-                print*,nxx1,nyy1,nzz1
-                print*,(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
-                     (PGrid%x(min(imax,i+1),j,k)-PGrid%x(max(1,i-1),j,k)) 
-                print*,(phi(i,min(jmax,j+1),k)-phi(i,max(1,j-1),k))/             &
-                     (PGrid%y(i,min(jmax,j+1),k)-PGrid%y(i,max(1,j-1),k))
-                print*, (phi(i,j,min(kmax,k+1))-phi(i,j,max(1,k-1)))/             &
-                     (PGrid%z(i,j,min(kmax,k+1))-PGrid%z(i,j,max(1,k-1)))          
-                print*,'Test normal vector 981 clsovf'
-              end if  
               call CorrectNormalVector(nxx1,nyy1,nzz1)
-
               call Find_Distance(PGrid%dx(i,j,k),PGrid%dy(i,j,k),             &
                    PGrid%dz(i,j,k),nxx1,nyy1,nzz1,vfl(i,j,k),diss1)
               if(isnan(diss1)) then
                 pause 'reconstruct 245'
               end if
             else
-              nxx1 = n2
-              nyy1 = n2
-              nzz1 = n1
+              nxx1 = 0.d0 !n2
+              nyy1 = 0.d0 !n2
+              nzz1 = 1.d0 !n1
               diss1 = (0.d0-vfl(i,j,k))*PGrid%dz(i,j,k)*dsqrt(2.d0)
             end if
+             
             nxx(i,j,k)=nxx1
             nyy(i,j,k)=nyy1
             nzz(i,j,k)=nzz1
@@ -1006,6 +1005,12 @@ Module Clsvof
           end do
         end do
       end do
+      print*,'+++========='
+      nxx(1,15,30)=0.d0;nyy(1,15,30)=0.d0;nzz(1,15,30)=1.d0
+      print*,nxx(1,15,30),nyy(1,15,30),nzz(1,15,30),vfl(1,15,30)
+      print*,nxx(1,15,30),nyy(1,15,30),nzz(1,15,30),vfl(1,15,30)
+      nxx(1,15,30)=0.d0;nyy(1,15,30)=0.d0;nzz(1,15,30)=1.d0
+      print*,'clsvof 1008'
     end subroutine Interface_Reconstruct
 
     subroutine Find_Distance(dx,dy,dz,nxx,nyy,nzz,f,s)
@@ -1019,7 +1024,9 @@ Module Clsvof
        nz1 = dabs(nzz)
        dx1 = dmax1(nx1*dx,ny1*dy,nz1*dz)
        dz1 = dmin1(nx1*dx,ny1*dy,nz1*dz)
+       if(dabs(dz1)<tolpar) dz1=0.d0
        dy1 = (nx1*dz+ny1*dy+nz1*dx)-dx1-dz1
+       if(dabs(dy1)<tolpar) dy1=0.d0
        fc = dmin1(f,1.d0-f)
        sm = dx1+dy1+dz1
        sc = (6.d0*fc*dx1*dy1*dz1)**(1.d0/3.d0)
@@ -1408,12 +1415,12 @@ Module Clsvof
                         nxx=Tnx(i,j,k)
                         nyy=Tny(i,j,k)
                         nzz=Tnz(i,j,k)
-                        if(dabs(nxx)<1.d-15.or.dabs(nyy)<1.d-15.or.dabs(nzz)<1.d-15) then
-                          print*, 'too small normal vector Clsvof 1424'
-                          print*, nxx,nyy,nzz
-                          print*, vfl(i,j,k)
-                          print*, i,j,k
-                        end if  
+                      !  if(dabs(nxx)<1.d-15.or.dabs(nyy)<1.d-15.or.dabs(nzz)<1.d-15) then
+                      !    print*, 'too small normal vector Clsvof 1424'
+                      !    print*, nxx,nyy,nzz
+                      !    print*, vfl(i,j,k)
+                      !    print*, i,j,k
+                      !  end if  
                         diss=Tdis(i,j,k)
                         l=max(-1,min(1,ii))
                         m=max(-1,min(1,jj))
@@ -1431,7 +1438,7 @@ Module Clsvof
                                          dmin1(deuc,dabs(phiaux(i+ii,j+jj,k+kk)))
                      ! third step: find the projection of x' onto the interface
                         else
-                          dij1=nxx*PGrid%dx(i,j,k)*dble(ii)+       	       &
+                          dij1=nxx*PGrid%dx(i,j,k)*dble(ii)+                   &
                                nyy*PGrid%dy(i,j,k)*dble(jj)+                   &
                                nzz*PGrid%dz(i,j,k)*dble(kk)+diss
                           xp=PGrid%dx(i,j,k)*dble(ii)-dij1*nxx
@@ -1457,7 +1464,7 @@ Module Clsvof
                             zfc=sign(1.d0,zp)*0.5d0*PGrid%dz(i,j,k)
                             if(xoff*dabs(nxx)>=yoff*dabs(nyy).and.             &
                                xoff*dabs(nxx)>=zoff*dabs(nzz)) then
-                              face=iscutface(xfc,nxx,nyy,nzz,diss,	       &
+                              face=iscutface(xfc,nxx,nyy,nzz,diss,	           &
                                    PGrid%dx(i,j,k),PGrid%dy(i,j,k),            &
                                    PGrid%dz(i,j,k),1)
                               if(face.eqv..true.) then
@@ -1641,10 +1648,10 @@ Module Clsvof
        real(dp)               :: temp,nxx,nyy,nzz,diss
        real(dp)               :: dij1,xp,yp,zp,xoff,yoff,zoff,xfc,yfc,zfc
        logical                :: pointp
-       real(dp)		            :: epsi=1.d-14
+       real(dp)         :: epsi=1.d-30
        select case(cas)
          case(1) ! for x face
-           temp=dsqrt(ny1**2.d0+nz1**2.d0)+epsi
+           temp=dsqrt(ny1**2.d0+nz1**2.d0+epsi**2.d0)
            nyy=ny1/temp
            nzz=nz1/temp
            diss=dis1/temp
@@ -1664,16 +1671,11 @@ Module Clsvof
              zfc = dsign(1.d0,zp)*0.5d0*dz
              if(yoff*dabs(nyy)>zoff*dabs(nzz)) then
                ys = yfc
-               zs = (diss+nyy*ys)/(-nzz)
+               zs = (diss+nyy*ys)/(dsign(1.d0,-nzz)*dmax1(dabs(nzz),tolpar))  
                return
              else
-               if(dabs(nyy)<1.d-14) then
-                 print*,'Underflow Clsvof 1677'
-                 print*, nyy,nzz,diss,zs
-                 print*, ii,jj,kk,zfc
-               end if 
                zs = zfc
-               ys = (diss+nzz*zs)/(-nyy)  
+               ys = (diss+nzz*zs)/(dsign(1.d0,-nyy)*dmax1(dabs(nyy),tolpar))  
                return
              end if
            end if
@@ -1698,11 +1700,11 @@ Module Clsvof
              zfc = dsign(1.d0,zp)*0.5d0*dz
              if(xoff*dabs(nxx)>zoff*dabs(nzz)) then
                xs = xfc
-               zs = (diss+nxx*xs)/(-nzz)
+               zs = (diss+nxx*xs)/(dsign(1.d0,-nzz)*dmax1(dabs(nzz),tolpar))
                return
              else
                zs = zfc
-               xs = (diss+nzz*zs)/(-nxx)
+               xs = (diss+nzz*zs)/(dsign(1.d0,-nxx)*dmax1(dabs(nzz),tolpar))
                return
              end if
            end if
@@ -1727,11 +1729,11 @@ Module Clsvof
              yfc=dsign(1.d0,yp)*0.5d0*dy
              if(xoff*dabs(nxx)>yoff*dabs(nyy)) then
                xs=xfc
-               ys=(diss+nxx*xs)/(-nyy)
+               ys=(diss+nxx*xs)/(dsign(1.d0,-nyy)*dmax1(dabs(nyy),tolpar))
                return
              else
                ys=yfc
-               xs=(diss+nyy*ys)/(-nxx)
+               xs=(diss+nyy*ys)/(dsign(1.d0,-nxx)*dmax1(dabs(nxx),tolpar))
                return
              end if
            end if
@@ -2140,6 +2142,7 @@ Module Clsvof
         rs=(nume+tol)/(deno+tol)
       end select    
     end function  
+
     subroutine CorrectNormalVector(nxx,nyy,nzz)
       real(kind=dp),intent(inout) :: nxx,nyy,nzz
       real(kind=dp)               :: temp

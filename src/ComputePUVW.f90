@@ -108,22 +108,9 @@ Module ComputePUV
               iv=j
               iw=k
             endif 
-            if(i==58.and.j==12.and.k==30) then
-              print*,'Check PoCoef'
-              print*,PoCoef(i,j,k,:),PCell%vofL(i,j,k)
-              print*,'Check predicted velocity'
-              print*,Pred%u(i,j,k),Pred%u(i-1,j,k)
-              print*,Pred%v(i,j,k),Pred%v(i,j-1,k)
-              print*,Pred%w(i,j,k),Pred%w(i,j,k-1)
-              print*,'+++++++++++++++++++++++++++++++'
-            endif  
           end do
         end do
       end do
-      print*,'Check maximum velocity ComputePUV 114'
-      print*,iu,iv,iw
-      print*,MaxPocoef
-      print*,'Check PoCoef'
   !    print*,PoCoef(iu,iv,iw,:)
   !    print*,'Check predicted velocity'
   !    print*,Pred%u(iu,iv,iw),Pred%u(iu-1,iv,iw)
