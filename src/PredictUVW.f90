@@ -229,12 +229,14 @@ Module PredictorUV
               Fb = CFTB(i,j,k,1)
               Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            ! Not using the density-based convective flux
             Fe = CFEW(i+1,j,k,1)
-              Fw = CFEW(i,j,k,1)
-              Fn = CFNS(i,j+1,k,1)
-              Fs = CFNS(i,j,k,1)
-              Ft = CFTB(i,j,k+1,1)
-              Fb = CFTB(i,j,k,1)  
+            Fw = CFEW(i,j,k,1)
+            Fn = CFNS(i,j+1,k,1)
+            Fs = CFNS(i,j,k,1)
+            Ft = CFTB(i,j,k+1,1)
+            Fb = CFTB(i,j,k,1)  
+            Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
             if(itt==1) then
               FluxDiv(i,j,k,1)=Fluxn0
             else
@@ -301,13 +303,14 @@ Module PredictorUV
               Fb = CFTB(i,j,k,2)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            ! Not using the density-based convective flux
             Fe = CFEW(i+1,j,k,2)
-              Fw = CFEW(i,j,k,2)
-              Fn = CFNS(i,j+1,k,2)
-              Fs = CFNS(i,j,k,2)
-              Ft = CFTB(i,j,k+1,2)
-              Fb = CFTB(i,j,k,2)
-              Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
+            Fw = CFEW(i,j,k,2)
+            Fn = CFNS(i,j+1,k,2)
+            Fs = CFNS(i,j,k,2)
+            Ft = CFTB(i,j,k+1,2)
+            Fb = CFTB(i,j,k,2)
+            Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             if(itt==1) then
               FluxDiv(i,j,k,2)=Fluxn0
             else
@@ -375,13 +378,14 @@ Module PredictorUV
               Fb=CFTB(i,j,k,3)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             end if
+            ! Not using the density-based convective flux
             Fe=CFEW(i+1,j,k,3)
-              Fw=CFEW(i,j,k,3)
-              Fn=CFNS(i,j+1,k,3)
-              Fs=CFNS(i,j,k,3)
-              Ft=CFTB(i,j,k+1,3)
-              Fb=CFTB(i,j,k,3)
-              Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
+            Fw=CFEW(i,j,k,3)
+            Fn=CFNS(i,j+1,k,3)
+            Fs=CFNS(i,j,k,3)
+            Ft=CFTB(i,j,k+1,3)
+            Fb=CFTB(i,j,k,3)
+            Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
             if(itt==1) then
               FluxDiv(i,j,k,3)=Fluxn0
             else
@@ -1476,7 +1480,7 @@ Module PredictorUV
               uw=eta*un12(i-1,j+1,k)+(1.d0-eta)*un12(i-1,j,k)
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
-              
+
               ! Compute the mass flux at the cell face.
               Flux(i,j,k,2)=(uwp*(VCell%vofL(i-1,j,k)*row/Roref+               &
                     (VCell%vof(i-1,j,k)-VCell%vofL(i-1,j,k))*roa/Roref)+       &
