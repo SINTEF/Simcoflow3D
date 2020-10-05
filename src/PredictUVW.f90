@@ -1449,36 +1449,43 @@ Module PredictorUV
               if(PCell%vofL(i,j,k)>1.d0-tolpar.or.PCell%vofL(i,j,k)<tolpar) then
                 VofFace=PCell%vofL(i,j,k)
               else 
+                ! Compute the level set function in the cell with the width of (uw*dt)
                 phinew=PCell%phiL(i,j,k)+uw*dt/2.d0*PCell%nxL(i,j,k)
+                ! Compute the distance from the cells' cornes to the interface
                 dist=ConvertTheCoordinateSystem(dabs(uw*dt),PGrid%dy(i,j,k),   &
                    PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),          &
                    PCell%nzL(i,j,k),phinew)
+                ! Compute the volume of other field inside the cell
                 call Volume_Fraction_Calc(dabs(uw*dt),PGrid%dy(i,j,k),         &
                     PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),         &
-                    PCell%nzL(i,j,k),Dist,VofFace)   
-                VofFace=1.d0-VofFace/dmax1(dabs(uw*dt),tolpar)/                     &
+                    PCell%nzL(i,j,k),Dist,VofFace)
+                ! Compute the volume of liquid at the cell's face.    
+                VofFace=1.d0-VofFace/dmax1(dabs(uw*dt),tolpar)/                &
                               PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
               end if  
+              ! Compute the mass flux at the cell face.
               Flux(i,j,k,1)=((PCell%Vof(i,j,k)-VofFace)*roa/Roref+VofFace*row/Roref)
               Flux(i,j,k,1)=uw*UCell%AlE(i-1,j,k)*Flux(i,j,k,1)*               &
                              UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
             end if
-          ! Convective velocity: u, scalar advective : rho in v continuity equation
-            
+
+            ! Convective velocity: u, scalar advective : rho in v continuity equation            
             Flux(i,j,k,2)=0.d0
             if(VCell%EEArea(i-1,j,k)>=epsi) then
               eta=UCell%EtaN(i-1,j,k)
               uw=eta*un12(i-1,j+1,k)+(1.d0-eta)*un12(i-1,j,k)
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
+              
+              ! Compute the mass flux at the cell face.
               Flux(i,j,k,2)=(uwp*(VCell%vofL(i-1,j,k)*row/Roref+               &
                     (VCell%vof(i-1,j,k)-VCell%vofL(i-1,j,k))*roa/Roref)+       &
                              uwn*(VCell%vofL(i,j,k)*row/Roref+                 &
                     (VCell%vof(i,j,k)-VCell%vofL(i,j,k))*roa/Roref))*      &
                              VGrid%dy(i,j,k)*VGrid%dz(i,j,k)
             end if
-          ! Convective velocity: u, scalar advective : rho in w continuity equation
-            
+
+            ! Convective velocity: u, scalar advective : rho in w continuity equation           
             Flux(i,j,k,3)=0.d0
             if(WCell%EEArea(i-1,j,k)>=epsi) then
               eta=UCell%EtaT(i-1,j,k)
