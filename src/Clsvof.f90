@@ -77,7 +77,7 @@ Module Clsvof
         Type(Grid),intent(in)         		   :: PGrid
         Type(Cell),intent(inout)      		   :: PCell
         Type(Variables),intent(inout) 		   :: TVar
-        type(BCBase),intent(inout)		   :: BCVof,BCLvs
+        type(BCBase),intent(inout)		       :: BCVof,BCLvs
 
         nullify(vfl,vflF)
         nullify(phi,phiF)
@@ -447,6 +447,7 @@ Module Clsvof
               end do
             end do
           end do
+          
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         elseif(mod(kk,3)==1) then
           temvfy(:,:,:) = vfl(:,:,:)
@@ -473,6 +474,10 @@ Module Clsvof
               end do
             end do
           end do
+        !  print*, 'Y_Sweep test for long time'
+        !  print*, vfl(61,34,7)
+        !  print*, temvfy(61,34,7)
+        !  print*, 'End test Y_Sweep'
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
           call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
@@ -496,6 +501,11 @@ Module Clsvof
               end do
             end do
           end do
+        !  print*, 'Z_Sweep test for long time'
+        !  print*, vfl(61,34,7)
+        !  print*, temvfy(61,34,7), temvfz(61,34,7)
+        !  print*, '==============================='
+        !  print*, 'End test Z_Sweep'
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
           call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
@@ -517,6 +527,11 @@ Module Clsvof
               end do
             end do
           end do
+        !  print*, 'Test volume of fluid after Y Sweep'
+        !  print*, kk
+        !  print*, temvfx(61,34,7), temvfy(61,34,7)
+        !  print*, temvfz(61,34,7), vfl(61,34,7)
+        !  print*, 'End test volume of fluid compuation'
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         else
           temvfz(:,:,:) = vfl(:,:,:)
@@ -541,6 +556,10 @@ Module Clsvof
               end do
             end do
           end do
+        !  print*, 'Test volume for Z_Sweep'
+        !  print*, 'kk '
+        !  print*, temvfz(61,34,7), vfl(61,34,7)
+        !  print*, '++++++++++++++++++++++++++'
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
           call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
@@ -565,6 +584,9 @@ Module Clsvof
           end do
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
+        !  print*, 'Test volume for X_Sweep'
+        !  print*, temvfx(61,34,7)
+        !  print*, 'End test X_Sweep'
           call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
@@ -586,11 +608,7 @@ Module Clsvof
           end do
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         end if
-        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30),vfl(1,15,30)
         call Interface_Reconstruct(PGrid,nx,ny,nz,dis)
-      !  nx(1,15,30)=0.d0;ny(1,15,30)=0.d0;nz(1,15,30)=1.d0
-        print*,nx(1,15,30),ny(1,15,30),nz(1,15,30),vfl(1,15,30)
-        print*,'Normal vector clsvof 575'
         do i = 1,imax
           do j = 1,jmax
             do k = 1,kmax
@@ -605,6 +623,9 @@ Module Clsvof
         end do
         call Redistance_Levelset(PGrid,nx,ny,nz,dis)
       end do
+    !  print*, 'Test volume of fluid'
+    !  print*, vfl(61,34,7)
+    !  print*, 'End test volume of fluid compuation'
       if(associated(vfl).eqv..true.) nullify(vfl)
       if(associated(phi).eqv..true.) nullify(phi)
       if(associated(vflF).eqv..true.) nullify(vflF)
@@ -659,10 +680,6 @@ Module Clsvof
        integer                                             :: i,j,k
        real(dp)                                            :: flux,lse
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       print*,'Inside X_Sweep Test 662 Normal after Interface_Reconstruct'
-       print*, LOC(nxx),LOC(nyy),LOC(nzz)
-       print*, nxx(1,15,30),nyy(1,15,30),nzz(1,15,30)
-       print*,'xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx'
        flux = 0.d0
        ! volume of fluid
        do j = 1,jmax
@@ -772,9 +789,6 @@ Module Clsvof
        integer :: i,j,k
        real(dp):: flux,lsn
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       print*,'Inside Y_Sweep Test 774 Normal aftter Interface_Reconstruct'
-       print*, nxx(1,15,30),nyy(1,15,30),nzz(1,15,30)
-       print*,'yyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyyy'
        flux = 0.d0
        ! volume of fluid
        do i = 1,imax
@@ -879,12 +893,7 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer                                             :: i,j,k
        real(dp)						                                 :: flux,lst
-       print*,'Inside Z_Sweep Test 882 normal before Interface_Reconstruct'
-       print*, nxx(1,15,30),nyy(1,15,30),nzz(1,15,30)
        call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
-       print*,'Inside Z_Sweep Test 882 normal after Interface_Reconstruct'
-       print*, nxx(1,15,30),nyy(1,15,30),nzz(1,15,30)
-       print*,'zzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzzz'
        flux = 0.d0
        ! volume of fluid
        do i = 1,imax
@@ -1045,14 +1054,6 @@ Module Clsvof
           end do
         end do
       end do
-      print*,LOC(nxx),LOC(nyy),LOC(nzz)
-      print*,'+++========='
-      nxx(1,15,30)=0.d0;nyy(1,15,30)=0.d0;nzz(1,15,30)=1.d0
-      print*,nxx(1,15,30),nyy(1,15,30),nzz(1,15,30),vfl(1,15,30)
-      print*,nxx(1,15,30),nyy(1,15,30),nzz(1,15,30),vfl(1,15,30)
-      print*,i,j,k,imax,jmax,kmax
-      nxx(1,15,30)=1.d0;nyy(1,15,30)=0.d0;nzz(1,15,30)=0.d0
-      print*,'clsvof 1008'
     end subroutine Interface_Reconstruct
 
     subroutine Find_Distance(dx,dy,dz,nxx,nyy,nzz,f,s)

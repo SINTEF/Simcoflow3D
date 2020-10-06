@@ -6,7 +6,7 @@ find_package(MPI REQUIRED)
 # The paths here are platform dependent. Please edit
 set(Fortran_COMPILER_FLAGS "-w")
 set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -w")
-set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wextra -g -O -O0 -Wall -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=invalid,zero,overflow -finit-real=nan -ffpe-summary=underflow")
+set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wextra -g -O -O0 -Wall -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -ffpe-trap=invalid,zero,underflow,overflow -finit-real=nan -ffpe-summary=underflow")
 set(CMAKE_BUILD_TYPE=Debug)
 set(HYPRE_INCLUDE_DIR /usr/include/hypre)
 set(${PROJECT_NAME}_INCLUDE_DIR)

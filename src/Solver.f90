@@ -33,17 +33,17 @@ Module Solver
 
     contains
 
-    subroutine  initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
+  !  subroutine  initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
 
-        Implicit none 
-        Type(Grid),intent(in)         		   :: PGrid
-        Type(Cell),intent(inout)      		   :: PCell
-        Type(Variables),intent(inout) 		   :: TVar
-        type(BCBase),intent(inout)		   :: BCVof,BCLvs
+  !      Implicit none 
+  !      Type(Grid),intent(in)         		   :: PGrid
+  !      Type(Cell),intent(inout)      		   :: PCell
+  !      Type(Variables),intent(inout) 		   :: TVar
+  !      type(BCBase),intent(inout)		   :: BCVof,BCLvs
 
-        call initialiseClsvof(PGrid,PCell,TVar,BCLvs,BCvof)
+  !      call initialiseClsvof(PGrid,PCell,TVar,BCLvs,BCvof)
 
-    end subroutine initialiseModules
+  !  end subroutine initialiseModules
 
     subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
                                  WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,iprint)
@@ -66,7 +66,7 @@ Module Solver
         Allocate(GraP(Imax,Jmax,Kmax))
         allocate(FluxDivOld(Imax,Jmax,Kmax,3))
 
-        Call initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
+  !      Call initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
 
         FluxDivOld(:,:,:,:) = 0.d0
         Time%iter = 10**6
