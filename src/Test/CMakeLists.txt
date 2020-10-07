@@ -20,6 +20,13 @@ list(APPEND ADVECTIONLIST
 add_executable(AdvectionTest ${ADVECTIONLIST})
 target_link_libraries(AdvectionTest ${LINK_LIBS})
 my_add_test(testadvection)
+list(APPEND PlanarLIST
+    ${SRC_LIST}
+    PlanarTest/InitialVof.f90
+    PlanarTest/PlanarTest.f90)
+add_executable(PlanarTest ${PlanarLIST})
+target_link_libraries(PlanarTest ${LINK_LIBS})
+my_add_test(testplanar)
 list(APPEND DAMBREAKLIST
     ${SRC_LIST}
     Dambreak/InitialVof.f90

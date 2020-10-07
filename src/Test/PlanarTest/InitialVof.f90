@@ -13,21 +13,21 @@ Module InitialVof
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid level set function
     
-    public:: InitialClsvofFluidFieldAdvectionTest,			       &
-             InitialClsvofLiquidFieldAdvectionTest
+    public:: InitialClsvofFluidFieldPlanarTest,			       &
+             InitialClsvofLiquidFieldPlanarTest
     
-    interface InitialClsvofFluidFieldAdvectionTest	
-      module procedure InitialClsvofFluidFieldAdvectionTest
+    interface InitialClsvofFluidFieldPlanarest	
+      module procedure InitialClsvofFluidFieldPlanarTest
     end interface
     
-    interface InitialClsvofLiquidFieldAdvectionTest
-      module procedure InitialClsvofLiquidFieldAdvectionTest
+    interface InitialClsvofLiquidFieldPlanarTest
+      module procedure InitialClsvofLiquidFieldPlanarTest
     end interface
     
     contains
     
     
-    subroutine InitialClsvofFluidFieldAdvectionTest(TGrid,TCell)
+    subroutine InitialClsvofFluidFieldPlanarTest(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
       integer(kind=it4b)	      :: i,j,k
@@ -86,9 +86,9 @@ Module InitialVof
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
-    end subroutine InitialClsvofFluidFieldAdvectionTest
+    end subroutine InitialClsvofFluidFieldPlanarTest
     
-    subroutine InitialClsvofLiquidFieldAdvectionTest(TGrid,TCell)
+    subroutine InitialClsvofLiquidFieldPlanarTest(TGrid,TCell)
       implicit none
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
@@ -110,10 +110,10 @@ Module InitialVof
       do i=0,Imax+1
         do j=0,Jmax+1
           do k=0,Kmax+1
-            dx=TGrid%x(i,j,k)-0.35d0
-            dy=TGrid%y(i,j,k)-0.35d0
+            dx=0.d0
+            dy=0.d0
             dz=TGrid%z(i,j,k)-0.35d0
-            phi(i,j,k)=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
+            phi(i,j,k)=dz
             nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
@@ -130,5 +130,5 @@ Module InitialVof
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
-    end subroutine InitialClsvofLiquidFieldAdvectionTest
+    end subroutine InitialClsvofLiquidFieldPlanarTest
 end module InitialVof

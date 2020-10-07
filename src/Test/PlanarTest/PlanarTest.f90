@@ -27,7 +27,7 @@ program main
     
     allocate(Constin(6))
     
-    open(unit=1,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/AdvectionTest/input.txt',status='old',action='read')
+    open(unit=1,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/PlanarTest/input.txt',status='old',action='read')
     read(1,*)
     read(1,*)
     read(1,*) imax,jmax,kmax,tp,iprint,iprint1,eta,nv,cfl
@@ -154,8 +154,8 @@ program main
     BCLvsF%Top    => BCLvsT
 
     deallocate(Constin)
-    call InitialClsvofFluidFieldAdvectionTest(PGrid,PCell)
-    call InitialClsvofLiquidFieldAdvectionTest(PGrid,PCell)
+    call InitialClsvofFluidFieldPlanarTest(PGrid,PCell)
+    call InitialClsvofLiquidFieldPlanarTest(PGrid,PCell)
     call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",INT8(0))
     print*, 'After print result at initial stage'
     Var%u(:,:,:) = 0.d0
@@ -166,12 +166,9 @@ program main
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
-            Var%u(i,j,k)=2.d0*(dsin(pi*PGrid%x(i,j,k)))**2.d0*dsin(2.d0*pi*    &
-                      PGrid%y(i,j,k))*dsin(2.d0*pi*PGrid%z(i,j,k))*dcos(pi*t/tp) 
-            Var%v(i,j,k)=-dsin(2.d0*pi*PGrid%x(i,j,k))*(dsin(pi*               &
-               PGrid%y(i,j,k)))**2.d0*dsin(2.d0*pi*PGrid%z(i,j,k))*dcos(pi*t/tp)
-            Var%w(i,j,k)=-dsin(2.d0*pi*PGrid%x(i,j,k))*dsin(2.d0*pi*           &
-               PGrid%y(i,j,k))*(dsin(pi*PGrid%z(i,j,k)))**2.d0*dcos(pi*t/tp)
+            Var%u(i,j,k)=0.d0
+            Var%v(i,j,k)=0.d0
+            Var%w(i,j,k)=1.d0
             dt=dmin1(dt,cfl*PGrid%dx(1,1,1)/dabs(Var%u(i,j,k)+1.d-30),         &
                      cfl*PGrid%dy(1,1,1)/dabs(Var%v(i,j,k)+1.d-30),  	         &
                      cfl*PGrid%dz(1,1,1)/dabs(Var%w(i,j,k)+1.d-30))
