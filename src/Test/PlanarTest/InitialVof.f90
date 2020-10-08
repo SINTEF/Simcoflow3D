@@ -92,9 +92,9 @@ Module InitialVof
       implicit none
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
-      integer(kind=it4b)	      :: i,j,k
-      real(kind=dp)		      :: dx,dy,dz,dis,vol,epsi,s
-      real(kind=dp)		      :: tol,radius
+      integer(kind=it4b)	            :: i,j,k,ii,jj,kk
+      real(kind=dp)		                :: dx,dy,dz,dis,vol,epsi,s
+      real(kind=dp)		                :: tol,radius
       
       tol = 1.d-20
       epsi = 1.d-40 
@@ -110,18 +110,22 @@ Module InitialVof
       do i=0,Imax+1
         do j=0,Jmax+1
           do k=0,Kmax+1
-            dx=0.d0
+            ii=max(1,min(Imax,i))
+            jj=max(1,min(Jmax,j))
+            kk=max(1,min(Kmax,k))
+            dx=TGrid%x(ii,jj,kk)-0.35d0
             dy=0.d0
-            dz=TGrid%z(i,j,k)-0.35d0
-            phi(i,j,k)=dz
+            dz=0.d0 !TGrid%z(ii,jj,kk)-0.35d0
+            phi(i,j,k)=dx
             nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            s=phi(i,j,k)+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+dabs(nyF(i,j,k))* &
-                       TGrid%dy(i,j,k)+dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
-            call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),           &
-                 TGrid%dz(i,j,k),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
-            vfl(i,j,k)=1.d0-vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
+            s=phi(i,j,k)+0.5*(dabs(nxF(i,j,k))*TGrid%dx(ii,jj,kk)+                &
+                              dabs(nyF(i,j,k))*TGrid%dy(ii,jj,kk)+                &
+                              dabs(nzF(i,j,k))*TGrid%dz(ii,jj,kk))
+            call Volume_Fraction_Calc(TGrid%dx(ii,jj,kk),TGrid%dy(ii,jj,kk),      &
+                 TGrid%dz(ii,jj,kk),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
+            vfl(i,j,k)=1.d0-vol/(TGrid%dx(ii,jj,kk)*TGrid%dy(ii,jj,kk)*TGrid%dz(ii,jj,kk))
           end do
         end do
       end do

@@ -181,8 +181,8 @@ end function LangrangePolynomial
 
 subroutine SetArraytoZero3DReal(Arr)
   implicit none
-  real(kind=dp),dimension(:,:,:),intent(inout) :: Arr
-  integer(kind=it4b)                           :: i,j,k,ArrD1,ArrD2,ArrD3
+  real(kind=dp),dimension(:,:,:),allocatable,intent(inout) :: Arr
+  integer(kind=it4b)                                       :: i,j,k,ArrD1,ArrD2,ArrD3
   ArrD1=size(Arr,1)
   ArrD2=size(Arr,2)
   ArrD3=size(Arr,3)

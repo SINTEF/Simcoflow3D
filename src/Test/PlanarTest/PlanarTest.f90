@@ -152,7 +152,8 @@ program main
     BCLvsF%North  => BCLvsN
     BCLvsF%Bottom => BCLvsB
     BCLvsF%Top    => BCLvsT
-
+    
+    t=0.d0
     deallocate(Constin)
     call InitialClsvofFluidFieldPlanarTest(PGrid,PCell)
     call InitialClsvofLiquidFieldPlanarTest(PGrid,PCell)
@@ -166,39 +167,40 @@ program main
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
-            Var%u(i,j,k)=0.d0
+            Var%u(i,j,k)=1.d0
             Var%v(i,j,k)=0.d0
-            Var%w(i,j,k)=1.d0
+            Var%w(i,j,k)=0.d0
             dt=dmin1(dt,cfl*PGrid%dx(1,1,1)/dabs(Var%u(i,j,k)+1.d-30),         &
                      cfl*PGrid%dy(1,1,1)/dabs(Var%v(i,j,k)+1.d-30),  	         &
                      cfl*PGrid%dz(1,1,1)/dabs(Var%w(i,j,k)+1.d-30))
-             end do
           end do
-       end do  
-       call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, t)
-       if(dt>=cfl*PGrid%dx(1,1,1)/0.2d0) dt = cfl*PGrid%dx(1,1,1)/0.2d0
-       if(t<tp.and.(t+dt)>=tp) then
-         pause ' do you want to continue '
-         dt = tp - t
-         call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
-         iprint = iprint1
-       else
-         call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
-       end if
-       t = t+dt
-       if(mod(itt,iprint)==0) then
-         call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
+        end do
+      end do  
+      call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, t)
+      if(dt>=cfl*PGrid%dx(1,1,1)/0.2d0) dt = cfl*PGrid%dx(1,1,1)/0.2d0
+      if(t<tp.and.(t+dt)>=tp) then
+        pause ' do you want to continue '
+        dt = tp - t
+        call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
+        iprint = iprint1
+      else
+        print*,'Before using the CLSVOF'
+        call Clsvof_Scheme(PGrid,PCell,Var,BCu,BCv,BCw,BCLvs,BCvof,t,dt,itt)
+      end if
+      t = t+dt
+      if(mod(itt,iprint)==0) then
+        call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
-         print*,'Iteration number and time:', itt , t
-       end if
-       if(t>=tp/2.d0.and.t-dt<tp/2.d0) then
-         call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
+        print*,'Iteration number and time:', itt , t
+      end if
+      if(t>=tp/2.d0.and.t-dt<tp/2.d0) then
+        call PrintResultVTR3D(PGrid,Var,PCell,"InterfaceInfo",itt)
      !     call Print_Result_3d(Grid,Sta,Inte)
      !     call Print_Result_2D_YZ(Grid,Sta,Inte,88)
-         print*,'Iteration number, time and time step:0', itt,t,dt,t-dt
-       end if 
-       if(t>1.2d0*tp) exit
+        print*,'Iteration number, time and time step:0', itt,t,dt,t-dt
+      end if 
+      if(t>1.2d0*tp) exit
     end do       
     deallocate(Var%u,Var%v,Var%w)
     deallocate(PGrid%x,PGrid%y,PGrid%z)
