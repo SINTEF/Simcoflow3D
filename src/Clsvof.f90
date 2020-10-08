@@ -25,10 +25,7 @@ Module Clsvof
     implicit none
     private
 
-    integer,parameter			   :: band_width = 4,nv = 6,nl = 6
-    real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
-    real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
-    real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
+    integer,parameter                      :: band_width = 4,nv = 6,nl = 6
     real(dp),parameter                     :: eta=0.075d0,vofeps=1.d-14,toldeno=1.d-14
     ! Parameters for setting normal vector to avoid underflow problem
     real(kind=dp),parameter                :: n1=1.d0-1.d-14, n2=dsqrt((2.d0*1.d-14-1.d-28)/2.d0)
@@ -79,20 +76,23 @@ Module Clsvof
         Type(Variables),intent(inout) 		   :: TVar
         type(BCBase),intent(inout)		       :: BCVof,BCLvs
 
-        nullify(vfl,vflF)
-        nullify(phi,phiF)
-        nullify(nxF,nyF,nzF)
+      !  nullify(vfl,vflF)
+      !  nullify(phi,phiF)
+      !  nullify(nxF,nyF,nzF)
 
-        call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
+      !  call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
 
     end subroutine initialiseClsvof
 
     subroutine InitialClsvofFluidField(TGrid,TCell)
-      type(Grid),intent(in)           :: TGrid
-      type(Cell),intent(inout),target :: TCell
-      integer(kind=it4b)	      :: i,j,k
-      real(kind=dp)		      :: dx,dy,dz,dis,vol,Radius,epsi,s
-      real(kind=dp)		      :: tol
+      type(Grid),       intent(in)           :: TGrid
+      type(Cell),       intent(inout),target :: TCell
+      integer(kind=it4b)	                   :: i,j,k
+      real(kind=dp)		                       :: dx,dy,dz,dis,vol,Radius,epsi,s
+      real(kind=dp)		                       :: tol
+      real(kind=dp),dimension(:,:,:),pointer :: vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
+      real(kind=dp),dimension(:,:,:),pointer :: phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
+      real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
 
       tol = 1.d-20
       epsi = 1.d-40
@@ -130,35 +130,38 @@ Module Clsvof
 
     subroutine InitialClsvofLiquidField(TGrid,TCell)
       implicit none
-      type(Grid),intent(in)           :: TGrid
-      type(Cell),intent(inout),target :: TCell
-      integer(kind=it4b)	      :: i,j,k
-      real(kind=dp)		      :: dx,dy,dz,dis,vol,Radius,epsi,s
-      real(kind=dp)		      :: tol
+      type(Grid),       intent(in)           :: TGrid
+      type(Cell),       intent(inout),target :: TCell
+      integer(kind=it4b)	                   :: i,j,k
+      real(kind=dp)		                       :: dx,dy,dz,dis,vol,Radius,epsi,s
+      real(kind=dp)		                       :: tol
+      real(kind=dp),dimension(:,:,:),pointer :: vfl    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
+      real(kind=dp),dimension(:,:,:),pointer :: phi    ! phi represents the liquid level set function, phiF represents fluid level set function
+      real(kind=dp),dimension(:,:,:),pointer :: nxL,nyL,nzL ! nxF,nyF,nzF is fluid normal vector
 
       vfl => TCell%vofL
       phi => TCell%phiL
-      nxF => TCell%nxL
-      nyF => TCell%nyL
-      nzF => TCell%nzL
+      nxL => TCell%nxL
+      nyL => TCell%nyL
+      nzL => TCell%nzL
 
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
             vfl(i,j,k)=1.d0*TCell%vof(i,j,k)
             phi(i,j,k)=-1.d3
-            nxF(i,j,k)=0.d0
-            nyF(i,j,k)=0.d0
-            nzF(i,j,k)=1.d0
+            nxL(i,j,k)=0.d0
+            nyL(i,j,k)=0.d0
+            nzL(i,j,k)=1.d0
           end do
         end do
       end do
 
       nullify(vfl)
       nullify(phi)
-      nullify(nxF)
-      nullify(nyF)
-      nullify(nzF)
+      nullify(nxL)
+      nullify(nyL)
+      nullify(nzL)
     end subroutine InitialClsvofLiquidField
 
     subroutine ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
@@ -279,10 +282,10 @@ Module Clsvof
       !! volume of fluid, level set function, normal vector. The boundary conditions
       !! are applied later.
       implicit none
-      real(kind=dp),dimension(:,:,:),intent(in) :: dxyz
-      type(Cell),intent(in)		        :: PCell
-      type(Cell),intent(inout)			:: VelCell
-      integer(kind=it4b),intent(in)		:: iu,iv,iw
+      real(kind=dp),dimension(:,:,:), intent(in)    :: dxyz
+      type(Cell),                     intent(in)    :: PCell
+      type(Cell),                     intent(inout) :: VelCell
+      integer(kind=it4b),             intent(in)    :: iu,iv,iw
       integer(kind=it4b)			:: i,j,k
 
     !  call DirectionAverageArray(dxyz,PCell%vofL,VelCell%vofL,iu,iv,iw)
@@ -308,8 +311,8 @@ Module Clsvof
       implicit none
       real(kind=dp),dimension(:,:,:),intent(in)  :: dxyz,Varin
       real(kind=dp),dimension(:,:,:),intent(out) :: Varout
-      integer(kind=it4b),intent(in)		 :: iu,iv,iw
-      real(kind=dp)				 :: lamda
+      integer(kind=it4b),            intent(in)  :: iu,iv,iw
+      real(kind=dp)				     :: lamda
       integer(kind=it4b)			 :: i,j,k
 
       do i=1,Imax-iu
@@ -347,9 +350,12 @@ Module Clsvof
       !! The time step size
       integer(it4b)			              :: i,j,k,kk
       real(dp)				                :: dtv
+      real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
+      real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
+      real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
       real(dp),dimension(:,:,:),allocatable :: ue,ve,we,nx,ny,nz,dis
-      real(dp),dimension(:,:,:),allocatable :: temvfx,temvfy,temvfz
-      real(dp),dimension(:,:,:),allocatable :: temlsx,temlsy,temlsz
+      real(dp),dimension(:,:,:),allocatable :: temvfx,temvfy,temvfz ! The sub-step volume of fluid in x,y,z direction
+      real(dp),dimension(:,:,:),allocatable :: temlsx,temlsy,temlsz ! The sub-step level-set function in x,y,z direction
        
       ! The normal vector of interface 
       allocate(nx(0:imax+1,0:jmax+1,0:kmax+1))
@@ -398,7 +404,7 @@ Module Clsvof
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
           ! Advance the interface in the x-direction
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+          call X_Sweep(PGrid,vfl,phi,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,   &
                                                               nx,ny,nz,dis,dtv)
           
           do i = 1,imax
@@ -427,7 +433,7 @@ Module Clsvof
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
           ! Advance the interface in the y-direction
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+          call Y_Sweep(PGrid,vfl,phi,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,   &
                                                               nx,ny,nz,dis,dtv)
           
           do i = 1,imax
@@ -452,7 +458,7 @@ Module Clsvof
           end do
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+          call Z_Sweep(PGrid,vfl,phi,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,   &
                                                               nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -468,18 +474,18 @@ Module Clsvof
                   pause 'X_Sweep 329'
                 end if  
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k) = 0.d0
-                if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
+                if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0  
               end do
             end do
           end do
-        !  print*, 'X_Sweep first then the others after computing Z_Sweep'
-        !  print*, vfl(61,7,32), temvfx(61,7,32), temvfz(61,7,32)
-        !  print*, vfl(61,7,31), vfl(61,7,33), we(61,7,31), we(61,7,32)
+          print*, 'X_Sweep first then the others after computing Z_Sweep'
+          print*, vfl(32,32,28), temvfx(32,32,28), temvfz(32,32,28)
+          print*, vfl(32,32,27), vfl(32,32,29), we(32,32,27), we(32,32,28)
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         elseif(mod(kk,3)==1) then
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+          call Y_Sweep(PGrid,vfl,phi,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,   &
                                                               nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -492,6 +498,7 @@ Module Clsvof
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
                 if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k)).or.            &
                                            dabs(temlsy(i,j,k))>1.d10) then
+                  print*, temvfy(i,j,k), temlsy(i,j,k)
                   print*,i,j,k
                   print*,ve(i,j,k)-ve(i,j-1,k)
                   print*,ve(i,j-1,k)
@@ -502,13 +509,13 @@ Module Clsvof
               end do
             end do
           end do
-        !  print*, 'Y first ++++++++++++++++ Y_Sweep test for long time'
-        !  print*, vfl(61,7,32)
-        !  print*, temvfy(61,7,32)
-        !  print*, 'End test Y_Sweep'
+          print*, 'Y first ++++++++++++++++ Y_Sweep test for long time'
+          print*, vfl(32,32,28)
+          print*, temvfy(32,32,28)
+          print*, 'End test Y_Sweep'
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+          call Z_Sweep(PGrid,vfl,phi,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,   &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -531,14 +538,14 @@ Module Clsvof
               end do
             end do
           end do
-        !  print*, 'Z_Sweep test for long time'
-        !  print*, vfl(61,7,32)
-        !  print*, temvfy(61,7,32), temvfz(61,7,32)
-        !  print*, '==============================='
-        !  print*, 'End test Z_Sweep'
+         print*, 'Z_Sweep test for long time'
+         print*, vfl(32,32,28)
+         print*, temvfy(32,32,28), temvfz(32,32,28)
+         print*, '==============================='
+         print*, 'End test Z_Sweep'
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+          call X_Sweep(PGrid,vfl,phi,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,   &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -561,28 +568,25 @@ Module Clsvof
             end do
           end do
 
-          ! print*, 'Test volume of fluid after Y Sweep'
-          ! print*, kk
-          ! print*, vfl(60,7,32), vfl(62,7,32)
-          ! print*, '1111'
-          ! print*, temvfx(61,7,32), temvfy(61,7,32)
-          ! print*, temvfz(61,7,32), vfl(61,7,32)
-          ! print*, 'End test volume of fluid compuation'
+          print*, 'Test volume of fluid after Y Sweep'
+          print*, '1111'
+          print*, temvfx(32,32,28), temvfy(32,32,28)
+          print*, temvfz(32,32,28), vfl(32,32,28)
+          print*, 'End test volume of fluid compuation'
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
-          ! print*, 'After using boundary condition'
-          ! print*, PCell%vofL(61,7,32), vfl(61,7,32)
-          ! print*, 'oooooooooooooooooooooooooooo'
+          print*, 'After using boundary condition'
+          print*, PCell%vofL(32,32,28), vfl(32,32,28)
+          print*, 'oooooooooooooooooooooooooooo'
         else
           temvfz(:,:,:) = vfl(:,:,:)
           temlsz(:,:,:) = phi(:,:,:)
-          ! print*, 'Test the volume of fluid before doing the Z_Sweep'
-          ! print*, vfl(61,7,32)
-          ! print*, 'size of vfl'
-          ! print*, size(vfl,2)
-          ! pause 'test size of vfl'
-          ! print*, temvfz(61,7,32)
-          ! print*, '==================='
-          call Z_Sweep(PGrid,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,           &
+          print*, 'Test the volume of fluid before doing the Z_Sweep'
+          print*, vfl(32,32,28)
+          print*, 'size of vfl'
+          print*, size(vfl,2)
+          print*, temvfz(32,32,28)
+          print*, '==================='
+          call Z_Sweep(PGrid,vfl,phi,temvfz,temlsz,ue,ve,we,BCw,BCVof,BCLvs,   &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -603,13 +607,13 @@ Module Clsvof
               end do
             end do
           end do
-          ! print*, 'Z first ----------------- Test volume for Z_Sweep'
-          ! print*, 'kk '
-          ! print*, temvfz(61,7,32), vfl(61,7,32)
-          ! print*, '++++++++++++++++++++++++++'
+          print*, 'Z first ----------------- Test volume for Z_Sweep'
+          print*, 'kk '
+          print*, temvfz(32,32,28), vfl(32,32,28)
+          print*, '++++++++++++++++++++++++++'
           temvfx(:,:,:) = vfl(:,:,:)
           temlsx(:,:,:) = phi(:,:,:)
-          call X_Sweep(PGrid,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,           &
+          call X_Sweep(PGrid,vfl,phi,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,   &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -632,10 +636,10 @@ Module Clsvof
           end do
           temvfy(:,:,:) = vfl(:,:,:)
           temlsy(:,:,:) = phi(:,:,:)
-          ! print*, 'Z first 000000000000000 Test volume for X_Sweep'
-          ! print*, temvfx(61,7,32), vfl(61,7,32)
-          ! print*, 'End test X_Sweep'
-          call Y_Sweep(PGrid,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,           &
+          print*, 'Z first 000000000000000 Test volume for X_Sweep'
+          print*, temvfx(32,32,28), vfl(32,32,28)
+          print*, 'End test X_Sweep'
+          call Y_Sweep(PGrid,vfl,phi,temvfy,temlsy,ue,ve,we,BCv,BCVof,BCLvs,   &
                                                                nx,ny,nz,dis,dtv)
           do i = 1,imax
             do j = 1,jmax
@@ -655,12 +659,12 @@ Module Clsvof
               end do
             end do
           end do
-          ! print*, 'Z first 000000000000000 Test volume for X_Sweep'
-          ! print*, temvfy(61,7,32), vfl(61,7,32)
-          ! print*, 'End test y_Sweep'
+          print*, 'Z first 000000000000000 Test volume for X_Sweep'
+          print*, temvfy(32,32,28), vfl(32,32,28)
+          print*, 'End test y_Sweep'
           call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,Time)
         end if
-        call Interface_Reconstruct(PGrid,nx,ny,nz,dis)
+        call Interface_Reconstruct(PGrid,vfl,phi,nx,ny,nz,dis)
         do i = 1,imax
           do j = 1,jmax
             do k = 1,kmax
@@ -673,11 +677,11 @@ Module Clsvof
             end do
           end do
         end do
-        call Redistance_Levelset(PGrid,nx,ny,nz,dis)
+        call Redistance_Levelset(PGrid,vfl,phi,nx,ny,nz,dis)
       end do
-    !  print*, 'Test volume of fluid'
-    !  print*, vfl(61,7,32)
-    !  print*, 'End test volume of fluid compuation'
+      print*, 'Test volume of fluid'
+      print*, vfl(32,32,28)
+      print*, 'End test volume of fluid compuation'
       if(associated(vfl).eqv..true.) nullify(vfl)
       if(associated(phi).eqv..true.) nullify(phi)
       if(associated(vflF).eqv..true.) nullify(vflF)
@@ -702,27 +706,29 @@ Module Clsvof
     end subroutine Clsvof_Scheme
 
     ! build-up interface
-    subroutine Isinterface(i,j,k,flag)
+    subroutine Isinterface(vfl,i,j,k,flag)
       implicit none
-      real(dp):: esp
-      integer i,j,k
-      logical flag
-      esp = 1.d-14
+      real(kind=dp),dimension(:,:,:), intent(in)  :: vfl
+      integer(kind=it4b),             intent(in)  :: i,j,k
+      logical,                        intent(out) :: flag
       flag = .false.
-      if(vfl(i,j,k)>esp.and.vfl(i,j,k)<(1.d0-esp)) flag = .true.
-      if(dabs(vfl(max(i-1,1),j,k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
-      if(dabs(vfl(min(i+1,Imax),j,k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
-      if(dabs(vfl(i,max(j-1,1),k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
-      if(dabs(vfl(i,min(j+1,Jmax),k)-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
-      if(dabs(vfl(i,j,max(1,k-1))-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
-      if(dabs(vfl(i,j,min(k+1,Kmax))-vfl(i,j,k))>=(1.0d0-esp)) flag = .true.
+      if(vfl(i,j,k)>vofeps.and.vfl(i,j,k)<(1.d0-vofeps))      flag = .true.
+      if(dabs(vfl(i-1,j,k)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
+      if(dabs(vfl(i+1,j,k)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
+      if(dabs(vfl(i,j-1,k)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
+      if(dabs(vfl(i,j+1,k)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
+      if(dabs(vfl(i,j,k-1)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
+      if(dabs(vfl(i,j,k+1)-vfl(i,j,k))>=(1.0d0-2.1d0*vofeps)) flag = .true.
       return
     end subroutine Isinterface
 
-    subroutine X_Sweep(PGrid,temvf,temls,ue,ve,we,BCu,BCVof,BCLvs,             &
+    subroutine X_Sweep(PGrid,vfl,phi,temvf,temls,ue,ve,we,BCu,BCVof,BCLvs,     &
                                                       nxx,nyy,nzz,diss,dtv)
+       !! The subroutine is use to compute the liquid volume fraction in the 
+       !! x-direction after advancing the interface.  
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
+       real(dp),dimension(:,:,:),intent(in)                :: vfl,phi
        real(dp),intent(in)                                 :: dtv
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
        type(BCBase),intent(in)                             :: BCu,BCVof,BCLvs
@@ -731,15 +737,14 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer                                             :: i,j,k
        real(dp)                                            :: flux,lse
-       call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
+       call Interface_Reconstruct(PGrid,vfl,phi,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
        do j = 1,jmax
          do k = 1,kmax
            do i = 1,imax-1
              if(ue(i,j,k)>0.d0) then
-               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
-                 (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0))then
+               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps) then
                  flux = vfl(i,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
                else
                  call East_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),              &
@@ -747,9 +752,7 @@ Module Clsvof
                          PGrid%dy(i,j,k),PGrid%dz(i,j,k),ue(i,j,k)*dtv,flux)
                end if
              else
-               if(vfl(i+1,j,k)>=(1.d0-vofeps).or.vfl(i+1,j,k)<=vofeps.or.      &
-                 (nxx(i+1,j,k)==0.d0.and.nyy(i+1,j,k)==0.d0                    &
-                                    .and.nzz(i+1,j,k)==0.d0)) then
+               if(vfl(i+1,j,k)>=(1.d0-vofeps).or.vfl(i+1,j,k)<=vofeps) then
                  flux=vfl(i+1,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
                else
                  call West_Flux(nxx(i+1,j,k),nyy(i+1,j,k),nzz(i+1,j,k),        &
@@ -761,12 +764,6 @@ Module Clsvof
          
              temvf(i,j,k) = temvf(i,j,k)-flux
              if(i<imax) temvf(i+1,j,k) = temvf(i+1,j,k)+flux
-           !   if((i==51.or.i+1==51).and.j==100.and.k==100) then
-          !      print*, 'Inside X-sweep'
-          !      print*, temvf(i,j,k), temvf(i+1,j,k)
-          !      print*, flux
-          !      print*, 'End X-sweep =========='
-          !    end if  
            end do
            ! for i=1
            ! flux=BCVof%VarW(j,k)*BCu%VarW(j,k)*dtv/PGrid%dx(1,j,k)
@@ -848,10 +845,11 @@ Module Clsvof
        end do
     end subroutine X_Sweep
 
-    subroutine Y_Sweep(PGrid,temvf,temls,ue,ve,we,BCv,BCVof,BCLvs,             &
+    subroutine Y_Sweep(PGrid,vfl,phi,temvf,temls,ue,ve,we,BCv,BCVof,BCLvs,     &
                                                         nxx,nyy,nzz,diss,dtv)
        implicit none
        TYPE(Grid),intent(in)                               :: PGrid
+       real(dp),dimension(:,:,:),intent(in)                :: vfl,phi
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
        type(BCBase),intent(in)                             :: BCv,BCVof,BCLvs
        real(dp),intent(in)                                 :: dtv
@@ -859,25 +857,24 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer :: i,j,k
        real(dp):: flux,lsn
-       call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
+       call Interface_Reconstruct(PGrid,vfl,phi,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
        do i = 1,imax
          do k = 1,kmax
            do j = 1,jmax-1
              if(ve(i,j,k)>0.d0) then
-               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
-                 (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0)) then
+               ! The condition for applying flux computation
+               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps) then
                  flux = vfl(i,j,k)*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
                else
+                 ! For interface cell
                  call North_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),diss(i,j,k), &
                                 vfl(i,j,k),PGrid%dx(i,j,k),PGrid%dy(i,j,k),    &
                                 PGrid%dz(i,j,k),ve(i,j,k)*dtv,flux)
                end if
              else
-               if(vfl(i,j+1,k)>=(1.d0-vofeps).or.vfl(i,j+1,k)<=vofeps.or.      &
-                            (nxx(i,j+1,k)==0.d0.and.nyy(i,j+1,k)==0.d0.and.    &
-                                                nzz(i,j+1,k)==0.d0)) then
+               if(vfl(i,j+1,k)>=(1.d0-vofeps).or.vfl(i,j+1,k)<=vofeps) then
                  flux = vfl(i,j+1,k)*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
                else
                  call South_Flux(nxx(i,j+1,k),nyy(i,j+1,k),nzz(i,j+1,k),       &
@@ -888,6 +885,15 @@ Module Clsvof
              end if
              temvf(i,j,k) = temvf(i,j,k)-flux
              if(j<jmax) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
+             if(i==1.and.(j==1.or.j+1==1).and.k==2) then
+               print*, 'Inside do loop test the flux'
+               print*, flux
+               print*, i,j,k
+               print*, '========'
+               print*, vfl(i,j,k), vfl(32,32,10)
+               print*, ve(i,j,k), dtv, Pgrid%dy(i,j,k)
+               print*, temvf(1,1,2)
+             end if  
            end do
            ! for j = 1
            ! flux=BCVof%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
@@ -899,6 +905,10 @@ Module Clsvof
            temvf(i,jmax,k)=temvf(i,jmax,k)-flux 
          end do
        end do
+       print*, 'Inside Y_Sweep Clsvof 895'
+       print*, flux
+       print*, temvf(1,1,2)
+       print*, 'End test'
        lsn = 0.d0
        flux = 0.d0
     ! level set
@@ -953,10 +963,11 @@ Module Clsvof
        end do
     end subroutine Y_Sweep
 
-    subroutine Z_Sweep(PGrid,temvf,temls,ue,ve,we,BCw,BCVof,BCLvs,             &
+    subroutine Z_Sweep(PGrid,vfl,phi,temvf,temls,ue,ve,we,BCw,BCVof,BCLvs,     &
                                                           nxx,nyy,nzz,diss,dtv)
        implicit none
        type(Grid),intent(in)                               :: PGrid
+       real(dp),dimension(:,:,:),intent(in)                :: vfl,phi
        real(dp),intent(in)                                 :: dtv
        real(dp),dimension(:,:,:),intent(in),allocatable    :: ue,ve,we
        type(BCBase),intent(in)                             :: BCw,BCVof,BCLvs
@@ -964,15 +975,14 @@ Module Clsvof
        real(dp),dimension(:,:,:),intent(inout),allocatable :: temvf,temls
        integer                                             :: i,j,k
        real(dp)						                                 :: flux,lst
-       call Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
+       call Interface_Reconstruct(PGrid,vfl,phi,nxx,nyy,nzz,diss)
        flux = 0.d0
        ! volume of fluid
        do i = 1,imax
          do j = 1,jmax
            do k = 1,kmax-1
              if(we(i,j,k)>=0.d0) then
-               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps.or.          &
-                 (nxx(i,j,k)==0.d0.and.nyy(i,j,k)==0.d0.and.nzz(i,j,k)==0.d0))then
+               if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps)then
                  flux = vfl(i,j,k)*we(i,j,k)*dtv/PGrid%dz(i,j,k)
                else
                  call Top_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),diss(i,j,k),   &
@@ -980,9 +990,7 @@ Module Clsvof
                                PGrid%dz(i,j,k),we(i,j,k)*dtv,flux)
                end if
              else
-               if(vfl(i,j,k+1)>=(1.d0-vofeps).or.vfl(i,j,k+1)<=vofeps.or.      &
-                 (nxx(i,j,k+1)==0.d0.and.nyy(i,j,k+1)==0.d0                    &
-                                    .and.nzz(i,j,k+1)==0.d0)) then
+               if(vfl(i,j,k+1)>=(1.d0-vofeps).or.vfl(i,j,k+1)<=vofeps) then
                  flux = vfl(i,j,k+1)*we(i,j,k)*dtv/PGrid%dz(i,j,k)
                else
                  call Bottom_Flux(nxx(i,j,k+1),nyy(i,j,k+1),nzz(i,j,k+1),      &
@@ -998,12 +1006,14 @@ Module Clsvof
                print*, flux, vfl(i,j,k)
                pause 'Vof-scheme 361'
              end if  
-             ! if(i==61.and.j==7.and.(k==32.or.k+1==32)) then
-             !   print*, 'Inside the Z_Sweep'
-             !   print*, vfl(i,j,k), we(i,j,k)
-             !   print*, flux, temvf(61,7,32)
-             !   print*, 'End test inside Z_Sweep====='
-             ! end if  
+             if(i==32.and.j==32.and.(k==28.or.k+1==28)) then
+               print*, 'Inside the Z_Sweep'
+               print*, vfl(i,j,k), we(i,j,k)
+               print*, 'normal vector'
+               print*, nxx(i,j,k), nyy(i,j,k), nzz(i,j,k)
+               print*, flux, temvf(32,32,28)
+               print*, 'End test inside Z_Sweep====='
+             end if  
            end do
            ! for k=1 at bottom boundary
            ! flux = BCVof%VarB(i,j)*BCw%VarB(i,j)*dtv/PGrid%dz(i,j,1)
@@ -1070,10 +1080,10 @@ Module Clsvof
              print*, 'Too large level set function Z_Sweep'
              print*, lst
              print*, '====='
-             print*, PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/ &
+             print*, PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/           &
                  PGrid%dz(i,j,kmax))*(phi(i,j,kmax)-phi(i,j,kmax-1))/          &
                 (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
-             print*, PGrid%dz(i,j,kmax-1)/2.d0*                      &
+             print*, PGrid%dz(i,j,kmax-1)/2.d0*                                &
                  (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*                 &
                  (phi(i,j,kmax)-phi(i,j,kmax-1))/                              &
                  (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
@@ -1084,15 +1094,19 @@ Module Clsvof
        end do
     end subroutine Z_Sweep
 
-    subroutine Interface_Reconstruct(PGrid,nxx,nyy,nzz,diss)
+    subroutine Interface_Reconstruct(PGrid,vfl,phi,nxx,nyy,nzz,diss)
       !! The subroutine is used to compute the interface normal vector and 
       !! the distance from the cell centre to the interface.
       implicit none
-      type(Grid),intent(in)                      :: PGrid
+      type(Grid),                                 intent(in)  :: PGrid
       !! The pressure grid
-      real(kind=dp),dimension(:,:,:),intent(out) :: nxx,nyy,nzz
+      real(kind=dp),dimension(:,:,:),             intent(in)  :: vfl
+      !! The volume of fluid
+      real(kind=dp),dimension(:,:,:),             intent(in)  :: phi
+      !! The level-set function
+      real(kind=dp),dimension(:,:,:),             intent(out) :: nxx,nyy,nzz
       !! The normal vector
-      real(kind=dp),dimension(:,:,:),intent(out) :: diss
+      real(kind=dp),dimension(:,:,:),             intent(out) :: diss
       !! The distance from cell centre to the interface
       integer                                    :: i,j,k
       real(kind=dp)						                   :: nxx1,nyy1,nzz1,diss1
@@ -1105,13 +1119,13 @@ Module Clsvof
         do j = 1,jmax
           do k = 1,kmax
             ! Check whether this current cell contains the interface or not
-            call Isinterface(i,j,k,flag)
+            call Isinterface(vfl,i,j,k,flag)
             if(flag.eqv..true.) then
               if(i>1.and.i<Imax.and.j>1.and.j<jmax.and.k>1.and.k<kmax) then
                 ! Compute the normal vector using the scheme in my thesis 
                 ! "A Cartesian Cut-Cell Methodology, applied to large scale interface 
                 ! dynamics and wave impacts spray formation"
-                call Normal_Vector_Irre(PGrid,i,j,k,nxx1,nyy1,nzz1)
+                call Normal_Vector_Irre(PGrid,vfl,phi,i,j,k,nxx1,nyy1,nzz1)
               else
                 ! For boundary cell
                 nxx1=(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
@@ -1146,6 +1160,12 @@ Module Clsvof
               end if
             else
             ! Set the normal vector for cells containing only liquid or gas  
+              if(i==32.and.j==32.and.vfl(i,j,k)>0.d0) then
+                print*, 'Test is interface'
+                print*, i,j,k
+                print*, vfl(i,j,k)
+                print*, flag
+              end if  
               nxx1 = 0.d0
               nyy1 = 0.d0
               nzz1 = 0.d0
@@ -1521,15 +1541,20 @@ Module Clsvof
     end subroutine Bottom_Flux
 
     ! Redistance from vof to level set
-    subroutine Redistance_Levelset(PGrid,Tnx,Tny,Tnz,Tdis)
+    subroutine Redistance_Levelset(PGrid,vfl,phi,Tnx,Tny,Tnz,Tdis)
       !! The subroutine is used to compute the level set value from the interface 
       !! information. The methodology for parallization is given in the page 22 of 
       !! "CLSVOF as a fast and mass-conserving extension
       !! of the level-set method for the simulation of twophase flow problems"
       !! M. Griebel & M. Klitz
       implicit none
-      type(Grid),intent(in)     :: PGrid
-      real(kind=dp),dimension(:,:,:),allocatable,intent(in) :: Tnx,Tny,Tnz,Tdis
+      type(Grid),                                 intent(in)    :: PGrid
+      !! The pressure grid
+      real(kind=dp),dimension(:,:,:),             intent(in)    :: vfl
+      !! The volume of fluid
+      real(kind=dp), dimension(:,:,:),            intent(inout) :: phi
+      !! The level set function
+      real(kind=dp),dimension(:,:,:),allocatable, intent(in)    :: Tnx,Tny,Tnz,Tdis
       integer                   :: i,j,k,ii,jj,kk
       integer                   :: iii,jjj,kkk,ij
       integer                   :: l,m,n,cas
@@ -2163,14 +2188,15 @@ Module Clsvof
       PCell%vof(1:Imax,1:Jmax,Kmax+1)=PCell%vof(1:Imax,1:Jmax,Kmax)
     end subroutine BoundaryConditionLvsVofFluid
 
-    subroutine Normal_Vector_Irre(PGrid,i,j,k,nxx,nyy,nzz)
+    subroutine Normal_Vector_Irre(PGrid,vfl,phi,i,j,k,nxx,nyy,nzz)
        implicit none
-       type(Grid),intent(in) :: PGrid
-       integer,intent(in)    :: i,j,k
-       real(dp),intent(out)  :: nxx,nyy,nzz
-       integer               :: case_deri,dx,dy,dz
-       real(dp)              :: qi(-1:1),qj(-1:1),qk(-1:1)
-       real(dp)              :: vx,vy,vz
+       type(Grid),                     intent(in)  :: PGrid
+       real(kind=dp),dimension(:,:,:), intent(in)  :: vfl,phi
+       integer,                        intent(in)  :: i,j,k
+       real(dp),                       intent(out) :: nxx,nyy,nzz
+       integer                                     :: case_deri,dx,dy,dz
+       real(dp)                                    :: qi(-1:1),qj(-1:1),qk(-1:1)
+       real(dp)                                    :: vx,vy,vz
        ! define qi for Dx
        if(i>=3) then
        ! for qi(-1)
@@ -2268,6 +2294,7 @@ Module Clsvof
       
       dout=phiIn+0.5d0*(dabs(NxIn)*dx+dabs(NyIn)*dy+dabs(NzIn)*dz)
     end Function  
+
     real(kind=dp) Function DivideError(nume,deno,opt) result(rs)
       real(kind=dp),intent(in)      :: nume,deno
       integer(kind=it4b),intent(in) :: opt

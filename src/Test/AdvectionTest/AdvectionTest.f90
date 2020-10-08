@@ -152,7 +152,8 @@ program main
     BCLvsF%North  => BCLvsN
     BCLvsF%Bottom => BCLvsB
     BCLvsF%Top    => BCLvsT
-
+    
+    t=0.d0
     deallocate(Constin)
     call InitialClsvofFluidFieldAdvectionTest(PGrid,PCell)
     call InitialClsvofLiquidFieldAdvectionTest(PGrid,PCell)
