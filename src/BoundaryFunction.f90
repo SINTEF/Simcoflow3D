@@ -11,12 +11,12 @@ module BoundaryFunction
   
   public :: BCBase
   
-  public :: BCUW, BCUE, BCUS, BCUN, BCUB, BCUT, 					&
-            BCVW, BCVE, BCVS, BCVN, BCVB, BCVT, 					&
-            BCWW, BCWE, BCWS, BCWN, BCWB, BCWT, 					&
-            BCPW, BCPE, BCPS, BCPN, BCPB, BCPT, 					&
-            BCVofW, BCVofE, BCVofS, BCVofN, BCVofB, BCVofT, 				&
-            BCLvsW, BCLvsE, BCLvsS, BCLvsN, BCLvsB, BCLvsT 		 
+  public :: BCUW, BCUE, BCUS, BCUN, BCUB, BCUT,                     &
+            BCVW, BCVE, BCVS, BCVN, BCVB, BCVT,                     &
+            BCWW, BCWE, BCWS, BCWN, BCWB, BCWT,                     &
+            BCPW, BCPE, BCPS, BCPN, BCPB, BCPT,                     &
+            BCVofW, BCVofE, BCVofS, BCVofN, BCVofB, BCVofT,         &
+            BCLvsW, BCLvsE, BCLvsS, BCLvsN, BCLvsB, BCLvsT 
   
   contains
     
@@ -51,8 +51,8 @@ module BoundaryFunction
   end subroutine SetDN
   
   subroutine SetConstant(this, Constin)
-    class(BCBase), intent(inout)  		      :: this
-    real(kind=dp), dimension(:), allocatable, intent(in) :: Constin	
+    class(BCBase), intent(inout)                         :: this
+    real(kind=dp), dimension(:), allocatable, intent(in) :: Constin
     
     allocate(this%Const(size(Constin))) 
     this%Const(:) = Constin(:) 
@@ -65,91 +65,91 @@ module BoundaryFunction
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
-    real(kind=dp), intent(in)		      :: time 
+    real(kind=dp), intent(in)                 :: time 
     real(kind=dp), dimension(:,:), intent(in), optional :: nxin, nyin, nzin
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
     Array2D1 = size(this%VarW,1)
     Array2D2 = size(this%VarW,2)
     ! For simple boundary condition   
-    call TypicalBC(this%VarW, uin, dxin, this%flag(1), this%const(1), 		&
-           					       Array2D1, Array2D2) 
+    call TypicalBC(this%VarW, uin, dxin, this%flag(1), this%const(1),          &
+                   Array2D1, Array2D2) 
     ! For user defined boundary condition.    
   end subroutine BCUW     
   
-  subroutine BCUE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
+  subroutine BCUE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for u velocity.
-    class(BCBase), intent(inout)  	      :: this
+    class(BCBase), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
-    real(kind=dp), intent(in)		      :: time 
+    real(kind=dp), intent(in)                 :: time 
     real(kind=dp), dimension(:,:), intent(in), optional :: nxin, nyin, nzin
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
     Array2D1 = size(this%VarE,1)
     Array2D2 = size(this%VarE,2)
     ! For simple boundary condition       
-    call TypicalBC(this%VarE, uin, -dxin*2.d0, this%flag(2), this%const(2), 	&
-           					       Array2D1, Array2D2)
+    call TypicalBC(this%VarE, uin, -dxin*2.d0, this%flag(2), this%const(2),    &
+                   Array2D1, Array2D2)
     ! For user defined boundary condition.   
   end subroutine BCUE
   
-  subroutine BCUS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
+  subroutine BCUS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for u velocity.
     class(BCBase), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
-    real(kind=dp), intent(in)		      :: time 
+    real(kind=dp), intent(in)                 :: time 
     real(kind=dp), dimension(:,:), intent(in), optional :: nxin, nyin, nzin
     integer(kind=it4b)			      :: Array2D1, Array2D2
     
     Array2D1 = size(this%VarS,1)
     Array2D2 = size(this%VarS,2)
     ! For simple boundary condition       
-    call TypicalBC(this%VarS, uin, dyin, this%flag(3), this%const(3),  		&
-           					       Array2D1, Array2D2)
+    call TypicalBC(this%VarS, uin, dyin, this%flag(3), this%const(3),          &
+                   Array2D1, Array2D2)
     ! For user defined boundary condition.   
   end subroutine BCUS
   
-  subroutine BCUN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
+  subroutine BCUN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for u velocity.
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
-    real(kind=dp), intent(in)		      :: time 
+    real(kind=dp), intent(in)                 :: time 
     real(kind=dp), dimension(:,:), intent(in), optional :: nxin, nyin, nzin
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
     Array2D1 = size(this%VarN,1)
     Array2D2 = size(this%VarN,2)
     ! For simple boundary condition   
-    call TypicalBC(this%VarN, uin, -dyin, this%flag(4), this%const(4),  	&
-           					       Array2D1, Array2D2)
+    call TypicalBC(this%VarN, uin, -dyin, this%flag(4), this%const(4),         &
+                   Array2D1, Array2D2)
     ! For user defined boundary condition.   
   end subroutine BCUN 
   
   subroutine BCUB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the bottom boundary for u velocity.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
-    real(kind=dp), intent(in)		      :: time 
+    real(kind=dp), intent(in)                 :: time 
     real(kind=dp), dimension(:,:), intent(in), optional :: nxin, nyin, nzin
     integer(kind=it4b)			      :: Array2D1, Array2D2
 
     Array2D1 = size(this%VarB,1)
     Array2D2 = size(this%VarB,2)
     ! For simple boundary condition
-    call TypicalBC(this%VarB, uin, dzin, this%flag(5), this%const(5),  		&
-           					       Array2D1, Array2D2)
+    call TypicalBC(this%VarB, uin, dzin, this%flag(5), this%const(5),          &
+                   Array2D1, Array2D2)
   end subroutine BCUB
   
   subroutine BCUT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &

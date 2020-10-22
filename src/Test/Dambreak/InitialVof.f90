@@ -12,7 +12,8 @@ Module InitialVof
     real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction 
     real(kind=dp),dimension(:,:,:),pointer :: phi,phiF    ! phi represents the liquid level set function, phiF represents fluid level set function 
     real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid level set function
-    
+    real(kind=dp),parameter                :: normaleps=1.d-15
+
     public:: InitialClsvofFluidFieldDamBreak,                                  &
              InitialClsvofLiquidFieldDambreak,                                 &
              InitialVarDambreak,InitialGridDamBreak
@@ -36,11 +37,15 @@ Module InitialVof
     contains
     
     subroutine InitialGridDamBreak(SPoint,EPoint,TGrid,Lref)
+      !! The subroutine is used to compute the grid for dambreak test
       implicit none
-      type(Grid),intent(inout) :: TGrid
-      type(Point),intent(in)   :: SPoint,EPoint
-      real(kind=dp),intent(in) :: Lref
-      integer		       :: i,j,k
+      type(Grid),    intent(inout) :: TGrid
+      !! The input grid
+      type(Point),   intent(in)    :: SPoint,EPoint
+      !! The position of computational domain corners
+      real(kind=dp), intent(in)    :: Lref
+      !! The reference length
+      integer                      :: i,j,k
         
       TGrid%Lref = Lref
       TGrid%dx(:,:,:) = (EPoint%x/Lref-SPoint%x/Lref)/dble(Imax)
@@ -61,9 +66,9 @@ Module InitialVof
     subroutine InitialClsvofFluidFieldDambreak(TGrid,TCell)
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
-      integer(kind=it4b)	      :: i,j,k
-      real(kind=dp)		      :: dx,dy,dz,dis,vol,Radius,epsi,s
-      real(kind=dp)		      :: tol
+      integer(kind=it4b)	            :: i,j,k
+      real(kind=dp)		                :: dx,dy,dz,dis,vol,Radius,epsi,s
+      real(kind=dp)		                :: tol
       
       tol = 1.d-20
       epsi = 1.d-40
@@ -105,9 +110,9 @@ Module InitialVof
             dy=TGrid%y(i,j,k)-1000.d0
             dz=TGrid%z(i,j,k)-1000.d0
             dis=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
-            nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
-            nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
+            nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+normaleps)
+            nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+normaleps)
+            nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+normaleps)
             s=dis+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+dabs(nyF(i,j,k))*      &
                        TGrid%dy(i,j,k)+dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
             call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),         &
@@ -128,9 +133,9 @@ Module InitialVof
       implicit none
       type(Grid),intent(in)           :: TGrid
       type(Cell),intent(inout),target :: TCell
-      integer(kind=it4b)	      :: i,j,k
-      real(kind=dp)		      :: dx,dy,dz,dis,vol,epsi,s
-      real(kind=dp)		      :: tol
+      integer(kind=it4b)	            :: i, j, k, ii, jj, kk
+      real(kind=dp)		                :: dx, dy, dz, dis, vol, s
+      real(kind=dp)		                :: tol, radius
       
       vfl => TCell%vofL
       phi => TCell%phiL
@@ -181,6 +186,31 @@ Module InitialVof
           end do
         end do
       end do
+
+    !   radius = 0.05d0/TGrid%Lref
+    ! !  pause 'Initialvof 124'
+    !   do i=0,Imax+1
+    !     do j=0,Jmax+1
+    !       do k=0,Kmax+1
+    !         ii=max(1,min(Imax,i))
+    !         jj=max(1,min(Jmax,j))
+    !         kk=max(1,min(Kmax,k))
+    !         dx=TGrid%x(ii,jj,kk)-0.6d0/TGrid%Lref
+    !         dy=TGrid%y(ii,jj,kk)-0.075d0/TGrid%Lref
+    !         dz=TGrid%z(ii,jj,kk)-0.3d0/TGrid%Lref
+    !         phi(i,j,k)=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
+    !         nxF(i,j,k)=dx/(dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)+epsi)
+    !         nyF(i,j,k)=dy/(dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)+epsi)
+    !         nzF(i,j,k)=dz/(dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)+epsi)
+    !         s=phi(i,j,k)+0.5*(dabs(nxF(i,j,k))*TGrid%dx(ii,jj,kk)+             &
+    !                           dabs(nyF(i,j,k))*TGrid%dy(ii,jj,kk)+             &
+    !                           dabs(nzF(i,j,k))*TGrid%dz(ii,jj,kk))
+    !         call Volume_Fraction_Calc(TGrid%dx(ii,jj,kk),TGrid%dy(ii,jj,kk),   &
+    !              TGrid%dz(ii,jj,kk),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
+    !         vfl(i,j,k)=1.d0-vol/(TGrid%dx(ii,jj,kk)*TGrid%dy(ii,jj,kk)*TGrid%dz(ii,jj,kk))
+    !       end do
+    !     end do
+    !   end do
       nullify(vfl)
       nullify(phi)
       nullify(nxF)
@@ -220,7 +250,7 @@ Module InitialVof
       End do
       Open(unit=5,file='Convergence.dat')
       close(5,status='delete')
-      Rey = Uref*Lref/nuref
+      Rey = Uref*Lref*Roref/nuref
       Fr = Uref/dsqrt(g*Lref)
       Print*,"Reynolds number:",Rey
       Print*,"Froude number:",Fr

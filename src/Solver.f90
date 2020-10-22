@@ -5,7 +5,7 @@ Module Solver
     USE CutCell
     USE Clsvof
     USE PrintResult
-    USE ComputePUV
+    USE ComputePUVW
     USE MPI
     USE BoundaryInterface
     USE BoundaryFunction
@@ -47,45 +47,52 @@ Module Solver
 
     subroutine IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
                                  WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,iprint)
+        !! The subroutine is used to compute the 
         Implicit none
-        Type(Grid),intent(in)         		   :: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout)      		   :: PCell,UCell,VCell,WCell
-        Type(Variables),intent(inout) 		   :: TVar
-        type(BCBase),intent(inout)		   :: BCu,BCv,BCw,BCp,BCVof,BCLvs
-        Integer(kind=it4b),intent(in) 		   :: iprint
+        Type(Grid),            intent(in)    :: PGrid, UGrid, VGrid, WGrid
+        Type(Cell),            intent(inout) :: PCell, UCell, VCell, WCell
+        Type(Variables),       intent(inout) :: TVar
+        type(BCBase),          intent(inout) :: BCu, BCv, BCw, BCp, BCVof, BCLvs
+        Integer(kind=it4b),    intent(in)    :: iprint
         Real(kind=dp),dimension(:,:,:),allocatable :: GraP
-        Type(SolverTime)			   :: Time
-        Type(SolverConvergence)			   :: UConv,VConv,WConv,PConv
-        Type(Variables)				   :: TVar_n
-        Integer(kind=it8b)			   :: itt
+        Type(SolverTime)                     :: Time
+        Type(SolverConvergence)              :: UConv, VConv, WConv, PConv
+        Type(Variables)                      :: TVar_n
+        Type(Cell)                           :: PCellO, UCellO, VCellO, WCellO
+        Integer(kind=it8b)			             :: itt
         real(kind=dp),dimension(:,:,:,:),allocatable :: FluxDivOld
-        Allocate(TVar_n%p(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
-        Allocate(TVar_n%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
-        Allocate(TVar_n%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
-        Allocate(TVar_n%w(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
-        Allocate(GraP(Imax,Jmax,Kmax))
+        
+        allocate(TVar_n%p(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
+        allocate(TVar_n%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
+        allocate(TVar_n%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
+        allocate(TVar_n%w(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
+        allocate(GraP(Imax,Jmax,Kmax))
         allocate(FluxDivOld(Imax,Jmax,Kmax,3))
-
-  !      Call initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
+        call allocateOldCell(PCellO, UCellO, VCellO, WCellO)
+  
+  !     Call initialiseModules(PGrid,PCell,TVar,BCLvs,BCvof)
 
         FluxDivOld(:,:,:,:) = 0.d0
         Time%iter = 10**6
         Time%NondiT = 0.d0
-        Time%Cfl = 0.5d0
+        Time%Cfl = 0.3d0
         ! Print out the information about numerical method
         print*, 'The accuracy order of time discretization    :',TimeOrder
         print*, 'The accuracy order of spatial discretization :',SpaceOrder
 
         do itt = 1,Time%iter
-          call AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-               WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,TVar,TVar_n,FluxDivOld,UConv, &
-               VConv,WConv,PConv,Time,itt)
+          call AdamBasforthBDF2(PGrid, UGrid, VGrid, WGrid,                    &
+                                PCell, UCell, VCell, WCell,                    &
+                                PCellO, UCellO, VCellO, WCellO,                &
+                                BCu, BCv, BCw, BCp, BCVof, BCLvs,              &
+                                TVar, TVar_n, FluxDivOld,                      &
+                                UConv, VConv, WConv, PConv, Time, itt)
           Time%NondiT = Time%NondiT+Time%dt
-          Time%PhysT = Time%Nondit*PGrid%Lref/TVar%URef
+          Time%PhysT  = Time%Nondit*PGrid%Lref/TVar%URef
 
           call PrintHistory(itt,Uconv)
-          call PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
-                                 VCell,WCell,itt,Time%NondiT)
+          call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
+                                 PCell, UCell, VCell, WCell, itt, Time%NondiT)
           ite = itt
           ! print*, itt
           if(mod(itt,iprint)==0)then
@@ -106,7 +113,7 @@ Module Solver
         else
           print*,'Grap is unlocated Solver 87'
         end if
-        if(allocated(TVar_n%p).and.allocated(TVar_n%u).and.		       &
+        if(allocated(TVar_n%p).and.allocated(TVar_n%u).and.                    &
            allocated(TVar_n%v).and.allocated(TVar_n%w)) then
           deallocate(TVar_n%p,TVar_n%u,TVar_n%v,TVar_n%w)
         else
@@ -115,20 +122,24 @@ Module Solver
         if(allocated(FluxDivOld)) deallocate(FluxDivOld)
     end subroutine IterationSolution
 
-    Subroutine AdamBasforthBDF2(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,     &
-                     WCell,BCu,BCv,BCw,BCp,BCVof,BCLvs,            &
-                     TVar,TVar_n,FluxDivOld,UConv,VConv,WConv,PConv,Time,itt)
+    Subroutine AdamBasforthBDF2(PGrid, UGrid, VGrid, WGrid,                    &
+                                PCell, UCell, VCell, WCell,                    &
+                                PCellO, UCellO, VCellO, WCellO,                &
+                                BCu, BCv, BCw, BCp, BCVof, BCLvs,              &
+                                TVar, TVar_n, FluxDivOld,                      &
+                                UConv, VConv, WConv, PConv, Time, itt)
         Implicit none
-        Type(Grid),intent(in)                        :: PGrid,UGrid,VGrid,WGrid
-        Type(Cell),intent(inout)                     :: PCell,UCell,VCell,WCell
-        type(BCBase),intent(inout)               :: BCu,BCv,BCw,BCp,BCVof,BCLvs
-        Type(Variables),intent(inout)                :: TVar,TVar_n
+        Type(Grid),                       intent(in)    :: PGrid, UGrid, VGrid, WGrid
+        Type(Cell),                       intent(inout) :: PCell, UCell, VCell, WCell
+        type(Cell),                       intent(inout) :: PCellO, UCellO, VCellO, WCellO
+        type(BCBase),                     intent(inout) :: BCu, BCv, BCw, BCp, BCVof, BCLvs
+        Type(Variables),                  intent(inout) :: TVar, TVar_n
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
-        Type(SolverTime),intent(inout)               :: Time
-        Type(SolverConvergence),intent(out)          :: UConv,VConv,WConv,PConv
-        Integer(kind=it8b),intent(in)                :: itt
-        Integer(kind=it4b)                   :: i,j,k
-        Real(kind=dp)                    :: dt,mres
+        Type(SolverTime),                 intent(inout) :: Time
+        Type(SolverConvergence),          intent(out)   :: UConv, VConv, WConv, PConv
+        Integer(kind=it8b),               intent(in)    :: itt
+        Integer(kind=it4b)                              :: i,j,k
+        Real(kind=dp)                                   :: dt,mres
         Call ComputeTimeStep(UGrid,VGrid,WGrid,TVar,itt,Time)
         dt = Time%dt
         if(itt==1) then
@@ -138,16 +149,24 @@ Module Solver
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
         end if  
         dt = Time%dt!/3.d0
+        ! Compute the previous cell configuration 
+        call CopyOldCellNewCell(PCellO,PCell)
+        call CopyOldCellNewCell(UCellO,UCell)
+        call CopyOldCellNewCell(VCellO,VCell)
+        call CopyOldCellNewCell(WCellO,WCell)
         if(itt>1) then
           call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &
                                                         Time%NondiT,dt,itt)
           call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
                                                  UGrid,VGrid,WGrid)
         end if
-        call UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,        &
-              BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,TVar_n,TVar,Time%NondiT,  &
-              dt,itt)
-        call VariablesInternalCellCondition(TVar,PCell,UCell,VCell,WCell)
+        call UpdatePUVW(UGrid, VGrid, WGrid, PGrid,                            &
+                        UCell, VCell, WCell, PCell,                            &
+                        UCellO, VCellO, WCellO, PCellO,                        &
+                        BCu, BCv, BCw, BCp, BCVof, BCLvs,                      &
+                        FluxDivOld, TVar_n, TVar, Time%NondiT, dt, itt)
+      !! The subroutine is used to update the velocity and pressure
+        call VariablesInternalCellCondition(TVar, PCell, UCell, VCell, WCell)
         ! Calculate the three kind of norm for convergence
       !  call ResidualNormCalculate(UCell,TVar%u,TVar_n%u,TVar%ures,UConv)
       !  call ResidualNormCalculate(VCell,TVar%v,TVar_n%v,TVar%vres,VConv)
@@ -201,15 +220,15 @@ Module Solver
             end do
           end do
         end do
-        if(itt==1) then
-          do i=1,Imax
-            do j=1,Jmax
-              do k=1,Kmax
-                Time%dt=dmin1(Time%dt,Time%cfl*UGrid%dx(i,j,k))
-              end do
-            end do
-          end do
-        end if        
+        ! if(itt==1) then
+        !   do i=1,Imax
+        !     do j=1,Jmax
+        !       do k=1,Kmax
+        !         Time%dt=dmin1(Time%dt,Time%cfl*UGrid%dx(i,j,k))
+        !       end do
+        !     end do
+        !   end do
+        ! end if        
     end Subroutine ComputeTimeStep
 
     Subroutine ResidualNormCalculate(TCell,Varn1,Varn,Tres,Conv)
@@ -290,18 +309,167 @@ Module Solver
          End do
        End do
      End subroutine VariablesInternalCellCondition
+     
+     subroutine AllocateOldCell(PCellO,UCellO,VCellO,WCellO)
+       implicit none
+       type(cell), intent(inout) :: PCellO, UCellO, VCellO, WCellO
+
+       allocate(PCellO%Cell_Type(Imax,Jmax,Kmax))
+       allocate(PCellO%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    
+       allocate(PCellO%Cell_Cent(Imax,Jmax,Kmax,3))
+       allocate(PCellO%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%NEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(PCellO%TEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+
+       allocate(UCellO%Cell_Type(Imax,Jmax,Kmax))
+       allocate(UCellO%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    
+       allocate(UCellO%Cell_Cent(Imax,Jmax,Kmax,3))
+       allocate(UCellO%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%NEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%TEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%MoExCell(Imax,Jmax,Kmax))
+       allocate(UCellO%EtaE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%EtaN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%EtaT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%AlE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%AlN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%AlT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%SxE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%SyN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%SzT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(UCellO%FCE(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(UCellO%FCN(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(UCellO%FCT(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+
+       allocate(VCellO%Cell_Type(Imax,Jmax,Kmax))
+       allocate(VCellO%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    
+       allocate(VCellO%Cell_Cent(Imax,Jmax,Kmax,3))
+       allocate(VCellO%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%NEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%TEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%MoExCell(Imax,Jmax,Kmax))
+       allocate(VCellO%EtaE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%EtaN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%EtaT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%AlE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%AlN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%AlT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%SxE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%SyN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%SzT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(VCellO%FCE(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(VCellO%FCN(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(VCellO%FCT(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+
+       allocate(WCellO%Cell_Type(Imax,Jmax,Kmax))
+       allocate(WCellO%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(wCellO%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(wCellO%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    
+       allocate(WCellO%Cell_Cent(Imax,Jmax,Kmax,3))
+       allocate(WCellO%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%NEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%TEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%MoExCell(Imax,Jmax,Kmax))
+       allocate(WCellO%EtaE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%EtaN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%EtaT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%AlE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%AlN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%AlT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%SxE(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%SyN(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(WCellO%SzT(0:Imax+1,0:Jmax+1,0:Kmax+1))
+       allocate(wCellO%FCE(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(WCellO%FCN(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+       allocate(WCellO%FCT(0:Imax+1,0:Jmax+1,0:Kmax+1,3))
+
+
+     end subroutine AllocateOldCell
+     
+     subroutine CopyOldCellNewCell(TCellO,TCell)
+       type(cell), intent(inout) :: TCellO
+       type(cell), intent(in)    :: TCell
+       
+
+       TCellO%Cell_Type(:,:,:)   = TCell%Cell_Type(:,:,:)
+       TCellO%vof(:,:,:)         = TCell%vof(:,:,:)
+       TCellO%phi(:,:,:)         = TCell%phi(:,:,:)
+       TCellO%nx(:,:,:)          = TCell%nx(:,:,:)
+       TCellO%ny(:,:,:)          = TCell%ny(:,:,:)
+       TCellO%nz(:,:,:)          = TCell%nz(:,:,:)
+       TCellO%vofL(:,:,:)        = TCell%vofL(:,:,:)
+       TCellO%phiL(:,:,:)        = TCell%phiL(:,:,:)
+       TCellO%nxL(:,:,:)         = TCell%nxL(:,:,:)
+       TCellO%nyL(:,:,:)         = TCell%nyL(:,:,:)
+       TCellO%nzL(:,:,:)         = TCell%nzL(:,:,:)
+       TCellO%Cell_Cent(:,:,:,:) = TCell%Cell_Cent(:,:,:,:)
+       TCellO%EEArea(:,:,:)      = TCell%EEArea(:,:,:)
+       TCellO%NEArea(:,:,:)      = TCell%NEArea(:,:,:)
+       TCellO%TEArea(:,:,:)      = TCell%TEArea(:,:,:)
+       if(allocated(TCellO%FCE))      TCellO%FCE(:,:,:,:)    = TCell%FCE(:,:,:,:)
+       if(allocated(TCellO%FCN))      TCellO%FCN(:,:,:,:)    = TCell%FCN(:,:,:,:)
+       if(allocated(TCellO%FCT))      TCellO%FCT(:,:,:,:)    = TCell%FCT(:,:,:,:)
+       if(allocated(TCellO%MoExCell)) TCellO%MoExCell(:,:,:) = TCell%MoExCell(:,:,:)
+       if(allocated(TCellO%EtaE))     TCellO%EtaE(:,:,:)     = TCell%EtaE(:,:,:)
+       if(allocated(TCellO%EtaN))     TCellO%EtaN(:,:,:)     = TCell%EtaN(:,:,:)
+       if(allocated(TCellO%EtaT))     TCellO%EtaT(:,:,:)     = TCell%EtaT(:,:,:)
+       if(allocated(TCellO%AlE))      TCellO%AlE(:,:,:)      = TCell%AlE(:,:,:)
+       if(allocated(TCellO%AlN))      TCellO%AlN(:,:,:)      = TCell%AlN(:,:,:)
+       if(allocated(TCellO%AlT))      TCellO%AlT(:,:,:)      = TCell%AlT(:,:,:)
+       if(allocated(TCellO%SxE))      TCellO%SxE(:,:,:)      = TCell%SxE(:,:,:)
+       if(allocated(TCellO%SyN))      TCellO%SyN(:,:,:)      = TCell%SyN(:,:,:)
+       if(allocated(TCellO%SzT))      TCellO%SzT(:,:,:)      = TCell%SzT(:,:,:)
+     end subroutine CopyOldCellNewCell 
 
      Subroutine PrintDragLiftCoef(TVar,PGrid,UGrid,VGrid,WGrid,PCell,UCell,    &
                                                           VCell,WCell,itt,time)
       Implicit none
-      type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
-      type(Variables),intent(in):: TVar
-      type(Cell),intent(in):: PCell,UCell,VCell,WCell
-      Integer(kind=it8b),intent(in):: itt
-      Real(kind=dp):: time
-      Integer(kind=it4b) i,j,k
-      Real(kind=dp):: nx,ny,nz,area,Cdp1,Cdf,Pr,dpx,dpy,dpz,pw
-      Real(kind=dp):: Clpy1,Clfy,Clpz1,Clfz,tol,cdp2,Clpy2,Clpz2,Cl1,Cl2
+      type(Grid),         intent(in):: PGrid,UGrid,VGrid,WGrid
+      type(Variables),    intent(in) :: TVar
+      type(Cell),         intent(in):: PCell,UCell,VCell,WCell
+      Integer(kind=it8b), intent(in):: itt
+      Real(kind=dp)      :: time
+      Integer(kind=it4b) :: i,j,k
+      Real(kind=dp)      :: nx,ny,nz,area,Cdp1,Cdf,Pr,dpx,dpy,dpz,pw
+      Real(kind=dp)      :: Clpy1,Clfy,Clpz1,Clfz,tol,cdp2,Clpy2,Clpz2,Cl1,Cl2
       Character(15) curd
       Open(unit=10,file='DragLiftCoef.dat',access='append')
       tol = 1.d-8

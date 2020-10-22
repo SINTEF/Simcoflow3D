@@ -169,12 +169,13 @@ Module Clsvof
       !! The subroutine is used to compute the liquid volume fraction for UCell,VCell,WCell
       !! based on the volume fraction from PCell.
       implicit none
-      type(Grid),intent(in)	:: PGrid
+      type(Grid),intent(in)     :: PGrid
       type(Cell),intent(in)     :: PCell
       type(Cell),intent(inout)  :: UCell,VCell,WCell
       type(Grid),intent(in)     :: UGrid,VGrid,WGrid
       integer(kind=it4b)        :: i,j,k
-      real(kind=dp)           :: VofLeft,VofRight,Dist
+      real(kind=dp)             :: phinew, VofLeft, VofRight, Dist
+      real(kind=dp)             :: dcell
 
       call ComputeVelocityCellLiquidField(PGrid%dx,PCell,UCell,1,0,0)
       ! Compute the liquid volume fraction for UCell
@@ -182,27 +183,30 @@ Module Clsvof
         do k=1,Kmax
           do i=1,Imax-1
             ! Compute the left volume fraction
-            Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k),PGrid%dy(i,j,k),   &
-                 PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),            &
-                 PCell%nzL(i,j,k),PCell%phiL(i,j,k))
-            call Volume_Fraction_Calc(PGrid%dx(i,j,k)/2.d0,PGrid%dy(i,j,k),    &
-                                      PGrid%dz(i,j,k),PCell%nxL(i,j,k),        &
-                   PCell%nyL(i,j,k),PCell%nzL(i,j,k),Dist,VofLeft)
-            if(PCell%nxL(i,j,k)>=0.d0) then
-              VofLeft=(PCell%vofL(i,j,k)*PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*      &
-                                         PGrid%dz(i,j,k)-VofLeft)
-            end if
+            ! Compute the level set function in the cell with the width of dx/2
+            dcell = PGrid%dx(i,j,k)/2.d0
+            phinew=PCell%phiL(i,j,k)+dcell*PCell%nxL(i,j,k)
+            ! Compute the distance from the cells' cornes to the interface
+            dist=ConvertTheCoordinateSystem(dcell, PGrid%dy(i,j,k),            &
+                 PGrid%dz(i,j,k), PCell%nxL(i,j,k),                            &
+                 PCell%nyL(i,j,k), PCell%nzL(i,j,k), phinew)
+            ! Compute the volume of other field inside the cell
+            call Volume_Fraction_Calc(dcell, PGrid%dy(i,j,k),                  &
+                 PGrid%dz(i,j,k), PCell%nxL(i,j,k), PCell%nyL(i,j,k),          &
+                 PCell%nzL(i,j,k), Dist, VofLeft)
+            ! Compute the volume of liquid at the cell's face.    
+            VofLeft=dcell*PGrid%dy(i,j,k)*PGrid%dz(i,j,k)-VofLeft
+            
             ! Compute the right volume fraction
-            Dist=ConvertTheCoordinateSystem(PGrid%dx(i+1,j,k),                 &
-                 PGrid%dy(i+1,j,k),PGrid%dz(i+1,j,k),PCell%nxL(i+1,j,k),       &
-                 PCell%nyL(i+1,j,k),PCell%nzL(i+1,j,k),PCell%phiL(i+1,j,k))
-            call Volume_Fraction_Calc(PGrid%dx(i+1,j,k)/2.d0,PGrid%dy(i+1,j,k),&
-                                      PGrid%dz(i+1,j,k),PCell%nxL(i+1,j,k),    &
-                PCell%nyL(i+1,j,k),PCell%nzL(i+1,j,k),Dist,VofRight)
-            if(PCell%nxL(i+1,j,k)<=0.d0) then
-              VofRight=(PCell%VofL(i+1,j,k)*PGrid%dx(i+1,j,k)*                 &
-                        PGrid%dy(i+1,j,k)*PGrid%dz(i+1,j,k)-VofRight)
-            end if
+            dcell = PGrid%dx(i+1,j,k)/2.d0
+            phinew = PCell%phiL(i+1,j,k)-dcell*PCell%nxL(i+1,j,k)
+            Dist=ConvertTheCoordinateSystem(dcell, PGrid%dy(i+1,j,k),          &
+                 PGrid%dz(i+1,j,k), PCell%nxL(i+1,j,k), PCell%nyL(i+1,j,k),    &
+                 PCell%nzL(i+1,j,k), phinew) 
+            call Volume_Fraction_Calc(dcell, PGrid%dy(i+1,j,k),                &
+                 PGrid%dz(i+1,j,k), PCell%nxL(i+1,j,k), PCell%nyL(i+1,j,k),    &
+                 PCell%nzL(i+1,j,k), Dist, VofRight)
+            VofRight=dcell*PGrid%dy(i+1,j,k)*PGrid%dz(i+1,j,k)-VofRight
             UCell%vofL(i,j,k)=(VofLeft+VofRight)/UGrid%dx(i,j,k)/              &
                                                  UGrid%dy(i,j,k)/UGrid%dz(i,j,k)  
           end do
@@ -214,28 +218,34 @@ Module Clsvof
       do i=1,Imax
         do k=1,Kmax
           do j=1,Jmax-1
-            ! Compute the left volume fraction
+            ! Compute the south volume fraction.
+            dcell = PGrid%dy(i,j,k)/2.d0
+            ! Compute the new level set function.
+            phinew = PCell%phiL(i,j,k)+dcell*PCell%nyL(i,j,k)
+            ! Compute the distance from the cell's corner to the interface.
             Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k),PGrid%dy(i,j,k),   &
                  PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),            &
                  PCell%nzL(i,j,k),PCell%phiL(i,j,k))
-            call Volume_Fraction_Calc(PGrid%dx(i,j,k),PGrid%dy(i,j,k)/2.d0,    &
+            call Volume_Fraction_Calc(PGrid%dx(i,j,k),dcell,                   &
                                       PGrid%dz(i,j,k),PCell%nxL(i,j,k),        &
                        PCell%nyL(i,j,k),PCell%nzL(i,j,k),Dist,VofLeft)
-            if(PCell%nyL(i,j,k)>=0.d0) then
-              VofLeft=(PCell%vofL(i,j,k)*PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*      &
-                                         PGrid%dz(i,j,k)-VofLeft) 
-            end if  
-            ! Compute the right volume fraction
+            ! Compute the left volume fraction
+            VofLeft=PGrid%dx(i,j,k)*dcell*PGrid%dz(i,j,k)-VofLeft 
+            
+            ! Compute the north volume fraction
+            dcell = PGrid%dy(i,j+1,k)/2.d0
+            ! Compute the new level set function
+            phinew = PCell%phiL(i,j,k)+dcell*PCell%nyL(i,j+1,k)
+            ! Compute the distance from the cell's corner to the interface. 
             Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j+1,k),                 &
-                 PGrid%dy(i,j+1,k),PGrid%dz(i,j+1,k),PCell%nxL(i,j+1,k),       &
-                 PCell%nyL(i,j+1,k),PCell%nzL(i,j+1,k),PCell%phiL(i,j+1,k))
-            call Volume_Fraction_Calc(PGrid%dx(i,j+1,k),PGrid%dy(i,j+1,k)/2.d0,&
-                                      PGrid%dz(i,j+1,k),PCell%nxL(i,j+1,k),    &
-                       PCell%nyL(i,j+1,k),PCell%nzL(i,j+1,k),Dist,VofRight) 
-            if(PCell%nyL(i,j+1,k)<=0.d0) then
-              VofRight=(PCell%vofL(i,j+1,k)*PGrid%dx(i,j+1,k)*                 &
-                                 PGrid%dy(i,j+1,k)*PGrid%dz(i,j+1,k)-VofRight)
-            endif  
+                 dcell, PGrid%dz(i,j+1,k), PCell%nxL(i,j+1,k),                 &
+                 PCell%nyL(i,j+1,k), PCell%nzL(i,j+1,k), phinew)
+            call Volume_Fraction_Calc(PGrid%dx(i,j+1,k), dcell,                &
+                                      PGrid%dz(i,j+1,k), PCell%nxL(i,j+1,k),   &
+                       PCell%nyL(i,j+1,k), PCell%nzL(i,j+1,k), Dist, VofRight) 
+            ! Compute the right volume fraction 
+            VofRight=PGrid%dx(i,j+1,k)*dcell*PGrid%dz(i,j+1,k)-VofRight  
+            ! The liquid volume fraction inside the V cell
             VCell%vofL(i,j,k)=(VofLeft+VofRight)/VGrid%dx(i,j,k)/              &
                                    VGrid%dy(i,j,k)/VGrid%dz(i,j,k) 
           end do
@@ -247,28 +257,31 @@ Module Clsvof
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax-1
-          ! Compute the left volume fraction
-            Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k),PGrid%dy(i,j,k),   &
-                 PGrid%dz(i,j,k),PCell%nxL(i,j,k),PCell%nyL(i,j,k),            &
-                 PCell%nzL(i,j,k),PCell%phiL(i,j,k))
-            call Volume_Fraction_Calc(PGrid%dx(i,j,k),PGrid%dy(i,j,k),         &
-                                      PGrid%dz(i,j,k)/2.d0,PCell%nxL(i,j,k),   &
-                       PCell%nyL(i,j,k),PCell%nzL(i,j,k),Dist,VofLeft)
-            if(PCell%nzL(i,j,k)>=0.d0) then
-              VofLeft=(PCell%VofL(i,j,k)*PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*      &
-                                         PGrid%dz(i,j,k)-VofLeft)
-            end if
-          ! Compute the right volume fraction
+          ! Compute the bottom volume fraction
+            dcell = PGrid%dz(i,j,k)/2.d0
+          ! Compute the new level set function
+            phinew = PCell%phiL(i,j,k)+dcell*PCell%nzL(i,j,k)
+          ! Compute the distance from the cells corner to the interface  
+            Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k), PGrid%dy(i,j,k),  &
+                 dcell, PCell%nxL(i,j,k), PCell%nyL(i,j,k), PCell%nzL(i,j,k),  &
+                 phinew)
+            call Volume_Fraction_Calc(PGrid%dx(i,j,k), PGrid%dy(i,j,k), dcell, &
+                 PCell%nxL(i,j,k), PCell%nyL(i,j,k), PCell%nzL(i,j,k), Dist, VofLeft)  
+            VofLeft=PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*dcell-VofLeft
+          
+          ! Compute the top volume fraction.  
+            dcell = PGrid%dz(i,j,k+1)/2.d0
+          ! Compute the new level set function.
+            phinew = PCell%phiL(i,j,k+1)+dcell*PCell%nzL(i,j,k+1)
+          ! Compute the distance from the cells corner to the interface.  
             Dist=ConvertTheCoordinateSystem(PGrid%dx(i,j,k+1),                 &
-                 PGrid%dy(i,j,k+1),PGrid%dz(i,j,k+1),PCell%nxL(i,j,k+1),       &
-                 PCell%nyL(i,j,k+1),PCell%nzL(i,j,k+1),PCell%phiL(i,j,k+1))
+                 PGrid%dy(i,j,k+1), dcell, PCell%nxL(i,j,k+1),                 &
+                 PCell%nyL(i,j,k+1), PCell%nzL(i,j,k+1), phinew)
+          ! Compute the right liquid volume fraction.   
             call Volume_Fraction_Calc(PGrid%dx(i,j,k+1),PGrid%dy(i,j,k+1),     &
-                                  PGrid%dz(i,j,k+1)/2.d0,PCell%nxL(i,j,k+1),   &
-                PCell%nyL(i,j,k+1),PCell%nzL(i,j,k+1),Dist,VofRight) 
-            if(PCell%nzL(i,j,k)<0.d0) then
-              VofRight=(PCell%vofL(i,j,k+1)*PGrid%dx(i,j,k+1)*                 &
-                        PGrid%dy(i,j,k+1)*PGrid%dz(i,j,k+1)-VofRight)                                                
-            end if
+                 dcell, PCell%nxL(i,j,k+1), PCell%nyL(i,j,k+1),                &
+                 PCell%nzL(i,j,k+1), Dist, VofRight) 
+            VofRight=PGrid%dx(i,j,k+1)*PGrid%dy(i,j,k+1)*dcell-VofRight
             WCell%vofL(i,j,k)=(VofLeft+VofRight)/WGrid%dx(i,j,k)/              &
                                    WGrid%dy(i,j,k)/WGrid%dz(i,j,k)
           end do
@@ -1215,13 +1228,13 @@ Module Clsvof
               if(isnan(diss1)) then
                 pause 'reconstruct 245'
               end if
-              if(j==32.and.k==32.and.vfl(i,j,k)>0.d0.and.i>20) then
-               print*, 'Test is interface'
-               print*, i,j,k
-               print*, vfl(i,j,k)
-               print*, nxx1,nyy1,nzz1,temp
-               print*, flag
-             end if
+             !  if(j==32.and.k==32.and.vfl(i,j,k)>0.d0.and.i>20) then
+             !   print*, 'Test is interface'
+             !   print*, i,j,k
+             !   print*, vfl(i,j,k)
+             !   print*, nxx1,nyy1,nzz1,temp
+             !   print*, flag
+             ! end if
             else
             ! Set the normal vector for cells containing only liquid or gas  
              if(j==32.and.k==32.and.vfl(i,j,k)>0.d0.and.i>20) then
@@ -1276,7 +1289,7 @@ Module Clsvof
           if(sc<dy1) then
              call Final_Distance(f,sc,sm,s)
              if(isnan(s)) then
-                pause
+                pause 'find distance clsvof 1292'
              end if
           else
              if(dx1>=(dy1+dz1)) then
@@ -1286,7 +1299,7 @@ Module Clsvof
                 else
                    call Cubic_Equation_Solve(fc,dx1,dy1,dz1,sc,case2)
                    if(sc>=(dy1+dz1)) then
-                      pause 'final_distance 546'
+                      pause 'find distance clsvof 1302'
                    end if
                    call Final_Distance(f,sc,sm,s)
                 end if
@@ -1298,14 +1311,14 @@ Module Clsvof
                    ! pause 'final_distance 555'
                       call Cubic_Equation_Solve(fc,dx1,dy1,dz1,sc,case2)
                       if(sc>dx1) then
-                         pause 'final_distance 558'
+                         pause 'find distance clsvof 1314'
                        end if
                    end if
                    call Final_Distance(f,sc,sm,s)
                 else
                    call Cubic_Equation_Solve(fc,dx1,dy1,dz1,sc,case2)
                    if(sc>dx1) then
-                      pause 'final_distance 561'
+                      pause 'find distance clsvof 1321'
                    end if
                    call Final_Distance(f,sc,sm,s)
                 end if
@@ -1422,7 +1435,12 @@ Module Clsvof
        nx1 = dabs(nxx)
        ny1 = dabs(nyy)
        nz1 = dabs(nzz)
-
+       
+      ! print*, nx1,ny1,nz1
+       if(dabs(nx1*dx)>1.d10.or.dabs(ny1*dy)>1.d10.or.dabs(nz1*dz)>1.d10) then
+         print*, dx1, dy1, dz1
+         print*, 'Something is wrong with computing the parameters'
+       end if  
        dx1 = dmax1(nx1*dx,ny1*dy,nz1*dz)
        dz1 = dmin1(nx1*dx,ny1*dy,nz1*dz)
        dy1 = (nx1*dx+ny1*dy+nz1*dz)-dx1-dz1

@@ -1,19 +1,19 @@
-Module ComputePUV
+Module ComputePUVW
     USE PrecisionVar
     USE Mesh
     USE Cutcell
     USE StateVariables
-    USE PredictorUV
+    USE PredictorUVW
     USE ProjectionP
     use BoundaryInterface
     use BoundaryFunction
 
     Implicit none
     Private
-    Public:: UpdatePUV,BoundaryConditionVarNew
+    Public:: UpdatePUVW,BoundaryConditionVarNew
 
-    Interface UpdatePUV
-      Module Procedure UpdatePUV
+    Interface UpdatePUVW
+      Module Procedure UpdatePUVW
     End interface
 
     Interface BoundaryConditionVarNew
@@ -21,23 +21,38 @@ Module ComputePUV
     End interface
 
     Contains
-    Subroutine UpdatePUV(UGrid,VGrid,WGrid,PGrid,UCell,VCell,WCell,PCell,      &
-                         BCu,BCv,BCw,BCp,BCVof,BCLvs,FluxDivOld,	             &
-                         TVar_n,TVar,Time,dt,itt)
+    Subroutine UpdatePUVW(UGrid, VGrid, WGrid, PGrid,                           &
+                         UCell, VCell, WCell, PCell,                           &
+                         UCellO, VCellO, WCellO, PCellO,                       &
+                         BCu, BCv, BCw, BCp, BCVof, BCLvs,                     &
+                         FluxDivOld, TVar_n, TVar, Time, dt, itt)
+      !! The subroutine is used to update the velocity and pressure
       Implicit none
-      Type(Grid),intent(in)         :: UGrid,VGrid,WGrid,PGrid
-      Type(Cell),intent(inout)      :: UCell,VCell,WCell,PCell
-      type(BCBase),intent(inout)    :: BCu,BCv,BCw,BCp,BCVof,BCLvs
-      type(Variables),intent(inout) :: TVar,TVar_n
+      Type(Grid),      intent(in)    :: UGrid, VGrid, WGrid, PGrid
+      !! The input grid
+      Type(Cell),      intent(in)    :: UCell, VCell, WCell, PCell
+      !! The present cell configuration 
+      Type(Cell),      intent(in)    :: UCellO, VCellO, WCellO, PCellO
+      !! The previous cell configuration
+      type(BCBase),    intent(inout) :: BCu, BCv, BCw, BCp, BCVof, BCLvs
+      !! The boundary parameter
+      type(Variables), intent(inout) :: TVar_n
+      !! The state variables at n-1
+      type(Variables), intent(inout) :: TVar
+      !! The state variables at n for 'in' (intent(inout)) and n+1 for 'out' (intent(inout))
       real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
-      real(kind=dp),intent(in)      :: Time
-      Real(dp),intent(in)           :: dt
-      Integer(kind=it8b),intent(in) :: itt
-      Type(PoissonCoefficient)      :: PU,PV,PW
-      Type(Predictor)		            :: Pred
-      Type(Projection)              :: Proj
-      Integer(kind=it4b) 	          :: i,j,k,ii,jj,kk,iu,iv,iw
-      Real(kind=dp)                 :: dps,ute,GradPUVW,maxPoCoef
+      !! The previous flux difference
+      real(kind=dp),     intent(in)  :: Time
+      !! The time for computing mpi
+      Real(dp),          intent(in)  :: dt
+      !! The time step size
+      Integer(kind=it8b),intent(in)  :: itt
+      !! The iteration number
+      Type(PoissonCoefficient)       :: PU, PV, PW
+      Type(Predictor)                :: Pred
+      Type(Projection)               :: Proj
+      Integer(kind=it4b) 	           :: i,j,k,ii,jj,kk,iu,iv,iw
+      Real(kind=dp)                  :: dps,ute,GradPUVW,maxPoCoef
       real(kind=dp),dimension(:,:,:,:),allocatable :: PoCoef
 
       allocate(Pred%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
@@ -53,10 +68,16 @@ Module ComputePUV
       Pred%v(:,:,:) = TVar%v(:,:,:)
       Pred%w(:,:,:) = TVar%w(:,:,:)
       Proj%Pp(:,:,:) = 0.d0
-      call PredictorUVW(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,             &
-             WCell,FluxDivOld,TVar_n,TVar,BCu,BCv,BCw,PU,PV,PW,Pred,dt,itt)
-      call PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,    &
-                        WCell,TVar,Pred,PU,PV,PW,BCp,PoCoef,Proj,dt)
+      ! The predictor step to compute the predicting velocities
+      call PredictingUVW(PGrid, UGrid, VGrid, WGrid,                           &
+                        PCell, UCell, VCell, WCell,                            &
+                        PCellO, UCellO, VCellO, WCellO,                        &
+                        FluxDivOld, TVar_n, TVar,                              &
+                        BCu, BCv, BCw, PU, PV, PW, Pred, dt, itt)
+      ! Solve the Poisson equation
+      call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
+                                 PCell, UCell, VCell, WCell,                   &
+                                 TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)
       ! Set the velocity at time step n-1
       if(itt>=2) then
         TVar_n%u(:,:,:)=TVar%u(:,:,:)
@@ -119,18 +140,20 @@ Module ComputePUV
   !    print*,'================================='
   !    call BoundaryConditionVar(TVar)
       call BoundaryConditionVarNew(PGrid, PCell, TVar, BCp, BCu, BCv, BCw, Time)
+      ! Correcting velocity at the domain boundary to assure the global mass conservation
+      ! At the western boundary
       if(BCp%flag(1)==0) then
         i = 1
         do j = 1,Jmax
           do k = 1,Kmax
             TVar%u(i-1,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                  &
-                            (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		             &
-                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	           &
+                            (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-                &
+                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+             &
                              PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                  &
-                            (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		             &
-                             PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	           &
+                            (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-                &
+                             PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+             &
                              PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
-                  	     PCell%EEArea(i,j,k)*TVar%u(i,j,k))/                   &
+                             PCell%EEArea(i,j,k)*TVar%u(i,j,k))/               &
                              PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%u(i-1,j,k))) then
               print*,PCell%EEArea(i,j,k)
@@ -138,18 +161,19 @@ Module ComputePUV
             end if  
           end do
         end do
+      ! At the eastern boundary  
       elseif(BCp%flag(2)==0) then
         i = Imax
         do j = 1,Jmax
           do k = 1,Kmax
             TVar%u(i,j,k)=(PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                    &
-                         (-PCell%NEArea(i,j,k)*TVar%v(i,j,k)+		               &
-                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	             &
-                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
-                         (-PCell%TEArea(i,j,k)*TVar%w(i,j,k)+		               &
-                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	             &
-                           PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                  	   PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/                   &
+                         (-PCell%NEArea(i,j,k)*TVar%v(i,j,k)+                  &
+                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+               &
+                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                    &
+                         (-PCell%TEArea(i,j,k)*TVar%w(i,j,k)+                  &
+                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+               &
+                           PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                    &
+                           PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/               &
                            PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%u(i,j,k))) then
               print*,PCell%EEArea(i,j,k)
@@ -157,18 +181,19 @@ Module ComputePUV
             end if 
           end do
         end do
+      ! At the southern boundary  
       elseif(BCp%flag(3)==0) then
         j=1
         do i=1,Imax
           do k=1,Kmax
             TVar%v(i,j-1,k)=(PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
-                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
-                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+ 	       &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
-                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
-                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                  	    PCell%NEArea(i,j,k)*TVar%v(i,j,k))/                &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-                 &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+              &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                   &
+                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-                 &
+                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+              &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
+                            PCell%NEArea(i,j,k)*TVar%v(i,j,k))/                &
                             PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%v(i,j-1,k))) then
               print*,PCell%NEArea(i,j,k)
@@ -176,18 +201,19 @@ Module ComputePUV
             end if                 
           end do
         end do
+      ! At the northern boundary  
       elseif(BCp%flag(4)==0) then
         j=Jmax
         do i=1,Imax
           do j=1,Jmax
             TVar%v(i,j,k) =(-PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
-                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
-                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k)) 	       &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-                 &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))               &
                             -PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                  &
-                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-		       &
-                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+ 	       &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                  	    PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))/              &
+                           (PCell%TEArea(i,j,k)*TVar%w(i,j,k)-                 &
+                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))+              &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
+                            PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))/              &
                             PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
             if(isnan(TVar%v(i,j,k))) then
               print*,PCell%NEArea(i,j,k)
@@ -195,18 +221,19 @@ Module ComputePUV
             end if
           end do
         end do
+      ! At the bottom boundary  
       elseif(BCp%flag(5)==0) then
         k=1
         do i=1,Imax
           do j=1,Jmax
             TVar%w(i,j,k-1)=(PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
-                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
-                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+ 	       &
-                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                           (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
-                            PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
-                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
-                  	    PCell%TEArea(i,j,k)*TVar%w(i,j,k))/                &
+                           (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-                 &
+                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))+              &
+                            PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
+                           (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-                 &
+                            PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+              &
+                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                   &
+                            PCell%TEArea(i,j,k)*TVar%w(i,j,k))/                &
                             PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
             if(isnan(TVar%w(i,j,k-1))) then
               print*,PCell%TEArea(i,j,k)
@@ -214,18 +241,19 @@ Module ComputePUV
             end if
           end do
         end do
+      ! At the top boundary  
       elseif(BCp%flag(6)==0) then
         k=kmax
         do i=1,Imax
           do j=1,Jmax
             TVar%w(i,j,k)=(-PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                   &
-                          (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-		       &
-                           PCell%EEArea(i,j,k)*TVar%u(i-1,j,k)) 	       &
-                           -PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*           	       &
-                          (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-		       &
-                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+ 	       &
-                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*           	       &
-                  	   PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))/               &
+                          (PCell%EEArea(i,j,k)*TVar%u(i,j,k)-                  &
+                           PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))                &
+                           -PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
+                          (PCell%NEArea(i,j,k)*TVar%v(i,j,k)-                  &
+                           PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))+               &
+                           PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                    &
+                           PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))/               &
                            PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
             if(isnan(TVar%w(i,j,k))) then
               print*,PCell%TEArea(i,j,k)
@@ -247,7 +275,8 @@ Module ComputePUV
           end do
         end do
       end do     
-
+      print*, 'Set up velocity v to 0 ComputePUVW.f90 278'
+      TVar%v=0.d0
       deallocate(Pred%u)
       deallocate(Pred%v)
       deallocate(Pred%w)
@@ -256,14 +285,14 @@ Module ComputePUV
       deallocate(PV%Dp)
       deallocate(PW%Dp)
       deallocate(PoCoef)
-    end subroutine UpdatePUV
+    end subroutine UpdatePUVW
 
     subroutine BoundaryConditionVarNew(PGrid, PCell, Vari, BCp, BCu, BCv, BCw, Time)
-      type(Grid), intent(in)  	     :: PGrid
-      type(Cell), intent(in)  	     :: PCell
+      type(Grid),      intent(in)    :: PGrid
+      type(Cell),      intent(in)    :: PCell
       type(Variables), intent(inout) :: Vari
-      type(BCBase), intent(inout)    :: BCu, BCv, BCw, BCp
-      real(kind=dp), intent(in)      :: Time
+      type(BCBase),    intent(inout) :: BCu, BCv, BCw, BCp
+      real(kind=dp),   intent(in)    :: Time
       integer(kind=it4b)             :: i,j,k
 
       ! For the western boundary
@@ -510,4 +539,4 @@ Module ComputePUV
         end do
       end do
     end subroutine VariablesInternalCellCondition
-end module ComputePUV
+end module ComputePUVW

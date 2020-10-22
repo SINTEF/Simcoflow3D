@@ -7,7 +7,7 @@ Module ProjectionP
     USE Mesh
     USE Cutcell
     USE StateVariables
-    USE PredictorUV
+    USE PredictorUVW
     USE MPI
     USE ieee_arithmetic
     use BoundaryInterface

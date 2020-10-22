@@ -7,7 +7,7 @@ Program Main
     USE PrintResult
     USE MPI
     USE Solver
-    USE ComputePUV
+    USE ComputePUVW
     USE BoundaryInterface
     USE BoundaryFunction
     USE InitialVof
@@ -156,9 +156,11 @@ Program Main
     Call InitialClsvofFluidFieldDamBreak(WGrid,WCell)
     
     Call InitialClsvofLiquidFieldDamBreak(PGrid,PCell)
-    Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
-    Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
-    Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
+    call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
+                                                 UGrid,VGrid,WGrid)
+ !   Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
+ !   Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
+ !   Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
 
     call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
@@ -168,6 +170,9 @@ Program Main
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
  !   Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
     Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+    Call PrintResultVTR3D(UGrid,Var,UCell,"FlowFieldU",INT8(0))
+    Call PrintResultVTR3D(VGrid,Var,VCell,"FlowFieldV",INT8(0))
+    Call PrintResultVTR3D(WGrid,Var,WCell,"FlowFieldW",INT8(0))
     
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
     Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
@@ -181,7 +186,7 @@ Program Main
     Call InitialVarDambreak(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
     call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, 0.d0)
     Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,10)
     Pause
 End program main
 
