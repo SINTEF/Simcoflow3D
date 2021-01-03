@@ -1271,11 +1271,12 @@ Module Clsvof
        dx1 = dmax1(nx1*dx,ny1*dy,nz1*dz)
        dz1 = dmin1(nx1*dx,ny1*dy,nz1*dz)
        if(dabs(dz1)<tolpar) dz1=0.d0
-       dy1 = (nx1*dz+ny1*dy+nz1*dx)-dx1-dz1
+       dy1 = (nx1*dx+ny1*dy+nz1*dz)-dx1-dz1
        if(dabs(dy1)<tolpar) dy1=0.d0
        fc = dmin1(f,1.d0-f)
        sm = dx1+dy1+dz1
-       sc = (6.d0*fc*dx1*dy1*dz1)**(1.d0/3.d0)
+       sc = 6.d0*fc*dx1*dy1*dz1
+       sc = dsign(1.d0,sc)*(dabs(sc)**(1.d0/3.d0))
        if(isnan(sc)) then
          print*, 'Something wrong with sc Find_Distance clsvof 1183'
          print*, fc, dx1, dy1, dz1
@@ -1285,7 +1286,7 @@ Module Clsvof
        if(sc<dz1) then
           call Final_Distance(f,sc,sm,s)
        else
-          sc = 0.5d0*dz1+dsqrt(2.d0*fc*dx1*dy1-dz1**2.d0/12.d0)
+          sc = 0.5d0*dz1+dsqrt(2.d0*fc*dx1*dy1-dz1**2.d0/12.d0) 
           if(sc<dy1) then
              call Final_Distance(f,sc,sm,s)
              if(isnan(s)) then
