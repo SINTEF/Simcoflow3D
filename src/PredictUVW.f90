@@ -218,19 +218,67 @@ Module PredictorUVW
           Do k = 1,Kmax
           ! U Cell
             ! Compute the current density in u-velocity cell
-            RoCeO=(UCellO%vof(i,j,k)-UCellO%vofL(i,j,k))*RhoARef+              &
-                   UCellO%vofL(i,j,k)*RhoWRef
-            ! Compute the next density in u-velocity cell
-            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,1)-MFEW(i,j,k,1)+                     &
-                            MFNS(i,j+1,k,1)-MFNS(i,j,k,1)+                     &
-                            MFTB(i,j,k+1,1)-MFTB(i,j,k,1))/                    &
-                           (UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k))
-            ! Apply to only interface cell which will have the density between gas density and water density
-            if(RoCeN>(UCell%vof(i,j,k)+tolpar)*RhoARef.and.                    &
-               RoCeN<(UCell%vof(i,j,k)-tolpar)*RhoWRef.and.                    &
-               RoCeO>(UCellO%vof(i,j,k)+tolpar)*RhoARef.and.                   &
-               RoCeO<(UCellO%vof(i,j,k)-tolpar)*RhoWRef.and.                   &
-               UCell%vof(i,j,k)>1.d0-epsi)then
+            ! RoCeO=(UCellO%vof(i,j,k)-UCellO%vofL(i,j,k))*RhoARef+              &
+            !        UCellO%vofL(i,j,k)*RhoWRef
+            ! ! Compute the next density in u-velocity cell
+            ! RoCeN=RoCeO-dt*(MFEW(i+1,j,k,1)-MFEW(i,j,k,1)+                     &
+            !                 MFNS(i,j+1,k,1)-MFNS(i,j,k,1)+                     &
+            !                 MFTB(i,j,k+1,1)-MFTB(i,j,k,1))/                    &
+            !                (UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k))
+            ! ! Apply to only interface cell which will have the density between gas density and water density
+            ! if(RoCeN>(UCell%vof(i,j,k)+tolpar)*RhoARef.and.                    &
+            !    RoCeN<(UCell%vof(i,j,k)-tolpar)*RhoWRef.and.                    &
+            !    RoCeO>(UCellO%vof(i,j,k)+tolpar)*RhoARef.and.                   &
+            !    RoCeO<(UCellO%vof(i,j,k)-tolpar)*RhoWRef.and.                   &
+            !    UCell%vof(i,j,k)>1.d0-epsi)then
+            !   Fe = CFEW(i+1,j,k,1)
+            !   Fw = CFEW(i,j,k,1)
+            !   Fn = CFNS(i,j+1,k,1)
+            !   Fs = CFNS(i,j,k,1)
+            !   Ft = CFTB(i,j,k+1,1)
+            !   Fb = CFTB(i,j,k,1)
+            !   Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
+            !   ! if(RoCeN>0.5d0.and.RoCeN<0.9d0.and.j==7) then
+            !   !   print*, 'Flux applied before computing the convective flux Predictuvw 227'
+            !   !   print*, i,j,k
+            !   !   print*, dt,itt
+            !   !   print*, Fe, Fw
+            !   !   print*, Fn, Fs
+            !   !   print*, Ft, Fb
+            !   !   print*, Fluxn0
+            !   !   print*, 'velocity'
+            !   !   print*, un12(i,j,k), un12(i-1,j,k)
+            !   !   print*, wn12(i,j,k), wn12(i+1,j,k)
+            !   !   print*, wn12(i,j,k-1), wn12(i+1,j,k-1)
+            !   !   print*, Fluxn0/PGrid%dy(i,j,k)
+            !   !   print*, 'End flux computation based on convective flux 232'
+            !   ! end if  
+            !   ! First order upwind scheme
+            !   Fe=0.5d0*(MFEW(i+1,j,k,1)+dabs(MFEW(i+1,j,k,1)))*un12(i,j,k)+    &
+            !      0.5d0*(MFEW(i+1,j,k,1)-dabs(MFEW(i+1,j,k,1)))*un12(i+1,j,k)
+            !   Fw=0.5d0*(MFEW(i,j,k,1)+dabs(MFEW(i,j,k,1)))*un12(i-1,j,k)+      &
+            !      0.5d0*(MFEW(i,j,k,1)-dabs(MFEW(i,j,k,1)))*un12(i,j,k)
+            !   Fn=0.5d0*(MFNS(i,j+1,k,1)+dabs(MFNS(i,j+1,k,1)))*un12(i,j,k)+    &
+            !      0.5d0*(MFNS(i,j+1,k,1)-dabs(MFNS(i,j+1,k,1)))*un12(i,j+1,k)
+            !   Fs=0.5d0*(MFNS(i,j,k,1)+dabs(MFNS(i,j,k,1)))*un12(i,j-1,k)+      &
+            !      0.5d0*(MFNS(i,j,k,1)-dabs(MFNS(i,j,k,1)))*un12(i,j,k)   
+            !   Ft=0.5d0*(MFTB(i,j,k+1,1)+dabs(MFTB(i,j,k+1,1)))*un12(i,j,k)+    &
+            !      0.5d0*(MFTB(i,j,k+1,1)-dabs(MFTB(i,j,k+1,1)))*un12(i,j,k+1)
+            !   Fb=0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k-1)+      &
+            !      0.5d0*(MFTB(i,j,k,1)-dabs(MFTB(i,j,k,1)))*un12(i,j,k)   
+            ! !  print*, 'UCell index apply the correction-based convective flux'   
+            ! !  print*, RoCeO, RoCeN
+            ! !  print*,i,j,k
+            !   ! Compute the correction-based convective flux    
+            !   Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+TVar%u(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*  &
+            !                   UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
+            !   ! if(RoCeN>0.5d0.and.RoCeN<0.9d0.and.j==7) then
+            !   !   print*, Fluxn0
+            !   !   print*, Fluxn0/PGrid%dy(i,j,k)
+            !   !   print*, '===================================================='   
+            !   ! end if               
+            ! !  print*,'Using density-based convective flux'                
+            ! elseif(UCell%Cell_Type(i,j,k)/=2) then
               Fe = CFEW(i+1,j,k,1)
               Fw = CFEW(i,j,k,1)
               Fn = CFNS(i,j+1,k,1)
@@ -238,55 +286,7 @@ Module PredictorUVW
               Ft = CFTB(i,j,k+1,1)
               Fb = CFTB(i,j,k,1)
               Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
-              ! if(RoCeN>0.5d0.and.RoCeN<0.9d0.and.j==7) then
-              !   print*, 'Flux applied before computing the convective flux Predictuvw 227'
-              !   print*, i,j,k
-              !   print*, dt,itt
-              !   print*, Fe, Fw
-              !   print*, Fn, Fs
-              !   print*, Ft, Fb
-              !   print*, Fluxn0
-              !   print*, 'velocity'
-              !   print*, un12(i,j,k), un12(i-1,j,k)
-              !   print*, wn12(i,j,k), wn12(i+1,j,k)
-              !   print*, wn12(i,j,k-1), wn12(i+1,j,k-1)
-              !   print*, Fluxn0/PGrid%dy(i,j,k)
-              !   print*, 'End flux computation based on convective flux 232'
-              ! end if  
-              ! First order upwind scheme
-              Fe=0.5d0*(MFEW(i+1,j,k,1)+dabs(MFEW(i+1,j,k,1)))*un12(i,j,k)+    &
-                 0.5d0*(MFEW(i+1,j,k,1)-dabs(MFEW(i+1,j,k,1)))*un12(i+1,j,k)
-              Fw=0.5d0*(MFEW(i,j,k,1)+dabs(MFEW(i,j,k,1)))*un12(i-1,j,k)+      &
-                 0.5d0*(MFEW(i,j,k,1)-dabs(MFEW(i,j,k,1)))*un12(i,j,k)
-              Fn=0.5d0*(MFNS(i,j+1,k,1)+dabs(MFNS(i,j+1,k,1)))*un12(i,j,k)+    &
-                 0.5d0*(MFNS(i,j+1,k,1)-dabs(MFNS(i,j+1,k,1)))*un12(i,j+1,k)
-              Fs=0.5d0*(MFNS(i,j,k,1)+dabs(MFNS(i,j,k,1)))*un12(i,j-1,k)+      &
-                 0.5d0*(MFNS(i,j,k,1)-dabs(MFNS(i,j,k,1)))*un12(i,j,k)   
-              Ft=0.5d0*(MFTB(i,j,k+1,1)+dabs(MFTB(i,j,k+1,1)))*un12(i,j,k)+    &
-                 0.5d0*(MFTB(i,j,k+1,1)-dabs(MFTB(i,j,k+1,1)))*un12(i,j,k+1)
-              Fb=0.5d0*(MFTB(i,j,k,1)+dabs(MFTB(i,j,k,1)))*un12(i,j,k-1)+      &
-                 0.5d0*(MFTB(i,j,k,1)-dabs(MFTB(i,j,k,1)))*un12(i,j,k)   
-            !  print*, 'UCell index apply the correction-based convective flux'   
-            !  print*, RoCeO, RoCeN
-            !  print*,i,j,k
-              ! Compute the correction-based convective flux    
-              Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+TVar%u(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*  &
-                              UGrid%dx(i,j,k)*UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
-              ! if(RoCeN>0.5d0.and.RoCeN<0.9d0.and.j==7) then
-              !   print*, Fluxn0
-              !   print*, Fluxn0/PGrid%dy(i,j,k)
-              !   print*, '===================================================='   
-              ! end if               
-            !  print*,'Using density-based convective flux'                
-            elseif(UCell%Cell_Type(i,j,k)/=2) then
-              Fe = CFEW(i+1,j,k,1)
-              Fw = CFEW(i,j,k,1)
-              Fn = CFNS(i,j+1,k,1)
-              Fs = CFNS(i,j,k,1)
-              Ft = CFTB(i,j,k+1,1)
-              Fb = CFTB(i,j,k,1)
-              Fluxn0 = Fe-Fw+Fn-Fs+Ft-Fb
-            end if
+          !  end if
             ! Not using the density-based convective flux
           !  Fe = CFEW(i+1,j,k,1)
           !  Fw = CFEW(i,j,k,1)
@@ -387,34 +387,34 @@ Module PredictorUVW
         do j = 1,Jmax-1
           do k = 1,Kmax
             ! Compute the current density in v-velocity cell
-            RoCeO=(VCellO%vof(i,j,k)-VCellO%vofL(i,j,k))*RhoARef+       &
-                   VCellO%vofL(i,j,k)*RhoWRef
-            ! Compute the new density in v-velocity cell at the next time step
-            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,2)-MFEW(i,j,k,2)+                     &
-                            MFNS(i,j+1,k,2)-MFNS(i,j,k,2)+                     &
-                            MFTB(i,j,k+1,2)-MFTB(i,j,k,2))/                    &
-                           (VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k))
-            if(RoCeN>(VCell%vof(i,j,k)+tolpar)*RhoARef.and.             &
-               RoCeN<(VCell%vof(i,j,k)-tolpar)*RhoWRef.and.             &
-               RoCeO>(VCellO%vof(i,j,k)+tolpar)*RhoARef.and.            &
-               RoCeO<(VCellO%vof(i,j,k)-tolpar)*RhoWRef.and.            &
-               VCell%vof(i,j,k)>1.d0-epsi)then
-              Fe=0.5d0*(MFEW(i+1,j,k,2)+dabs(MFEW(i+1,j,k,2)))*vn12(i,j,k)+    &
-                 0.5d0*(MFEW(i+1,j,k,2)-dabs(MFEW(i+1,j,k,2)))*vn12(i+1,j,k)
-              Fw=0.5d0*(MFEW(i,j,k,2)+dabs(MFEW(i,j,k,2)))*vn12(i-1,j,k)+      &
-                 0.5d0*(MFEW(i,j,k,2)-dabs(MFEW(i,j,k,2)))*vn12(i,j,k)
-              Fn=0.5d0*(MFNS(i,j+1,k,2)+dabs(MFNS(i,j+1,k,2)))*vn12(i,j,k)+    &
-                 0.5d0*(MFNS(i,j+1,k,2)-dabs(MFNS(i,j+1,k,2)))*vn12(i,j+1,k)
-              Fs=0.5d0*(MFNS(i,j,k,2)+dabs(MFNS(i,j,k,2)))*vn12(i,j-1,k)+      &
-                 0.5d0*(MFNS(i,j,k,2)-dabs(MFNS(i,j,k,2)))*vn12(i,j,k)   
-              Ft=0.5d0*(MFTB(i,j,k+1,2)+dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k)+    &
-                 0.5d0*(MFTB(i,j,k+1,2)-dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k+1)
-              Fb=0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k-1)+      &
-                 0.5d0*(MFTB(i,j,k,2)-dabs(MFTB(i,j,k,2)))*vn12(i,j,k)   
-              ! Compute the density-based correction flux
-              Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+TVar%v(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
-                              VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)               
-            elseif(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
+            ! RoCeO=(VCellO%vof(i,j,k)-VCellO%vofL(i,j,k))*RhoARef+       &
+            !        VCellO%vofL(i,j,k)*RhoWRef
+            ! ! Compute the new density in v-velocity cell at the next time step
+            ! RoCeN=RoCeO-dt*(MFEW(i+1,j,k,2)-MFEW(i,j,k,2)+                     &
+            !                 MFNS(i,j+1,k,2)-MFNS(i,j,k,2)+                     &
+            !                 MFTB(i,j,k+1,2)-MFTB(i,j,k,2))/                    &
+            !                (VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k))
+            ! if(RoCeN>(VCell%vof(i,j,k)+tolpar)*RhoARef.and.             &
+            !    RoCeN<(VCell%vof(i,j,k)-tolpar)*RhoWRef.and.             &
+            !    RoCeO>(VCellO%vof(i,j,k)+tolpar)*RhoARef.and.            &
+            !    RoCeO<(VCellO%vof(i,j,k)-tolpar)*RhoWRef.and.            &
+            !    VCell%vof(i,j,k)>1.d0-epsi)then
+            !   Fe=0.5d0*(MFEW(i+1,j,k,2)+dabs(MFEW(i+1,j,k,2)))*vn12(i,j,k)+    &
+            !      0.5d0*(MFEW(i+1,j,k,2)-dabs(MFEW(i+1,j,k,2)))*vn12(i+1,j,k)
+            !   Fw=0.5d0*(MFEW(i,j,k,2)+dabs(MFEW(i,j,k,2)))*vn12(i-1,j,k)+      &
+            !      0.5d0*(MFEW(i,j,k,2)-dabs(MFEW(i,j,k,2)))*vn12(i,j,k)
+            !   Fn=0.5d0*(MFNS(i,j+1,k,2)+dabs(MFNS(i,j+1,k,2)))*vn12(i,j,k)+    &
+            !      0.5d0*(MFNS(i,j+1,k,2)-dabs(MFNS(i,j+1,k,2)))*vn12(i,j+1,k)
+            !   Fs=0.5d0*(MFNS(i,j,k,2)+dabs(MFNS(i,j,k,2)))*vn12(i,j-1,k)+      &
+            !      0.5d0*(MFNS(i,j,k,2)-dabs(MFNS(i,j,k,2)))*vn12(i,j,k)   
+            !   Ft=0.5d0*(MFTB(i,j,k+1,2)+dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k)+    &
+            !      0.5d0*(MFTB(i,j,k+1,2)-dabs(MFTB(i,j,k+1,2)))*vn12(i,j,k+1)
+            !   Fb=0.5d0*(MFTB(i,j,k,2)+dabs(MFTB(i,j,k,2)))*vn12(i,j,k-1)+      &
+            !      0.5d0*(MFTB(i,j,k,2)-dabs(MFTB(i,j,k,2)))*vn12(i,j,k)   
+            !   ! Compute the density-based correction flux
+            !   Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+TVar%v(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*    &
+            !                   VGrid%dx(i,j,k)*VGrid%dy(i,j,k)*VGrid%dz(i,j,k)               
+            ! elseif(VCell%Cell_Type(i,j,k)/=2) then ! for VCell
               Fe = CFEW(i+1,j,k,2)
               Fw = CFEW(i,j,k,2)
               Fn = CFNS(i,j+1,k,2)
@@ -422,7 +422,7 @@ Module PredictorUVW
               Ft = CFTB(i,j,k+1,2)
               Fb = CFTB(i,j,k,2)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
-            end if
+          !  end if
             ! Not using the density-based convective flux
             ! Fe = CFEW(i+1,j,k,2)
             ! Fw = CFEW(i,j,k,2)
@@ -497,49 +497,49 @@ Module PredictorUVW
         do j = 1,Jmax
           do k = 1,Kmax-1
             ! Compute the current density in w-velocity cell
-            RoCeO=(WCell%vof(i,j,k)-WCell%vofL(i,j,k))*RhoARef+         &
-                   WCell%vofL(i,j,k)*RhoWRef
-            ! Compute the next density in w-velocity cell       
-            RoCeN=RoCeO-dt*(MFEW(i+1,j,k,3)-MFEW(i,j,k,3)+                     &
-                            MFNS(i,j+1,k,3)-MFNS(i,j,k,3)+                     &
-                            MFTB(i,j,k+1,3)-MFTB(i,j,k,3))/                    &
-                           (WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k))
-            if(RoCeN>(WCell%vof(i,j,k)+tolpar)*RhoARef.and.             &
-               RoCeN<(WCell%vof(i,j,k)-tolpar)*RhoWRef.and.             &
-               RoCeO>(WCellO%vof(i,j,k)+tolpar)*RhoARef.and.            &
-               RoCeO<(WCellO%vof(i,j,k)-tolpar)*RhoWRef.and.            &
-               WCell%vof(i,j,k)>1.d0-epsi)then
-            !  Fe=CFEW(i+1,j,k,3)
-            !  Fw=CFEW(i,j,k,3)
-            !  Fn=CFNS(i,j+1,k,3)
-            !  Fs=CFNS(i,j,k,3)
-            !  Ft=CFTB(i,j,k+1,3)
-            !  Fb=CFTB(i,j,k,3)
-            !  Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
-            !  print*, 'convective flux with no correction -------'
-            !  print*, Fluxn0
-              Fe=0.5d0*(MFEW(i+1,j,k,3)+dabs(MFEW(i+1,j,k,3)))*wn12(i,j,k)+    &
-                 0.5d0*(MFEW(i+1,j,k,3)-dabs(MFEW(i+1,j,k,3)))*wn12(i+1,j,k)
-              Fw=0.5d0*(MFEW(i,j,k,3)+dabs(MFEW(i,j,k,3)))*wn12(i-1,j,k)+      &
-                 0.5d0*(MFEW(i,j,k,3)-dabs(MFEW(i,j,k,3)))*wn12(i,j,k)
-              Fn=0.5d0*(MFNS(i,j+1,k,3)+dabs(MFNS(i,j+1,k,3)))*wn12(i,j,k)+    &
-                 0.5d0*(MFNS(i,j+1,k,3)-dabs(MFNS(i,j+1,k,3)))*wn12(i,j+1,k)
-              Fs=0.5d0*(MFNS(i,j,k,3)+dabs(MFNS(i,j,k,3)))*wn12(i,j-1,k)+      &
-                 0.5d0*(MFNS(i,j,k,3)-dabs(MFNS(i,j,k,3)))*wn12(i,j,k)   
-              Ft=0.5d0*(MFTB(i,j,k+1,3)+dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k)+    &
-                 0.5d0*(MFTB(i,j,k+1,3)-dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k+1)
-              Fb=0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k-1)+      &
-                 0.5d0*(MFTB(i,j,k,3)-dabs(MFTB(i,j,k,3)))*wn12(i,j,k)   
-              ! Compute the density-based correction flux    
-              Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+                                &
-                      TVar%w(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*                     &
-                      WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
-            !  print*, 'convective flux with correction ++++='
-            !  print*, Fluxn0
+            ! RoCeO=(WCell%vof(i,j,k)-WCell%vofL(i,j,k))*RhoARef+         &
+            !        WCell%vofL(i,j,k)*RhoWRef
+            ! ! Compute the next density in w-velocity cell       
+            ! RoCeN=RoCeO-dt*(MFEW(i+1,j,k,3)-MFEW(i,j,k,3)+                     &
+            !                 MFNS(i,j+1,k,3)-MFNS(i,j,k,3)+                     &
+            !                 MFTB(i,j,k+1,3)-MFTB(i,j,k,3))/                    &
+            !                (WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k))
+            ! if(RoCeN>(WCell%vof(i,j,k)+tolpar)*RhoARef.and.             &
+            !    RoCeN<(WCell%vof(i,j,k)-tolpar)*RhoWRef.and.             &
+            !    RoCeO>(WCellO%vof(i,j,k)+tolpar)*RhoARef.and.            &
+            !    RoCeO<(WCellO%vof(i,j,k)-tolpar)*RhoWRef.and.            &
+            !    WCell%vof(i,j,k)>1.d0-epsi)then
+            ! !  Fe=CFEW(i+1,j,k,3)
+            ! !  Fw=CFEW(i,j,k,3)
+            ! !  Fn=CFNS(i,j+1,k,3)
+            ! !  Fs=CFNS(i,j,k,3)
+            ! !  Ft=CFTB(i,j,k+1,3)
+            ! !  Fb=CFTB(i,j,k,3)
+            ! !  Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
+            ! !  print*, 'convective flux with no correction -------'
+            ! !  print*, Fluxn0
+            !   Fe=0.5d0*(MFEW(i+1,j,k,3)+dabs(MFEW(i+1,j,k,3)))*wn12(i,j,k)+    &
+            !      0.5d0*(MFEW(i+1,j,k,3)-dabs(MFEW(i+1,j,k,3)))*wn12(i+1,j,k)
+            !   Fw=0.5d0*(MFEW(i,j,k,3)+dabs(MFEW(i,j,k,3)))*wn12(i-1,j,k)+      &
+            !      0.5d0*(MFEW(i,j,k,3)-dabs(MFEW(i,j,k,3)))*wn12(i,j,k)
+            !   Fn=0.5d0*(MFNS(i,j+1,k,3)+dabs(MFNS(i,j+1,k,3)))*wn12(i,j,k)+    &
+            !      0.5d0*(MFNS(i,j+1,k,3)-dabs(MFNS(i,j+1,k,3)))*wn12(i,j+1,k)
+            !   Fs=0.5d0*(MFNS(i,j,k,3)+dabs(MFNS(i,j,k,3)))*wn12(i,j-1,k)+      &
+            !      0.5d0*(MFNS(i,j,k,3)-dabs(MFNS(i,j,k,3)))*wn12(i,j,k)   
+            !   Ft=0.5d0*(MFTB(i,j,k+1,3)+dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k)+    &
+            !      0.5d0*(MFTB(i,j,k+1,3)-dabs(MFTB(i,j,k+1,3)))*wn12(i,j,k+1)
+            !   Fb=0.5d0*(MFTB(i,j,k,3)+dabs(MFTB(i,j,k,3)))*wn12(i,j,k-1)+      &
+            !      0.5d0*(MFTB(i,j,k,3)-dabs(MFTB(i,j,k,3)))*wn12(i,j,k)   
+            !   ! Compute the density-based correction flux    
+            !   Fluxn0=(Fe-Fw+Fn-Fs+Ft-Fb)/RoCeN+                                &
+            !           TVar%w(i,j,k)*(1.d0-RoCeO/RoCeN)/dt*                     &
+            !           WGrid%dx(i,j,k)*WGrid%dy(i,j,k)*WGrid%dz(i,j,k)
+            ! !  print*, 'convective flux with correction ++++='
+            ! !  print*, Fluxn0
 
 
-            !  print*, 'Using density-based convective flux'
-            elseif(WCell%Cell_Type(i,j,k)/=2) then ! for WCell
+            ! !  print*, 'Using density-based convective flux'
+            ! elseif(WCell%Cell_Type(i,j,k)/=2) then ! for WCell
               Fe=CFEW(i+1,j,k,3)
               Fw=CFEW(i,j,k,3)
               Fn=CFNS(i,j+1,k,3)
@@ -547,7 +547,7 @@ Module PredictorUVW
               Ft=CFTB(i,j,k+1,3)
               Fb=CFTB(i,j,k,3)
               Fluxn0=Fe-Fw+Fn-Fs+Ft-Fb
-            end if
+          !  end if
             ! Not using the density-based convective flux
           !  Fe=CFEW(i+1,j,k,3)
           !  Fw=CFEW(i,j,k,3)

@@ -148,7 +148,8 @@ Module Solver
           TVar_n%v(:,:,:) = TVar%v(:,:,:)
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
         end if  
-        dt = Time%dt!/3.d0
+        print*, 'Solver.f90 151'
+        print*, 'Time step size:', dt
         ! Compute the previous cell configuration 
         call CopyOldCellNewCell(PCellO,PCell)
         call CopyOldCellNewCell(UCellO,UCell)
@@ -220,15 +221,15 @@ Module Solver
             end do
           end do
         end do
-        ! if(itt==1) then
-        !   do i=1,Imax
-        !     do j=1,Jmax
-        !       do k=1,Kmax
-        !         Time%dt=dmin1(Time%dt,Time%cfl*UGrid%dx(i,j,k))
-        !       end do
-        !     end do
-        !   end do
-        ! end if        
+        if(itt==1) then
+          do i=1,Imax
+            do j=1,Jmax
+              do k=1,Kmax
+                Time%dt=dmin1(Time%dt,Time%cfl*UGrid%dx(i,j,k))
+              end do
+            end do
+          end do
+        end if        
     end Subroutine ComputeTimeStep
 
     Subroutine ResidualNormCalculate(TCell,Varn1,Varn,Tres,Conv)
