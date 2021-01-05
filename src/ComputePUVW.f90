@@ -7,6 +7,7 @@ Module ComputePUVW
     USE ProjectionP
     use BoundaryInterface
     use BoundaryFunction
+    use MPI
 
     Implicit none
     Private
@@ -75,10 +76,24 @@ Module ComputePUVW
                         FluxDivOld, TVar_n, TVar,                              &
                         BCu, BCv, BCw, PU, PV, PW, Pred, dt, itt)
       ! Solve the Poisson equation
-      call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
-                                 PCell, UCell, VCell, WCell,                   &
-                                 TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)
+    !  call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
+    !                             PCell, UCell, VCell, WCell,                   &
+    !                             TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)
       ! Set the velocity at time step n-1
+      print*, 'Test predicted velocity and their coefficients ComputePUV.f90 76'
+      if(myid==0) then
+      open(unit=5,file='testw.txt',action='write')
+      do i = 1, Imax
+        do j = 1, Jmax
+          do k = 1, Kmax
+            write(5,*) 'ijk', i,j,k
+            write(5,*) Pred%w(i,j,k)
+          end do
+        end do
+      end do
+      close(5)     
+      end if 
+      pause 'ComputePUV.f90 100'
       if(itt>=2) then
         TVar_n%u(:,:,:)=TVar%u(:,:,:)
         TVar_n%v(:,:,:)=TVar%v(:,:,:)

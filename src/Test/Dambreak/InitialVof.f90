@@ -248,8 +248,6 @@ Module InitialVof
           End do
         End do
       End do
-      Open(unit=5,file='Convergence.dat')
-      close(5,status='delete')
       Rey = Uref*Lref*Roref/nuref
       Fr = Uref/dsqrt(g*Lref)
       Print*,"Reynolds number:",Rey
