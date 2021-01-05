@@ -155,12 +155,12 @@ Module Solver
         call CopyOldCellNewCell(UCellO,UCell)
         call CopyOldCellNewCell(VCellO,VCell)
         call CopyOldCellNewCell(WCellO,WCell)
-        if(itt>1) then
-          call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &
-                                                        Time%NondiT,dt,itt)
-          call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
-                                                 UGrid,VGrid,WGrid)
-        end if
+        ! if(itt>1) then
+        !   call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &
+        !                                                 Time%NondiT,dt,itt)
+        !   call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
+        !                                          UGrid,VGrid,WGrid)
+        ! end if
         call UpdatePUVW(UGrid, VGrid, WGrid, PGrid,                            &
                         UCell, VCell, WCell, PCell,                            &
                         UCellO, VCellO, WCellO, PCellO,                        &
