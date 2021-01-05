@@ -706,8 +706,8 @@ Module PredictorUVW
       Call PredictorVelocityBoundaryCondition(Pred,BCu,BCv,BCw)
       Call PredictorVelocityInternalCellCondition(Pred,UCell,VCell,WCell)
     !  print*, 'Set up v velocity to 0 for debugging Predictuvw'
-      Pred%v=0.d0
-      PV%Dp=0.d0
+    !  Pred%v=0.d0
+    !  PV%Dp=0.d0
       Deallocate(CFEW,CFNS,CFTB,MFEW,MFNS,MFTB)
       Deallocate(DFEW,DFNS,DFTB)
       Deallocate(EDFEW,EDFNS,EDFTB)

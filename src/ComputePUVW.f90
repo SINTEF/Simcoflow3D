@@ -278,8 +278,8 @@ Module ComputePUVW
           end do
         end do
       end do     
-      print*, 'Set up velocity v to 0 ComputePUVW.f90 278'
-      TVar%v=0.d0
+    !  print*, 'Set up velocity v to 0 ComputePUVW.f90 278'
+    !  TVar%v=0.d0
       deallocate(Pred%u)
       deallocate(Pred%v)
       deallocate(Pred%w)

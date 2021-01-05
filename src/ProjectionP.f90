@@ -60,6 +60,7 @@ Module ProjectionP
                                                    0,0,0,0,1,0,PoCoef(:,:,:,5))
         call Compute1DGFMCoefficient(PGrid,PCell,WGrid,PW,row,                 &
                                                    0,0,0,0,0,1,PoCoef(:,:,:,6))
+        if(dt<0.12d0) then
         if(myid==0) then
         open(unit=5,file="TestPo0Serial.txt",action='write')
         do i = 1,Imax
@@ -83,6 +84,7 @@ Module ProjectionP
           end do    
         end do
         close(5)
+        end if
         end if
         p => TVar%p
         u => TPred%u
