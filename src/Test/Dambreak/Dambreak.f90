@@ -186,7 +186,7 @@ Program Main
     Call InitialVarDambreak(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
     call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, 0.d0)
     Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,10)
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
     Pause
 End program main
 

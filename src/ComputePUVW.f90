@@ -87,7 +87,6 @@ Module ComputePUVW
         TVar_n%p(:,:,:)=Tvar%p(:,:,:)
       end if  
 
-      if(itt==2) pause 'ProjectionP.f90 86'
       maxPoCoef=0.d0
       do i = 1,Imax
         do j = 1,Jmax
