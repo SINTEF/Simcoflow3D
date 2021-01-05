@@ -44,7 +44,7 @@ Module ProjectionP
         real(kind=dp),intent(in)	      :: dt
         integer*8			      :: A,parcsr_A,b,par_b,x,par_x
         integer*8			      :: solver,precond
-        integer(kind=it4b)		      :: num_iterations
+        integer(kind=it4b)		      :: num_iterations,i,j,k
         real(kind=dp)			      :: final_res_norm,tol
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: PoCoef   ! the coefficient for Poisson solving
         
@@ -60,6 +60,30 @@ Module ProjectionP
                                                    0,0,0,0,1,0,PoCoef(:,:,:,5))
         call Compute1DGFMCoefficient(PGrid,PCell,WGrid,PW,row,                 &
                                                    0,0,0,0,0,1,PoCoef(:,:,:,6))
+        if(myid==0) then
+        open(unit=5,file="TestPo0Serial.txt",action='write')
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+              write(5,*) i,j,k, PoCoef(i,j,k,1),PoCoef(i,j,k,2),PoCoef(i,j,k,3), &
+                                PoCoef(i,j,k,4),PoCoef(i,j,k,5),PoCoef(i,j,k,6)
+              write(5,*) i,j,k, PU%dp(i,j,k), PV%dp(i,j,k), PW%dp(i,j,k)
+            end do
+          end do    
+        end do
+        close(5)
+        else
+        open(unit=5,file="TestPo1Serial.txt",action='write')
+        do i = 1,Imax
+          do j = 1,Jmax
+            do k = 1,Kmax
+              write(5,*) i,j,k, PoCoef(i,j,k,1),PoCoef(i,j,k,2),PoCoef(i,j,k,3), &
+                                PoCoef(i,j,k,4),PoCoef(i,j,k,5),PoCoef(i,j,k,6)
+            end do
+          end do    
+        end do
+        close(5)
+        end if
         p => TVar%p
         u => TPred%u
         v => TPred%v
