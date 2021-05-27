@@ -25,11 +25,14 @@ Module StateVariables
     End interface InitialVar
     
     Contains
-    
-    Subroutine InitialVar(Vari,Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref)
+    !    
+    Subroutine InitialVar(Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref, Vari)
+      !
       Real(kind=dp),intent(in):: Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref
       Type(Variables),intent(inout):: Vari
+
       Integer(kind=it4b):: i,j,k
+      !
       Vari%Uint = Uint
       Vari%Vint = Vint
       Vari%Wint = Wint
@@ -39,10 +42,13 @@ Module StateVariables
       Vari%Roref = Roref
       Vari%Pref = Roref*Uref**2.d0
       Vari%Tref = Tref
+      !
       nuref = nu
+      !
       Do i = 0,Imax+1
         Do j = 0,Jmax+1
           Do k = 0,Kmax+1
+            !
             Vari%u(i,j,k) = 0.d0 !Uint/Uref
             Vari%v(i,j,k) = 0.d0 !Vint/Uref
             Vari%w(i,j,k) = 0.d0
@@ -52,16 +58,22 @@ Module StateVariables
             Vari%t(i,j,k) = Tint/Tref
             Vari%mres(i,j,k) = 0.d0
             Vari%pres(i,j,k) = 0.d0
+            !
           End do
         End do
       End do
+      !
       Open(unit=5,file='Convergence.dat')
       close(5,status='delete')
+      !
       Rey = Uref*Lref*Roref/nuref
       Fr = Uref/dsqrt(g*Lref)
+      !
       Print*,"Reynolds number:",Rey,Uref,Lref,Roref,nuref
       Print*,"Froude number:",Fr
+      !
     End subroutine InitialVar
+    !
     !*******************************************************
     !             dp/dn = 0.d0, u,v = 0.d0
     !  wall________________________

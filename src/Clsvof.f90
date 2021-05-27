@@ -83,71 +83,90 @@ Module Clsvof
       !  call BoundaryConditionLvsVof(PGrid,PCell,TVar,BCLvs,BCVof,0.d0)
 
     end subroutine initialiseClsvof
-
-    subroutine InitialClsvofFluidField(TGrid,TCell)
+    !
+    subroutine InitialClsvofFluidField(TGrid, TCell)
+      !
       type(Grid),       intent(in)           :: TGrid
       type(Cell),       intent(inout),target :: TCell
-      integer(kind=it4b)	                   :: i,j,k
-      real(kind=dp)		                       :: dx,dy,dz,dis,vol,Radius,epsi,s
-      real(kind=dp)		                       :: tol
+
+      integer(kind=it4b)                     :: i,j,k
+      real(kind=dp)                          :: dx,dy,dz,dis,vol,Radius,epsi,s
+      real(kind=dp)                          :: tol
       real(kind=dp),dimension(:,:,:),pointer :: vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
       real(kind=dp),dimension(:,:,:),pointer :: phiF    ! phi represents the liquid level set function, phiF represents fluid level set function
       real(kind=dp),dimension(:,:,:),pointer :: nxF,nyF,nzF ! nxF,nyF,nzF is fluid normal vector
-
+      !
       tol = 1.d-20
       epsi = 1.d-40
+      !
       vflF => TCell%vof
       phiF => TCell%phi
       nxF => TCell%nx
       nyF => TCell%ny
       nzF => TCell%nz
+      !
       Radius = 0.5d0/TGrid%Lref
+      !
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
+            !
             dx=TGrid%x(i,j,k)!-100.d0
             dy=TGrid%y(i,j,k)
             dz=TGrid%z(i,j,k)
+            !
             dis=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius
+            !
             nxF(i,j,k)=dx/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nyF(i,j,k)=dy/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
             nzF(i,j,k)=dz/dsqrt(dx**2.d0+dy**2.d0+dz**2.d0+epsi)
+            !
             s=dis+0.5*(dabs(nxF(i,j,k))*TGrid%dx(i,j,k)+dabs(nyF(i,j,k))*      &
                        TGrid%dy(i,j,k)+dabs(nzF(i,j,k))*TGrid%dz(i,j,k))
+            !   
             call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),         &
                  TGrid%dz(i,j,k),nxF(i,j,k),nyF(i,j,k),nzF(i,j,k),s,vol)
+            !
             vflF(i,j,k)=vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
+            !
             phiF(i,j,k)=dis
+            !
           end do
         end do
       end do
+      !
       nullify(vflF)
       nullify(phiF)
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
+      !
     end subroutine InitialClsvofFluidField
-
+    !
     subroutine InitialClsvofLiquidField(TGrid,TCell)
+      !      
       implicit none
+      !
       type(Grid),       intent(in)           :: TGrid
       type(Cell),       intent(inout),target :: TCell
-      integer(kind=it4b)	                   :: i,j,k
-      real(kind=dp)		                       :: dx,dy,dz,dis,vol,Radius,epsi,s
-      real(kind=dp)		                       :: tol
+
+      integer(kind=it4b)                     :: i,j,k
+      real(kind=dp)                          :: dx,dy,dz,dis,vol,Radius,epsi,s
+      real(kind=dp)                          :: tol
       real(kind=dp),dimension(:,:,:),pointer :: vfl    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
       real(kind=dp),dimension(:,:,:),pointer :: phi    ! phi represents the liquid level set function, phiF represents fluid level set function
       real(kind=dp),dimension(:,:,:),pointer :: nxL,nyL,nzL ! nxF,nyF,nzF is fluid normal vector
-
+      !
       vfl => TCell%vofL
       phi => TCell%phiL
       nxL => TCell%nxL
       nyL => TCell%nyL
       nzL => TCell%nzL
-
+      !
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
+            !
             vfl(i,j,k)=1.d0*TCell%vof(i,j,k)
             phi(i,j,k)=-1.d3
             nxL(i,j,k)=0.d0
@@ -156,14 +175,15 @@ Module Clsvof
           end do
         end do
       end do
-
+      !
       nullify(vfl)
       nullify(phi)
       nullify(nxL)
       nullify(nyL)
       nullify(nzL)
+      !
     end subroutine InitialClsvofLiquidField
-
+    !
     subroutine ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
                                                  UGrid,VGrid,WGrid)
       !! The subroutine is used to compute the liquid volume fraction for UCell,VCell,WCell
@@ -1422,39 +1442,46 @@ Module Clsvof
           sc = sc-delvar
        end do
     end subroutine Newton_Raphson
-
+    !
     subroutine Volume_Fraction_Calc(dx,dy,dz,nxx,nyy,nzz,s,vol)
-      !! The subroutine is used to compute the volume inside the box.
-      !! The inputs are box size: dx,dy,dz and the interface information: nxx,nyy,nzz,s.
-      !! The method is from "CLSVOF as a fast and mass-conserving extension
-      !! level-set method for the simulation of two phases flow" Griebel and Klitz.
-      !! Section 5 in page 14  
+       !! The subroutine is used to compute the volume inside the box.
+       !! The inputs are box size: dx,dy,dz and the interface information: nxx,nyy,nzz,s.
+       !! The method is from "CLSVOF as a fast and mass-conserving extension
+       !! level-set method for the simulation of two phases flow" Griebel and Klitz.
+       !! Section 5 in page 14  
        real(dp),intent(in)  :: nxx,nyy,nzz,dx,dy,dz,s
        real(dp),intent(out) :: vol
+
        real(dp)             :: nx1,ny1,nz1,dx1,dy1,dz1
        real(dp)             :: sc,sm,fc,vol1,vol2
+       !
        nx1 = dabs(nxx)
        ny1 = dabs(nyy)
        nz1 = dabs(nzz)
-       
-      ! print*, nx1,ny1,nz1
+       !
+       ! print*, nx1,ny1,nz1
        if(dabs(nx1*dx)>1.d10.or.dabs(ny1*dy)>1.d10.or.dabs(nz1*dz)>1.d10) then
          print*, dx1, dy1, dz1
          print*, 'Something is wrong with computing the parameters'
        end if  
+       !
        dx1 = dmax1(nx1*dx,ny1*dy,nz1*dz)
        dz1 = dmin1(nx1*dx,ny1*dy,nz1*dz)
        dy1 = (nx1*dx+ny1*dy+nz1*dz)-dx1-dz1
+       !
        sm = dx1+dy1+dz1
        sc = dmin1(s,sm-s)
+       !
        if(s<=0.d0) then
           vol =  0.d0
           return
        end if
+       !
        if(s>=sm) then     ! be careful with this condition. it affects to region contains fluid
           vol =  1.d0*dx*dy*dz
           return
        end if
+       !
        if(sc<=dz1) then
           fc = sc**3.d0/(6.d0*dx1*dy1*dz1)
        elseif(sc<=dy1) then
@@ -1474,6 +1501,7 @@ Module Clsvof
           end if
           fc = fc/(6.d0*dx1*dy1*dz1)
        end if
+       !
        if(s<=0.5d0*sm) then      ! be careful with this step. the chosen of
           vol = fc*dx*dy*dz      ! the region contains fluid
           return
@@ -1481,13 +1509,17 @@ Module Clsvof
           vol = (1.d0-fc)*dx*dy*dz
           return
        end if
+       !
        if(isnan(vol)) then
           pause 'Volume Fraction Calculate'
        end if
+       !
        if(ieee_is_finite(fc)) then
           pause 'infinity in volume fraction calculate 1155'
        end if
+       !
     end subroutine Volume_Fraction_Calc
+    !
     ! calculate flux throught the east of cell
     subroutine East_Flux(nxx,nyy,nzz,diss,volf,dx,dy,dz,udt,flux)
        implicit none

@@ -137,41 +137,76 @@ Program Main
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
     deallocate(Constin)
+    !
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
-    Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
-    Call InitialUVGrid(PGrid,UGrid,0,Lref)
-    Call InitialUVGrid(PGrid,VGrid,1,Lref)
-    Call InitialUVGrid(PGrid,WGrid,2,Lref)
+    !
+    ! generate grid for P variable (x,y,z,dx,dy,dz, and Lref) 
+    !
+    Call InitialGrid(NI,NJ,NK,Irec,Jrec,Krec,Lref,SPoint,EPoint,ReS,ReE, PGrid)
+    !
+    ! generate grid for U,V,W variables (x,y,z,dx,dy,dz, and Lref) 
+    !
+    Call InitialUVGrid(0,Lref,PGrid, UGrid)
+    Call InitialUVGrid(1,Lref,PGrid, VGrid)
+    Call InitialUVGrid(2,Lref,PGrid, WGrid)
+    !
     Call MPI_Initial
+    !
     Call HYPRE_CreateGrid(PGrid)
+    !
+    ! compute the initial vof and phi fields
+    !
     Call InitialClsvofFluidField(PGrid,PCell)
     Call InitialClsvofFluidField(UGrid,UCell)
     Call InitialClsvofFluidField(VGrid,VCell)
     Call InitialClsvofFluidField(WGrid,WCell)
-    
+    !
+    ! ??????
+    !
     Call InitialClsvofLiquidField(PGrid,PCell)
     Call InitialClsvofLiquidField(UGrid,UCell)
     Call InitialClsvofLiquidField(VGrid,VCell)
     Call InitialClsvofLiquidField(WGrid,WCell)
-    Call InitialVar(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
- !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
- !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
- !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
- !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
+    !
+    ! initialization of variables
+    !
+    Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
+    !
+    ! save initial field for visualization
+    !
+    ! Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
+    ! Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
+    ! Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
+    ! Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
     Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
     Call PrintResultVTR3D(PGrid,Var,PCell,"FlowFieldP",INT8(0))
-    
+    !
+    ! compute cell's parameters: cell center and face coverage area
+    !
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
-    Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
-    
-    Call NumberExternalCell(PCell,0,0,0)
-    Call NumberExternalCell(UCell,1,0,0)
-    Call NumberExternalCell(VCell,0,1,0)
-    Call NumberExternalCell(WCell,0,0,1)
-    Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
-    Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
+    !
+    ! define the U, V, W cells that will be involved in exchange momentum
+    !
+    Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
+    !
+    ! numbering the external cells
+    !
+    Call NumberExternalCell(0,0,0, PCell)
+    Call NumberExternalCell(1,0,0, UCell)
+    Call NumberExternalCell(0,1,0, VCell)
+    Call NumberExternalCell(0,0,1, WCell)
+    !
+    ! define the master cells and compute the information needed for the interpolation procedure (flux computations)
+    !
+    Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,Ucell,VCell,WCell)
+    !
+    ! solve the Navier-Stokes equations
+    !
+    Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
+    !               
     Pause
+    !
 End program main
 
 Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)

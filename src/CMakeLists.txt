@@ -1,5 +1,22 @@
 project(Simcoflow Fortran)
 find_package(MPI REQUIRED)
+message("MPI_Fortran_LIBRARIES " ${MPI_Fortran_LIBRARIES})
+message("MPI_Fortran_ADDITIONAL_INCLUDE_DIRS " ${MPI_Fortran_ADDITIONAL_INCLUDE_DIRS})
+message("MPI_Fortran_INCLUDE_DIRS " ${MPI_Fortran_INCLUDE_DIRS})
+message("MPI_Fortran_F77_HEADER_DIR " ${MPI_Fortran_F77_HEADER_DIR})
+message("MPI_Fortran_MODULE_DIR " ${MPI_Fortran_MODULE_DIR})
+message("MPI_Fortran_ADDITIONAL_INCLUDE_DIRS " ${MPI_Fortran_ADDITIONAL_DIRS})
+message("MPI_Fortran_INCLUDE_DIR " ${MPI_Fortran_INCLUDE_DIR})
+message("MPI_Fortran_ADDITIONAL_INCLUDE_VARS " ${MPI_Fortran_ADDITIONAL_VARS})
+message("MPI_Fortran_LIB_NAMES " ${MPI_Fortran_LIB_NAMES})
+message("MPI_Fortran_LIBRARIES " ${MPI_Fortran_LIBRARIES})
+
+#get_cmake_property(_variableNames VARIABLES)
+#list (SORT _variableNames)
+#foreach (_variableName ${_variableNames})
+#    message(STATUS "${_variableName}=${${_variableName}}")
+#endforeach()
+
 # add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 # Hypre,
 # This should be ectracted out to a FindHYPRE.cmake
