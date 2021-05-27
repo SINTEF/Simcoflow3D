@@ -262,7 +262,7 @@ Module Solver
         integer(kind=it8b),intent(in) :: itt
         type(Grid),intent(in)	      :: UGrid,VGrid,WGrid
         type(Variables),intent(in)    :: TVar
-        type(SolverTime),intent(out)  :: Time
+        type(SolverTime),intent(inout)  :: Time
 
         integer(kind=it4b)	      :: i,j,k
         real(kind=dp)		      :: tol
@@ -279,6 +279,7 @@ Module Solver
               !               Time%cfl*VGrid%dy(i,j,k)/dabs(TVar%v(i,j,k)+tol),&
               !               Time%cfl*WGrid%dz(i,j,k)/dabs(TVar%w(i,j,k)+tol),&
               !               Time%cfl*Ugrid%dx(1,j,k)/(TVar%Uint/TVar%Uref))
+
               Time%dt=dmin1(Time%dt,2.d0*Time%cfl*VGrid%dx(i,j,k)/	       &
                      (dabs(TVar%u(i,j,k))+dsqrt(TVar%u(i,j,k)**2.d0+	       &
                       4.d0*VGrid%dx(i,j,k)*dabs(gx/g)/Fr)+tol))
