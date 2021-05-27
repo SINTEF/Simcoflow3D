@@ -33,7 +33,6 @@ Program Main
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
-    Integer(kind=it8b) :: itt
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
@@ -189,8 +188,7 @@ Program Main
     !
     ! compute cell's parameters: cell center and face coverage area
     !
-    itt=1
-    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,itt)
+    Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
     !
     ! define the U, V, W cells that will be involved in exchange momentum
     !
