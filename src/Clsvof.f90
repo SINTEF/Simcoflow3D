@@ -491,12 +491,12 @@ Module Clsvof
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k) = 0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
                 ! Check for nan volume fraction or level set function
-                if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k)).or.            &
-                                           dabs(temlsx(i,j,k))>1.d10) then
-                   print*, i,j,k
-                   print*, ue(i,j,k)-ue(i-1,j,k)
-                !  pause 'X_Sweep 277'
-                end if  
+                !if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k)).or.            &
+                !                           dabs(temlsx(i,j,k))>1.d10) then
+                !   print*, i,j,k
+                !   print*, ue(i,j,k)-ue(i-1,j,k)
+                !!  pause 'X_Sweep 277'
+                !end if  
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
               end do
@@ -521,12 +521,12 @@ Module Clsvof
                                                 (ve(i,j,k)-ve(i,j-1,k))
                 if(temvfy(i,j,k)<=vofeps) temvfy(i,j,k) = 0.d0
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
-                if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k)).or.            &
-                                           dabs(temlsy(i,j,k))>1.d10) then
-                  print*, i,j,k
-                  print*, ve(i,j,k)-ve(i,j-1,k)
-                  pause 'Y_Sweep 305'
-                end if  
+                !if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k)).or.            &
+                !                           dabs(temlsy(i,j,k))>1.d10) then
+                !  print*, i,j,k
+                !  print*, ve(i,j,k)-ve(i,j-1,k)
+                !  pause 'Y_Sweep 305'
+                !end if  
                 vfl(i,j,k) = temvfy(i,j,k)
                 phi(i,j,k) = temlsy(i,j,k)
               end do
@@ -547,12 +547,12 @@ Module Clsvof
                                                         (we(i,j,k)-we(i,j,k-1))
                 phi(i,j,k) = temlsz(i,j,k)+dtv/PGrid%dz(i,j,k)*temlsx(i,j,k)*  &
                                                       (we(i,j,k)-we(i,j,k-1))
-                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
-                                        dabs(phi(i,j,k))>1.d10) then
-                  print*, i,j,k
-                  print*, we(i,j,k)-we(i,j,k-1)
-                  pause 'X_Sweep 329'
-                end if  
+                !if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
+                !                        dabs(phi(i,j,k))>1.d10) then
+                !  print*, i,j,k
+                !  print*, we(i,j,k)-we(i,j,k-1)
+                !  pause 'X_Sweep 329'
+                !end if  
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k) = 0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0  
               end do
@@ -576,14 +576,14 @@ Module Clsvof
                                                         (ve(i,j,k)-ve(i,j-1,k)))
                 if(temvfy(i,j,k)<=vofeps) temvfy(i,j,k) = 0.d0
                 if(temvfy(i,j,k)>=(1.d0-vofeps)) temvfy(i,j,k) = 1.d0
-                if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k)).or.            &
-                                           dabs(temlsy(i,j,k))>1.d10) then
-                  print*, temvfy(i,j,k), temlsy(i,j,k)
-                  print*,i,j,k
-                  print*,ve(i,j,k)-ve(i,j-1,k)
-                  print*,ve(i,j-1,k)
-                  pause 'Y_Sweep 354'
-                end if  
+                !if(isnan(temvfy(i,j,k)).or.isnan(temlsy(i,j,k)).or.            &
+                !                           dabs(temlsy(i,j,k))>1.d10) then
+                !  print*, temvfy(i,j,k), temlsy(i,j,k)
+                !  print*,i,j,k
+                !  print*,ve(i,j,k)-ve(i,j-1,k)
+                !  print*,ve(i,j-1,k)
+                !  pause 'Y_Sweep 354'
+                !end if  
                 vfl(i,j,k) = temvfy(i,j,k)
                 phi(i,j,k) = temlsy(i,j,k)
               end do
@@ -606,13 +606,13 @@ Module Clsvof
                                                       (we(i,j,k)-we(i,j,k-1))
                 if(temvfz(i,j,k)<=vofeps) temvfz(i,j,k)=0.d0
                 if(temvfz(i,j,k)>=(1.d0-vofeps)) temvfz(i,j,k)=1.d0
-                if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k)).or.            &
-                                           dabs(temlsz(i,j,k))>1.d10) then
-                  print*, temlsz(i,j,k)
-                  print*,i,j,k
-                  print*,we(i,j,k)-we(i,j,k-1)
-                  pause 'Z_Sweep 381'
-                end if  
+                !if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k)).or.            &
+                !                           dabs(temlsz(i,j,k))>1.d10) then
+                !  print*, temlsz(i,j,k)
+                !  print*,i,j,k
+                !  print*,we(i,j,k)-we(i,j,k-1)
+                !  pause 'Z_Sweep 381'
+                !end if  
                 vfl(i,j,k) = temvfz(i,j,k)
                 phi(i,j,k) = temlsz(i,j,k)
               end do
@@ -634,14 +634,14 @@ Module Clsvof
                                                    (ue(i,j,k)-ue(i-1,j,k))
                 phi(i,j,k)=temlsx(i,j,k)+dtv/PGrid%dx(i,j,k)*temlsy(i,j,k)*    &
                                                    (ue(i,j,k)-ue(i-1,j,k))
-                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
-                                                  dabs(phi(i,j,k))>1.d10) then
-                  print*, vfl(i,j,k), temvfx(i,j,k), temvfy(i,j,k)
-                  print*, phi(i,j,k), temlsx(i,j,k), temlsy(i,j,k)
-                  print*,i,j,k
-                  print*,ue(i,j,k)-ue(i-1,j,k)
-                  pause 'X_Sweep 404'
-                end if  
+                !if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
+                !                                  dabs(phi(i,j,k))>1.d10) then
+                !  print*, vfl(i,j,k), temvfx(i,j,k), temvfy(i,j,k)
+                !  print*, phi(i,j,k), temlsx(i,j,k), temlsy(i,j,k)
+                !  print*,i,j,k
+                !  print*,ue(i,j,k)-ue(i-1,j,k)
+                !  pause 'X_Sweep 404'
+                !end if  
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k)=0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
               end do
@@ -677,11 +677,11 @@ Module Clsvof
                                                    (we(i,j,k)-we(i,j,k-1)))
                 if(temvfz(i,j,k)<=vofeps) temvfz(i,j,k)=0.d0
                 if(temvfz(i,j,k)>=(1.d0-vofeps)) temvfz(i,j,k)=1.d0
-                if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k)).or.            &
-                                           dabs(temlsz(i,j,k))>1.d10) then
-                  print*,we(i,j,k)-we(i,j,k-1)
-                  pause 'Z_Sweep 428'  
-                endif  
+                !if(isnan(temvfz(i,j,k)).or.isnan(temlsz(i,j,k)).or.            &
+                !                           dabs(temlsz(i,j,k))>1.d10) then
+                !  print*,we(i,j,k)-we(i,j,k-1)
+                !  pause 'Z_Sweep 428'  
+                !endif  
                 vfl(i,j,k) = temvfz(i,j,k)
                 phi(i,j,k) = temlsz(i,j,k)
               end do
@@ -704,11 +704,11 @@ Module Clsvof
                                                          (ue(i,j,k)-ue(i-1,j,k))
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k)=0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
-                if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k)).or.            &
-                                           dabs(temlsx(i,j,k))>1.d10) then
-                  print*, ue(i,j,k)-ue(i-1,j,k)
-                  pause 'X_Sweep 454'
-                end if  
+                !if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k)).or.            &
+                !                           dabs(temlsx(i,j,k))>1.d10) then
+                !  print*, ue(i,j,k)-ue(i-1,j,k)
+                !  pause 'X_Sweep 454'
+                !end if  
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
               end do
@@ -728,12 +728,12 @@ Module Clsvof
                                                       (ve(i,j,k)-ve(i,j-1,k))
                 phi(i,j,k)=temlsy(i,j,k)+dtv/PGrid%dy(i,j,k)*temlsz(i,j,k)*    &
                                                       (ve(i,j,k)-ve(i,j-1,k))
-                if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
-                                        dabs(phi(i,j,k))>1.d10) then
-                  print*,temlsy(i,j,k),temlsz(i,j,k)
-                  print*, ve(i,j,k)-ve(i,j-1,k)
-                  pause 'Y_Sweep 476'
-                end if                                      
+                !if(isnan(vfl(i,j,k)).or.isnan(phi(i,j,k)).or.                  &
+                !                        dabs(phi(i,j,k))>1.d10) then
+                !  print*,temlsy(i,j,k),temlsz(i,j,k)
+                !  print*, ve(i,j,k)-ve(i,j-1,k)
+                !  pause 'Y_Sweep 476'
+                !end if                                      
                 if(vfl(i,j,k)<=vofeps) vfl(i,j,k) = 0.d0
                 if(vfl(i,j,k)>=(1.d0-vofeps)) vfl(i,j,k) = 1.d0
               end do
@@ -889,19 +889,19 @@ Module Clsvof
              flux = ue(i,j,k)*lse*dtv/PGrid%dx(i,j,k)
              if(i>1) temls(i,j,k) = temls(i,j,k)-flux
              if(i<imax) temls(i+1,j,k) = temls(i+1,j,k)+flux
-             if(isnan(temls(i,j,k)).or.isnan(temls(i+1,j,k))) then
-               print*, PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*            &
-                   dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/           &
-                   (2.d0*PGrid%dx(i,j,k))
-               print*, PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*        &
-                     dtv/PGrid%dx(i,j,k))*(phi(i+2,j,k)-phi(i,j,k))/           &
-                     (2.d0*PGrid%dx(i,j,k))    
-               print*, flux
-               print*, lse
-               print*, phi(i,j,k)
-               print*, i,j,k
-               pause 'Flux inside the X_Sweep with flux'
-             end if 
+             !if(isnan(temls(i,j,k)).or.isnan(temls(i+1,j,k))) then
+             !  print*, PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*            &
+             !      dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/           &
+             !      (2.d0*PGrid%dx(i,j,k))
+             !  print*, PGrid%dx(i,j,k)/2.d0*(1.d0+ue(i,j,k)*        &
+             !        dtv/PGrid%dx(i,j,k))*(phi(i+2,j,k)-phi(i,j,k))/           &
+             !        (2.d0*PGrid%dx(i,j,k))    
+             !  print*, flux
+             !  print*, lse
+             !  print*, phi(i,j,k)
+             !  print*, i,j,k
+             !  pause 'Flux inside the X_Sweep with flux'
+             !end if 
            end do
            ! Reduce to the first order
            if(ue(1,j,k)>=0.d0) then
@@ -1091,11 +1091,11 @@ Module Clsvof
              end if
              temvf(i,j,k) = temvf(i,j,k)-flux
              if(k<kmax) temvf(i,j,k+1) = temvf(i,j,k+1)+flux
-             if(isnan(flux)) then 
-               print*, i,j,k
-               print*, flux, vfl(i,j,k)
-               pause 'Vof-scheme 361'
-             end if  
+             !if(isnan(flux)) then 
+             !  print*, i,j,k
+             !  print*, flux, vfl(i,j,k)
+             !  pause 'Vof-scheme 361'
+             !end if  
              ! if(i==32.and.j==32.and.(k==28.or.k+1==28)) then
              !   print*, 'Inside the Z_Sweep'
              !   print*, vfl(i,j,k), we(i,j,k)
@@ -1166,20 +1166,20 @@ Module Clsvof
            end if
            flux=lst*we(i,j,kmax)*dtv
            temls(i,j,kmax)=temls(i,j,kmax)-flux/PGrid%dz(i,j,kmax)
-           if(dabs(temls(i,j,kmax))>1.d10.or.isnan(temls(i,j,kmax))) then
-             print*, 'Too large level set function Z_Sweep'
-             print*, lst
-             print*, '====='
-             print*, PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/           &
-                 PGrid%dz(i,j,kmax))*(phi(i,j,kmax)-phi(i,j,kmax-1))/          &
-                (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
-             print*, PGrid%dz(i,j,kmax-1)/2.d0*                                &
-                 (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*                 &
-                 (phi(i,j,kmax)-phi(i,j,kmax-1))/                              &
-                 (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
-             print*, flux, phi(i,j,k), phi(i,j,k+1)
-             pause 'Z_Sweep' 
-           end if 
+           !if(dabs(temls(i,j,kmax))>1.d10.or.isnan(temls(i,j,kmax))) then
+           !  print*, 'Too large level set function Z_Sweep'
+           !  print*, lst
+           !  print*, '====='
+           !  print*, PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/           &
+           !      PGrid%dz(i,j,kmax))*(phi(i,j,kmax)-phi(i,j,kmax-1))/          &
+           !     (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
+           !  print*, PGrid%dz(i,j,kmax-1)/2.d0*                                &
+           !      (1.d0+we(i,j,kmax)*dtv/PGrid%dy(i,j,kmax-1))*                 &
+           !      (phi(i,j,kmax)-phi(i,j,kmax-1))/                              &
+           !      (PGrid%z(i,j,kmax)-PGrid%z(i,j,kmax-1))
+           !  print*, flux, phi(i,j,k), phi(i,j,k+1)
+           !  pause 'Z_Sweep' 
+           !end if 
          end do
        end do
     end subroutine Z_Sweep
@@ -1227,12 +1227,12 @@ Module Clsvof
               end if  
               ! Recompute the normal vector such that summation of the square of all its component is 1
               temp = dsqrt(nxx1**2.d0+nyy1**2.d0+nzz1**2.d0)
-              if(isnan(temp)) then
-                print*, i,j,k
-                print*, nxx1,nyy1,nzz1
-                print*, phi(i,j,k+1),phi(i,j,k),phi(i,j,k-1)
-                pause 'vof 903'
-              end if
+              !if(isnan(temp)) then
+              !  print*, i,j,k
+              !  print*, nxx1,nyy1,nzz1
+              !  print*, phi(i,j,k+1),phi(i,j,k),phi(i,j,k-1)
+              !  pause 'vof 903'
+              !end if
               if(temp<1.d-14) then
                 nxx1 = 0.d0
                 nyy1 = 0.d0
@@ -1245,9 +1245,9 @@ Module Clsvof
               ! Compute the distance from cell centre to the interface
               call Find_Distance(PGrid%dx(i,j,k),PGrid%dy(i,j,k),             &
                    PGrid%dz(i,j,k),nxx1,nyy1,nzz1,vfl(i,j,k),diss1)
-              if(isnan(diss1)) then
-                pause 'reconstruct 245'
-              end if
+              !if(isnan(diss1)) then
+              !  pause 'reconstruct 245'
+              !end if
              !  if(j==32.and.k==32.and.vfl(i,j,k)>0.d0.and.i>20) then
              !   print*, 'Test is interface'
              !   print*, i,j,k
@@ -1297,21 +1297,21 @@ Module Clsvof
        sm = dx1+dy1+dz1
        sc = 6.d0*fc*dx1*dy1*dz1
        sc = dsign(1.d0,sc)*(dabs(sc)**(1.d0/3.d0))
-       if(isnan(sc)) then
-         print*, 'Something wrong with sc Find_Distance clsvof 1183'
-         print*, fc, dx1, dy1, dz1
-         print*, nx1, ny1, nz1
-         pause 'End test'
-       end if  
+       !if(isnan(sc)) then
+       !  print*, 'Something wrong with sc Find_Distance clsvof 1183'
+       !  print*, fc, dx1, dy1, dz1
+       !  print*, nx1, ny1, nz1
+       !  pause 'End test'
+       !end if  
        if(sc<dz1) then
           call Final_Distance(f,sc,sm,s)
        else
           sc = 0.5d0*dz1+dsqrt(2.d0*fc*dx1*dy1-dz1**2.d0/12.d0) 
           if(sc<dy1) then
              call Final_Distance(f,sc,sm,s)
-             if(isnan(s)) then
-                pause 'find distance clsvof 1292'
-             end if
+             !if(isnan(s)) then
+             !   pause 'find distance clsvof 1292'
+             !end if
           else
              if(dx1>=(dy1+dz1)) then
                 sc = fc*dx1+(dy1+dz1)/2.d0
@@ -1510,13 +1510,13 @@ Module Clsvof
           return
        end if
        !
-       if(isnan(vol)) then
-          pause 'Volume Fraction Calculate'
-       end if
-       !
-       if(ieee_is_finite(fc)) then
-          pause 'infinity in volume fraction calculate 1155'
-       end if
+       !if(isnan(vol)) then
+       !   pause 'Volume Fraction Calculate'
+       !end if
+       !!
+       !if(ieee_is_finite(fc)) then
+       !   pause 'infinity in volume fraction calculate 1155'
+       !end if
        !
     end subroutine Volume_Fraction_Calc
     !
@@ -1538,9 +1538,9 @@ Module Clsvof
           call Volume_Fraction_Calc(dx-udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(udt*dy*dz)
        end if
-       if(isnan(flux)) then
-          pause 'east flux 1178'
-       end if
+       !if(isnan(flux)) then
+       !   pause 'east flux 1178'
+       !end if
        flux  = flux*udt/dx
     end subroutine East_Flux
 
@@ -1562,9 +1562,9 @@ Module Clsvof
           call Volume_Fraction_Calc(dx-udt,dy,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(udt*dy*dz)
        end if
-       if(isnan(flux)) then
-          pause 'west flux 778'
-       end if
+       !if(isnan(flux)) then
+       !   pause 'west flux 778'
+       !end if
        flux  = flux*udt/dx
     end subroutine West_Flux
 
@@ -2421,17 +2421,17 @@ Module Clsvof
       select case(opt)
       case(1)
         rs=nume/deno
-        if(isnan(rs).or.rs>1.d100) then
-          print*,'Overflow with division!!!'
-          print*,nume,deno
-          print*,'result will be set to 1.d15'
-          rs=1.d15
-        elseif(dabs(rs)<1.d-20.and.dabs(rs)>1.d-100) then
-          print*,'Underflow with division!!!'
-          print*,nume,deno
-          print*,'result will be set to 1.d-15'
-          rs=1.d-15
-        end if  
+       ! if(isnan(rs).or.rs>1.d100) then
+       !   print*,'Overflow with division!!!'
+       !   print*,nume,deno
+       !   print*,'result will be set to 1.d15'
+       !   rs=1.d15
+       ! elseif(dabs(rs)<1.d-20.and.dabs(rs)>1.d-100) then
+       !   print*,'Underflow with division!!!'
+       !   print*,nume,deno
+       !   print*,'result will be set to 1.d-15'
+       !   rs=1.d-15
+       ! end if  
       case(2)
         rs=(nume+tol)/(deno+tol)
       end select    
@@ -2442,10 +2442,10 @@ Module Clsvof
       real(kind=dp)               :: temp
       
       temp = dsqrt(nxx**2.d0+nyy**2.d0+nzz**2.d0)
-      if(isnan(temp)) then
-        print*, nxx,nyy,nzz
-        pause 'clsvof 2138'
-      end if
+      !if(isnan(temp)) then
+      !  print*, nxx,nyy,nzz
+      !  pause 'clsvof 2138'
+      !end if
       if(temp<1.d-14) then
         nxx=dsign(1.d0,nxx)*n2
         nyy=dsign(1.d0,nyy)*n2

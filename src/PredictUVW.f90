@@ -23,7 +23,9 @@ Module PredictorUVW
     USE Cutcell
     USE StateVariables
     USE Matrix
+    !<per-nag
     USE Printresult
+    !>per-nag
     USE MPI
     use BoundaryInterface
     use BoundaryFunction
@@ -373,12 +375,12 @@ Module PredictorUVW
             else
               UFric(i,j,k) = 0.d0
             end if
-            if(isnan(Fluxdiv(i,j,k,1)).or.dabs(Fluxdiv(i,j,k,1))>1.d5) then
-              print*, i,j,k,Pred%u(i,j,k)
-              print*, fluxdiv(i,j,k,1),i,j,k
-              print*, fe,fw,fn,fs,ft,fb
-              pause 'predictoruv 114'
-            end if
+            !if(isnan(Fluxdiv(i,j,k,1)).or.dabs(Fluxdiv(i,j,k,1))>1.d5) then
+            !  print*, i,j,k,Pred%u(i,j,k)
+            !  print*, fluxdiv(i,j,k,1),i,j,k
+            !  print*, fe,fw,fn,fs,ft,fb
+            !  pause 'predictoruv 114'
+            !end if
           end do
         end do
       end do
@@ -484,11 +486,11 @@ Module PredictorUVW
             else
               VFric(i,j,k)=0.d0
             end if
-            if(isnan(Fluxdiv(i,j,k,2)).or.dabs(Fluxdiv(i,j,k,2))>1.d5) then
-              print*,i,j,k,pred%v(i,j,k)
-              print*,Fe,Fw,Fn,Fs,Ft,Fb
-              pause 'predictoruv 143'
-            end if
+            !if(isnan(Fluxdiv(i,j,k,2)).or.dabs(Fluxdiv(i,j,k,2))>1.d5) then
+            !  print*,i,j,k,pred%v(i,j,k)
+            !  print*,Fe,Fw,Fn,Fs,Ft,Fb
+            !  pause 'predictoruv 143'
+            !end if
           end do
         end do
       end do
@@ -617,11 +619,11 @@ Module PredictorUVW
             else
               WFric(i,j,k) = 0.d0
             end if
-            if(isnan(Fluxdiv(i,j,k,3)).or.dabs(Fluxdiv(i,j,k,3))>1.d5) then
-              print*,i,j,k,pred%w(i,j,k)
-              print*,Fe,Fw,Fn,Fs,Ft,Fb
-              pause 'predictoruv 167'
-            end if
+            !if(isnan(Fluxdiv(i,j,k,3)).or.dabs(Fluxdiv(i,j,k,3))>1.d5) then
+            !  print*,i,j,k,pred%w(i,j,k)
+            !  print*,Fe,Fw,Fn,Fs,Ft,Fb
+            !  pause 'predictoruv 167'
+            !end if
           end do
         end do
       end do
@@ -944,16 +946,16 @@ Module PredictorUVW
                 values = 0.d0
                 cols = 0
 
-                if(isnan(PUVW%Dp(i,j,k)).or.isnan(ap).or.dabs(ap)>1.d10.or.dabs(PUVW%Dp(i,j,k))>1.d10) then
-                  print*, aP
-                  print*, aE
-                  print*, aW
-                  print*, aN
-                  print*, aS
-                  print*, aT
-                  print*, aB
-                  pause 'Test problem with nan in velocity coefficient'
-                end if
+                !if(isnan(PUVW%Dp(i,j,k)).or.isnan(ap).or.dabs(ap)>1.d10.or.dabs(PUVW%Dp(i,j,k))>1.d10) then
+                !  print*, aP
+                !  print*, aE
+                !  print*, aW
+                !  print*, aN
+                !  print*, aS
+                !  print*, aT
+                !  print*, aB
+                !  pause 'Test problem with nan in velocity coefficient'
+                !end if
                 if(dabs(aw)>1.d10.or.dabs(ae)>1.d10.or.dabs(as)>1.d10.or.	&
                    dabs(an)>1.d10.or.dabs(ab)>1.d10.or.dabs(at)>1.d10)then
                   print*, 'Test problem with coefficient'
@@ -1028,13 +1030,13 @@ Module PredictorUVW
                     nnz = nnz+1
                   end if
                 end if
-                do ii=0,nnz-1
-                  if(isnan(values(ii)).or.dabs(values(ii))>1.d5)then
-                    print*, 'something wroing with computing coefficient'
-                    print*, values(nnz),cols(ii)
-                    print*, ii
-                  end if  
-                end do
+                !do ii=0,nnz-1
+                !  if(isnan(values(ii)).or.dabs(values(ii))>1.d5)then
+                !    print*, 'something wroing with computing coefficient'
+                !    print*, values(nnz),cols(ii)
+                !    print*, ii
+                !  end if  
+                !end do
                 call HYPRE_IJMatrixSetValues(A,1,nnz,ictr,cols,values,ierr)
               end if
             end do
@@ -1127,22 +1129,22 @@ Module PredictorUVW
                 if(j==Jmax-iv)rhs(ictr)=rhs(ictr)+CSN(i,k,2)*BC%VarN(i,k)
                 if(k==1)rhs(ictr)=rhs(ictr)+CBT(i,j,1)*BC%VarB(i,j)
                 if(k==Kmax-iw)rhs(ictr)=rhs(ictr)+CBT(i,j,2)*BC%VarT(i,j)
-                if(isnan(PUVW%Dp(i,j,k)).or.isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
-                  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*                     &
-                         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*            &
-                         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+             &
-                         dble(iw)*TGrid%dz(i,j,k))
-                  print*,i,j,k
-                  print*,iu,iv,iw
-                  print*, CWE(j,k,1),BC%VarW(j,k)
-                  print*, CWE(j,k,2),BC%VarE(j,k)
-                  print*, CSN(i,k,1),BC%VarS(i,k)
-                  print*, CSN(i,k,2),BC%VarN(i,k)
-                  print*, CBT(i,j,1),BC%VarB(i,j)
-                  print*, CBT(i,j,2),BC%VarT(i,j)
-                  PRINT*,IJKFlux(i,j,k)
-                  pause 'Set Vector 557'
-                end if
+                !if(isnan(PUVW%Dp(i,j,k)).or.isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
+                !  print*,TCell%vof(i,j,k)*TGrid%dx(i,j,k)*                     &
+                !         TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/(dble(iu)*            &
+                !         TGrid%dx(i,j,k)+dble(iv)*TGrid%dy(i,j,k)+             &
+                !         dble(iw)*TGrid%dz(i,j,k))
+                !  print*,i,j,k
+                !  print*,iu,iv,iw
+                !  print*, CWE(j,k,1),BC%VarW(j,k)
+                !  print*, CWE(j,k,2),BC%VarE(j,k)
+                !  print*, CSN(i,k,1),BC%VarS(i,k)
+                !  print*, CSN(i,k,2),BC%VarN(i,k)
+                !  print*, CBT(i,j,1),BC%VarB(i,j)
+                !  print*, CBT(i,j,2),BC%VarT(i,j)
+                !  PRINT*,IJKFlux(i,j,k)
+                !  pause 'Set Vector 557'
+                !end if
                 rows(ictr) = ilower+ictr
               end if
             end do
@@ -1521,13 +1523,13 @@ Module PredictorUVW
                 ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k)
                 Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*UCell%TEArea(i,j,k-1)*&
                                       UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
-                If(isnan(flux(i,j,k,1))) then
-                  print*, UCell%FCT(i,j,k-1,1),UCell%FCT(i,j,k-1,2),UCell%FCT(i,j,k-1,3)
-                  print*, PCell%TEArea(i,j,k-1),PCell%TEArea(i+1,j,k-1)
-                  print*,delhec1,delhec2,delh,wb,delhec/delh,i,j,k
-                  print*,wbp,wbn,UCell%TEArea(i,j,k-1),WCell%SxE(i,j,k-1)
-                  pause '++++++++++++++Predictuvw 922'
-                End if
+                !If(isnan(flux(i,j,k,1))) then
+                !  print*, UCell%FCT(i,j,k-1,1),UCell%FCT(i,j,k-1,2),UCell%FCT(i,j,k-1,3)
+                !  print*, PCell%TEArea(i,j,k-1),PCell%TEArea(i+1,j,k-1)
+                !  print*,delhec1,delhec2,delh,wb,delhec/delh,i,j,k
+                !  print*,wbp,wbn,UCell%TEArea(i,j,k-1),WCell%SxE(i,j,k-1)
+                !  pause '++++++++++++++Predictuvw 922'
+                !End if
              ! Convective velocity: w, scalar advective: v
               End if
               wb = 0.5d0*(wn12(i,j+1,k-1)+wn12(i,j,k-1))
@@ -2360,13 +2362,13 @@ Module PredictorUVW
                 ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k)
                 Flux(i,j,k,1) = wb*ub*UCell%AlT(i,j,k-1)*UCell%TEArea(i,j,k-1)*&
                                       UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
-                If(isnan(flux(i,j,k,1))) then
-                  print*, UCell%FCT(i,j,k-1,1),UCell%FCT(i,j,k-1,2),UCell%FCT(i,j,k-1,3)
-                  print*, PCell%TEArea(i,j,k-1),PCell%TEArea(i+1,j,k-1)
-                  print*,delhec1,delhec2,delh,wb,delhec/delh,i,j,k
-                  print*,wbp,wbn,UCell%TEArea(i,j,k-1),WCell%SxE(i,j,k-1)
-                  pause '++++++++++++++Predictuvw 922'
-                End if
+                !If(isnan(flux(i,j,k,1))) then
+                !  print*, UCell%FCT(i,j,k-1,1),UCell%FCT(i,j,k-1,2),UCell%FCT(i,j,k-1,3)
+                !  print*, PCell%TEArea(i,j,k-1),PCell%TEArea(i+1,j,k-1)
+                !  print*,delhec1,delhec2,delh,wb,delhec/delh,i,j,k
+                !  print*,wbp,wbn,UCell%TEArea(i,j,k-1),WCell%SxE(i,j,k-1)
+                !  pause '++++++++++++++Predictuvw 922'
+                !End if
              ! Convective velocity: w, scalar advective: v
               End if
               wb = 0.5d0*(wn12(i,j+1,k-1)+wn12(i,j,k-1))
@@ -2512,14 +2514,14 @@ Module PredictorUVW
                         UGrid%dy(i,j,k)*UGrid%dz(i,j,k)
               end if
             end if
-            if(isnan(flux(i,j,k,1))) then
-              print*, uwp,uwn
-              print*, ur,ul
-              print*, '++'
-              print*, omei,omei1
-              print*, 'Nan for computing EW convective flux for u momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,1))) then
+            !  print*, uwp,uwn
+            !  print*, ur,ul
+            !  print*, '++'
+            !  print*, omei,omei1
+            !  print*, 'Nan for computing EW convective flux for u momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            !endif
             tolim=dmin1(2.d0*VGrid%dx(i-1,j,k)/UGrid%dx(i-1,j,k),              &
                         2.d0*VGrid%dx(i,j,k)/UGrid%dx(i-1,j,k))
             ri=((vn12(i-1,j,k)-vn12(i-2,j,k))/UGrid%dx(max(1,i-2),j,k))/       &
@@ -2582,22 +2584,22 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,2))) then
-              print*, i,j,k
-              print*, uwp,uwn
-              print*, vr,vl,alr
-              print*, eta,MUSCLlimiter(ri,Lim,tolim),ri
-              print*, omei,omei1,tolim
-              print*, (vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k)
-              print*, 'Test velocity'
-              print*, vn12(i,j,k),vn12(i-1,j,k)
-              print*, vn12(i-1,j,k),vn12(i-2,j,k)
-              print*, 2.d0*VGrid%dx(i-1,j,k)/UGrid%dx(i-1,j,k),                &
-                      2.d0*VGrid%dx(i,j,k)/UGrid%dx(i-1,j,k)
-              print*, UGrid%dx(i-1,j,k),UGrid%dx(i,j,k)
-              print*, 'Nan for computing EW convective flux for v momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,2))) then
+            !  print*, i,j,k
+            !  print*, uwp,uwn
+            !  print*, vr,vl,alr
+            !  print*, eta,MUSCLlimiter(ri,Lim,tolim),ri
+            !  print*, omei,omei1,tolim
+            !  print*, (vn12(i,j,k)-vn12(i-1,j,k))/UGrid%dx(i-1,j,k)
+            !  print*, 'Test velocity'
+            !  print*, vn12(i,j,k),vn12(i-1,j,k)
+            !  print*, vn12(i-1,j,k),vn12(i-2,j,k)
+            !  print*, 2.d0*VGrid%dx(i-1,j,k)/UGrid%dx(i-1,j,k),                &
+            !          2.d0*VGrid%dx(i,j,k)/UGrid%dx(i-1,j,k)
+            !  print*, UGrid%dx(i-1,j,k),UGrid%dx(i,j,k)
+            !  print*, 'Nan for computing EW convective flux for v momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            !endif
 
             tolim=dmin1(2.d0*WGrid%dx(i-1,j,k)/WGrid%dx(i-1,j,k),              &
                         2.d0*WGrid%dx(i,j,k)/WGrid%dx(i-1,j,k))
@@ -2661,12 +2663,12 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,3))) then
-              print*, uwp,uwn
-              print*, wr,wl
-              print*, 'Nan for computing EW convective flux for w momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,3))) then
+            !  print*, uwp,uwn
+            !  print*, wr,wl
+            !  print*, 'Nan for computing EW convective flux for w momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForXDir subroutine'
+            !endif
           end do  
           ul=un12(Imax,j,k);ur=un12(Imax+1,j,k)
           alr=(ur+ul)
@@ -2787,12 +2789,12 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,1))) then
-              print*, vsp,vsn
-              print*, ur,ul
-              print*, 'Nan for computing NS convective flux for u momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,1))) then
+            !  print*, vsp,vsn
+            !  print*, ur,ul
+            !  print*, 'Nan for computing NS convective flux for u momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            !endif
 
             tolim=dmin1(2.d0*VGrid%dy(i,j-1,k)/PGrid%dy(i,j,k),                &
                         2.d0*VGrid%dy(i,j,k)/PGrid%dy(i,j,k))
@@ -2825,12 +2827,12 @@ Module PredictorUVW
                            VCell%NEArea(i,j-1,k)*VGrid%dx(i,j,k)*VGrid%dz(i,j,k)
               end if
             end if
-            if(isnan(flux(i,j,k,2))) then
-              print*, vsp,vsn
-              print*, vr,vl
-              print*, 'Nan for computing NS convective flux for v momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,2))) then
+            !  print*, vsp,vsn
+            !  print*, vr,vl
+            !  print*, 'Nan for computing NS convective flux for v momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            !endif
 
             tolim=dmin1(2.d0*WGrid%dy(i,j-1,k)/VGrid%dy(i,j-1,k),              &
                         2.d0*WGrid%dy(i,j,k)/VGrid%dy(i,j-1,k))
@@ -2891,12 +2893,12 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,3))) then
-              print*, vsp,vsn
-              print*, wr,wl
-              print*, 'Nan for computing NS convective flux for w momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,3))) then
+            !  print*, vsp,vsn
+            !  print*, wr,wl
+            !  print*, 'Nan for computing NS convective flux for w momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForYDir subroutine'
+            !endif
           end do
           ul=un12(i,Jmax,k);ur=un12(i,Jmax+1,k)
           alr=0.5d0*(vn12(i,Jmax,k)+vn12(i+1,Jmax,k))
@@ -3012,12 +3014,12 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,1))) then
-              print*, wbp,wbn
-              print*, ur,ul
-              print*, 'Nan for computing BT convective flux for u momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,1))) then
+            !  print*, wbp,wbn
+            !  print*, ur,ul
+            !  print*, 'Nan for computing BT convective flux for u momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            !endif
             ! For VCell
             
             tolim=dmin1(2.d0*VGrid%dz(i,j,k-1)/WGrid%dz(i,j,k-1),              &
@@ -3078,12 +3080,12 @@ Module PredictorUVW
                 end if
               end if
             end if
-            if(isnan(flux(i,j,k,2))) then
-              print*, wbp,wbn
-              print*, vr,vl
-              print*, 'Nan for computing BT convective flux for v momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,2))) then
+            !  print*, wbp,wbn
+            !  print*, vr,vl
+            !  print*, 'Nan for computing BT convective flux for v momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            !endif
             ! For WCell 
 
             tolim=dmin1(2.d0*WGrid%dz(i,j,k-1)/PGrid%dz(i,j,k),                &
@@ -3115,12 +3117,12 @@ Module PredictorUVW
                            WCell%TEArea(i,j,k-1)*WGrid%dx(i,j,k)*WGrid%dy(i,j,k)
               end if
             end if
-            if(isnan(flux(i,j,k,3))) then
-              print*, wbp,wbn
-              print*, wr,wl
-              print*, 'Nan for computing BT convective flux for w momentum equation'
-              pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
-            endif
+            !if(isnan(flux(i,j,k,3))) then
+            !  print*, wbp,wbn
+            !  print*, wr,wl
+            !  print*, 'Nan for computing BT convective flux for w momentum equation'
+            !  pause 'PredictorUVW module HighOrderConvectiveFluxForZDir subroutine'
+            !endif
           end do
         
           ul=un12(i,j,kmax);ur=un12(i,j,kmax+1)
@@ -3449,11 +3451,11 @@ Module PredictorUVW
                 End if
               End if
             End if
-            if(isnan(flux(i,j,k,1)).or.isnan(flux(i,j,k,2)).or.isnan(flux(i,j,k,3))) then
-              print*, 'Problem with computing the diffusive flux Predictuvw 3440'
-              print*, i,j,k
-              print*, flux(i,j,k,1),flux(i,j,k,2),flux(i,j,k,3)
-            end if
+            !if(isnan(flux(i,j,k,1)).or.isnan(flux(i,j,k,2)).or.isnan(flux(i,j,k,3))) then
+            !  print*, 'Problem with computing the diffusive flux Predictuvw 3440'
+            !  print*, i,j,k
+            !  print*, flux(i,j,k,1),flux(i,j,k,2),flux(i,j,k,3)
+            !end if
             if(dabs(flux(i,j,k,1))>1.d5.or.dabs(flux(i,j,k,2))>1.d5.or.dabs(flux(i,j,k,3))>1.d5) then
               print*, 'Problem with computing the diffusive flux Predictuvw 3446'
               print*, i,j,k
@@ -3571,11 +3573,11 @@ Module PredictorUVW
               flux(i,j,k,3)=NuF*WCell%TEArea(i,j,km1)*WGrid%dx(i,j,kk)*        &
                               WGrid%dy(i,j,kk)/PGrid%dz(i,j,kk)/Rey
             End if
-            if(isnan(flux(i,j,k,1)).or.isnan(flux(i,j,k,2)).or.isnan(flux(i,j,k,3))) then
-              print*, 'Problem with computing the diffusive flux Predictuvw 3440'
-              print*, i,j,k
-              print*, flux(i,j,k,1),flux(i,j,k,2),flux(i,j,k,3)
-            end if
+            !if(isnan(flux(i,j,k,1)).or.isnan(flux(i,j,k,2)).or.isnan(flux(i,j,k,3))) then
+            !  print*, 'Problem with computing the diffusive flux Predictuvw 3440'
+            !  print*, i,j,k
+            !  print*, flux(i,j,k,1),flux(i,j,k,2),flux(i,j,k,3)
+            !end if
             if(dabs(flux(i,j,k,1))>1.d5.or.dabs(flux(i,j,k,2))>1.d5.or.dabs(flux(i,j,k,3))>1.d5) then
               print*, 'Problem with computing the diffusive flux Predictuvw 3446'
               print*, i,j,k

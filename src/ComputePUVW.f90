@@ -182,10 +182,10 @@ Module ComputePUVW
                              PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                  &
                              PCell%EEArea(i,j,k)*TVar%u(i,j,k))/               &
                              PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
-            if(isnan(TVar%u(i-1,j,k))) then
-              print*,PCell%EEArea(i,j,k)
-              pause 'very small face East fraction computepuvw 125'
-            end if  
+            !if(isnan(TVar%u(i-1,j,k))) then
+            !  print*,PCell%EEArea(i,j,k)
+            !  pause 'very small face East fraction computepuvw 125'
+            !end if  
           end do
         end do
       !
@@ -203,10 +203,10 @@ Module ComputePUVW
                            PGrid%dy(i,j,k)*PGrid%dz(i,j,k)*                    &
                            PCell%EEArea(i,j,k)*TVar%u(i-1,j,k))/               &
                            PCell%EEArea(i,j,k)/PGrid%dy(i,j,k)/PGrid%dz(i,j,k)
-            if(isnan(TVar%u(i,j,k))) then
-              print*,PCell%EEArea(i,j,k)
-              pause 'very small face East fraction computepuvw 144'
-            end if 
+            !if(isnan(TVar%u(i,j,k))) then
+            !  print*,PCell%EEArea(i,j,k)
+            !  pause 'very small face East fraction computepuvw 144'
+            !end if 
           end do
         end do
       !  
@@ -224,10 +224,10 @@ Module ComputePUVW
                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
                             PCell%NEArea(i,j,k)*TVar%v(i,j,k))/                &
                             PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
-            if(isnan(TVar%v(i,j-1,k))) then
-              print*,PCell%NEArea(i,j,k)
-              pause 'very small face North fraction computepuvw 163'
-            end if                 
+            !if(isnan(TVar%v(i,j-1,k))) then
+            !  print*,PCell%NEArea(i,j,k)
+            !  pause 'very small face North fraction computepuvw 163'
+            !end if                 
           end do
         end do
       !  
@@ -245,10 +245,10 @@ Module ComputePUVW
                             PGrid%dx(i,j,k)*PGrid%dz(i,j,k)*                   &
                             PCell%NEArea(i,j,k)*TVar%v(i,j-1,k))/              &
                             PCell%NEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dz(i,j,k)
-            if(isnan(TVar%v(i,j,k))) then
-              print*,PCell%NEArea(i,j,k)
-              pause 'very small face North fraction computepuvw 182'
-            end if
+            !if(isnan(TVar%v(i,j,k))) then
+            !  print*,PCell%NEArea(i,j,k)
+            !  pause 'very small face North fraction computepuvw 182'
+            !end if
           end do
         end do
       !  
@@ -266,10 +266,10 @@ Module ComputePUVW
                             PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                   &
                             PCell%TEArea(i,j,k)*TVar%w(i,j,k))/                &
                             PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
-            if(isnan(TVar%w(i,j,k-1))) then
-              print*,PCell%TEArea(i,j,k)
-              pause 'very small face Top fraction computepuvw 201'
-            end if
+            !if(isnan(TVar%w(i,j,k-1))) then
+            !  print*,PCell%TEArea(i,j,k)
+            !  pause 'very small face Top fraction computepuvw 201'
+            !end if
           end do
         end do
       !  
@@ -287,10 +287,10 @@ Module ComputePUVW
                            PGrid%dx(i,j,k)*PGrid%dy(i,j,k)*                    &
                            PCell%TEArea(i,j,k)*TVar%w(i,j,k-1))/               &
                            PCell%TEArea(i,j,k)/PGrid%dx(i,j,k)/PGrid%dy(i,j,k)
-            if(isnan(TVar%w(i,j,k))) then
-              print*,PCell%TEArea(i,j,k)
-              pause 'very small face Top fraction computepuvw 220'
-            end if
+            !if(isnan(TVar%w(i,j,k))) then
+            !  print*,PCell%TEArea(i,j,k)
+            !  pause 'very small face Top fraction computepuvw 220'
+            !end if
           end do
         end do
       end if

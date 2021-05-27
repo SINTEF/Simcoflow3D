@@ -17,7 +17,9 @@ Program Main
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    USE PrintResult
+    !<per-nag
+    !USE PrintResult
+    !>per-nag
     USE MPI
     USE Solver
     USE BoundaryInterface
@@ -178,8 +180,11 @@ Program Main
     ! Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
     ! Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
     ! Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
-    Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowFieldP",INT8(0))
+
+    !<per-nag
+    !Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
+    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowFieldP",INT8(0))
+    !>per-nag
     !
     ! compute cell's parameters: cell center and face coverage area
     !

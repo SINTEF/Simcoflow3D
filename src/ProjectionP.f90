@@ -165,22 +165,22 @@ Module ProjectionP
                 BetaW=BetaM
               end if
               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaW
-              if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
-                print*,'print out values'
-                print*,Lamda*BetaM,(1.d0-Lamda)*BetaP 
-                print*,BetaM 
-                print*,Lamda
-                print*,i,j,k
-                print*,ii,jj,kk
-                print*,'++++++++'
-                print*,BetaP,BetaM,BetaW,DGrid
-                print*,TPoCoef(i,j,k),PVel%Dp(im,jm,km)
-                print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
-                print*,PCell%phiL(ii,jj,kk),PCell%vof(ii,jj,kk)
-                print*, 'Level set test'
-                print*, PCell%phiL(i,j,k),PCell%phiL(ii,jj,kk)
-                pause 'Test Lamda 142'
-              end if  
+              !if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
+              !  print*,'print out values'
+              !  print*,Lamda*BetaM,(1.d0-Lamda)*BetaP 
+              !  print*,BetaM 
+              !  print*,Lamda
+              !  print*,i,j,k
+              !  print*,ii,jj,kk
+              !  print*,'++++++++'
+              !  print*,BetaP,BetaM,BetaW,DGrid
+              !  print*,TPoCoef(i,j,k),PVel%Dp(im,jm,km)
+              !  print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
+              !  print*,PCell%phiL(ii,jj,kk),PCell%vof(ii,jj,kk)
+              !  print*, 'Level set test'
+              !  print*, PCell%phiL(i,j,k),PCell%phiL(ii,jj,kk)
+              !  pause 'Test Lamda 142'
+              !end if  
             elseif((PCell%vofL(i,j,k)<0.5d0.and.			                         &
                     PCell%vof(i,j,k)>1.d0-epsi).or.   			                   &
                    (PCell%phiL(i,j,k)>=0.d0.and.			                         &
@@ -197,16 +197,16 @@ Module ProjectionP
                 BetaD=BetaP
               end if     
               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaD 
-              if(isnan(betaD).or.isnan(TPoCoef(i,j,k))) then
-                print*,Lamda
-                print*,i,j,k
-                print*,ii,jj,kk
-                print*,'++++++++'
-                print*,BetaD,TPoCoef(i,j,k)
-                print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
-                print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
-                pause 'Test Lamda 168'
-              end if  
+              !if(isnan(betaD).or.isnan(TPoCoef(i,j,k))) then
+              !  print*,Lamda
+              !  print*,i,j,k
+              !  print*,ii,jj,kk
+              !  print*,'++++++++'
+              !  print*,BetaD,TPoCoef(i,j,k)
+              !  print*,PCell%phiL(ii,jj,kk),PCell%vofL(ii,jj,kk)
+              !  print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
+              !  pause 'Test Lamda 168'
+              !end if  
             end if   
           end do
         end do
@@ -351,19 +351,19 @@ Module ProjectionP
                             PoCoef(i,j,k,6)*PCell%TEArea(i,j,k)*               &
                             PGrid%dx(i,j,k)*PGrid%dy(i,j,k) 
                 mp=dabs(values(nnz))
-                If(isnan(values(nnz)).or.dabs(values(nnz))>1.d10) then
-                  print*,'000000000000000000000000000000000000000000000000000000'
-                  print*,values(nnz)
-                  print*,i,j,k
-                  print*,'++++++++++++++++++++++++++++++++++++++++++++++++++++++'
-                  print*,PoCoef(i,j,k,1)
-                  print*,PoCoef(i,j,k,2)
-                  print*,PoCoef(i,j,k,3)
-                  print*,PoCoef(i,j,k,4)
-                  print*,PoCoef(i,j,k,5)
-                  print*,PoCoef(i,j,k,6)
-                  pause 
-                End if
+                !If(isnan(values(nnz)).or.dabs(values(nnz))>1.d10) then
+                !  print*,'000000000000000000000000000000000000000000000000000000'
+                !  print*,values(nnz)
+                !  print*,i,j,k
+                !  print*,'++++++++++++++++++++++++++++++++++++++++++++++++++++++'
+                !  print*,PoCoef(i,j,k,1)
+                !  print*,PoCoef(i,j,k,2)
+                !  print*,PoCoef(i,j,k,3)
+                !  print*,PoCoef(i,j,k,4)
+                !  print*,PoCoef(i,j,k,5)
+                !  print*,PoCoef(i,j,k,6)
+                !  pause 
+                !End if
               ! If(i==Imax) values(nnz) = values(nnz)+1.d30
               ! Apply boundary condition for matrix
                 If(WB==1.and.i==1) then
@@ -508,16 +508,16 @@ Module ProjectionP
                 xval(ictr) = 0.d0
                 rows(ictr) = ilower+ictr
                 
-                if(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
-                  print*,i,j
-                  print*,u(i,j,k)
-                  print*,u(i-1,j,k)
-                  print*,v(i,j,k)
-                  print*,v(i,j-1,k)
-                  print*,w(i,j,k)
-                  print*,w(i,j,k-1)
-                  pause 'fuck you 350'
-                end if
+                !if(isnan(rhs(ictr)).or.dabs(rhs(ictr))>1.d10) then
+                !  print*,i,j
+                !  print*,u(i,j,k)
+                !  print*,u(i-1,j,k)
+                !  print*,v(i,j,k)
+                !  print*,v(i,j-1,k)
+                !  print*,w(i,j,k)
+                !  print*,w(i,j,k-1)
+                !  pause 'fuck you 350'
+                !end if
               end if
             end do
           end do
@@ -565,9 +565,9 @@ Module ProjectionP
               If(PCell%PosNu(i,j,k)==ctr) then
                 Projp%Pp(i,j,k) = values(ctr)
                 ctr = ctr+1
-                If(isnan(Projp%Pp(i,j,k)).or.projp%Pp(i,j,k)>1.d10) then
-                  pause 'ProjectionP_Mod'
-                End if
+                !If(isnan(Projp%Pp(i,j,k)).or.projp%Pp(i,j,k)>1.d10) then
+                !  pause 'ProjectionP_Mod'
+                !End if
               Else
                 Projp%Pp(i,j,k) = 0.d0
               End if

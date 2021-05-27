@@ -4,7 +4,9 @@ Module Solver
     USE StateVariables
     USE CutCell
     USE Clsvof
-    USE PrintResult
+    !<per-nag
+    !USE PrintResult
+    !>per-nag
     USE ComputePUVW
     USE MPI
     USE BoundaryInterface
@@ -108,9 +110,11 @@ Module Solver
           !
           ! ??
           !
-          call PrintHistory(itt,Uconv)
-          call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
+          !<per-nag
+          !call PrintHistory(itt,Uconv)
+          !call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
                                  PCell, UCell, VCell, WCell, itt, Time%NondiT)
+          !>per-nag
           !               
           ite = itt
           ! print*, itt
@@ -121,8 +125,10 @@ Module Solver
             !      
             write(*,*), itt,Time%PhysT,Time%NondiT
             ! call PrintResultVTK(PGrid,TVar,PCell,itt)
-            call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
-            call PrintResultVTR3D(UGrid,TVar,UCell,"FlowFieldU",itt)
+            !<per-nag
+            !call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
+            !call PrintResultVTR3D(UGrid,TVar,UCell,"FlowFieldU",itt)
+            !>per-nag
             ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
             ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
             ! call PrintResultTecplotPCentXZ(PGrid,TVar,PCell,itt)
