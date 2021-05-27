@@ -323,10 +323,10 @@ Module Clsvof
       integer(kind=it4b)			:: i,j,k
 
     !  call DirectionAverageArray(dxyz,PCell%vofL,VelCell%vofL,iu,iv,iw)
-      call DirectionAverageArray(dxyz,PCell%phiL,VelCell%phiL,iu,iv,iw)
-      call DirectionAverageArray(dxyz,PCell%nxL,VelCell%nxL,iu,iv,iw)
-      call DirectionAverageArray(dxyz,PCell%nyL,VelCell%nyL,iu,iv,iw)
-      call DirectionAverageArray(dxyz,PCell%nzL,VelCell%nzL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%phiL(1:Imax+iu,1:Jmax+iv,1:Kmax+iw),VelCell%phiL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nxL(1:Imax+iu,1:Jmax+iv,1:Kmax+iw),VelCell%nxL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nyL(1:Imax+iu,1:JMax+iv,1:Kmax+iw),VelCell%nyL,iu,iv,iw)
+      call DirectionAverageArray(dxyz,PCell%nzL(1:Imax+iu,1:Jmax+iv,1:Kmax+iw),VelCell%nzL,iu,iv,iw)
 
       do i=1,Imax
         do j=1,Jmax
@@ -343,9 +343,12 @@ Module Clsvof
       !! The subroutine is used to compute the variables based on centre average.
       !! More complex interpolation technique can be used later.
       implicit none
-      real(kind=dp),dimension(:,:,:),intent(in)  :: dxyz,Varin
+
+      real(kind=dp),dimension(:,:,:),intent(in)  :: dxyz
+      real(kind=dp),dimension(:,:,:),intent(in)  :: Varin
       real(kind=dp),dimension(:,:,:),intent(out) :: Varout
       integer(kind=it4b),            intent(in)  :: iu,iv,iw
+    
       real(kind=dp)				     :: lamda
       integer(kind=it4b)			 :: i,j,k
 

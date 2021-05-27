@@ -25,7 +25,7 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     
     allocate(Constin(6))
-    Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/Dambreak/input.dat',action='read')
+    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/Dambreak/input.dat',action='read')
     Read(5,*)
     Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     Read(5,*)
