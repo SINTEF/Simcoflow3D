@@ -5,6 +5,14 @@ module BoundaryFunction
   implicit none
   private
 
+  !This does not work in NAG: it thinks it is a redefinition, not a
+  !constructor interface
+  !MOVE definition of interface to BoundaryInterface.f90, then define construct
+  !in the abstract interface?
+  Type, extends(BCBase_abstract) :: BCBase 
+    
+  End type BCBase 
+
   interface BCBase
     module procedure construct
   end interface
@@ -39,7 +47,7 @@ module BoundaryFunction
           
   subroutine SetDN(this, W, E, S, N, B, T)
   !! Set the Dirichlet or Neumann boundary condition, 0 : Dirichlet, 1 : Neumann    
-    class(BCBase), intent(inout)   ::  this
+    class(BCBase_abstract), intent(inout)   ::  this
     integer(kind=it4b), intent(in) :: W, E, S, N, B, T
     
     this%flag(1) = W
@@ -51,7 +59,7 @@ module BoundaryFunction
   end subroutine SetDN
   
   subroutine SetConstant(this, Constin)
-    class(BCBase), intent(inout)                         :: this
+    class(BCBase_abstract), intent(inout)                         :: this
     real(kind=dp), dimension(:), allocatable, intent(in) :: Constin
     
     allocate(this%Const(size(Constin))) 
@@ -61,7 +69,7 @@ module BoundaryFunction
   subroutine BCUW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							 vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for u velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -80,7 +88,7 @@ module BoundaryFunction
   subroutine BCUE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for u velocity.
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -99,7 +107,7 @@ module BoundaryFunction
   subroutine BCUS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for u velocity.
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -118,7 +126,7 @@ module BoundaryFunction
   subroutine BCUN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,   &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for u velocity.
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -137,7 +145,7 @@ module BoundaryFunction
   subroutine BCUB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the bottom boundary for u velocity.							
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -155,7 +163,7 @@ module BoundaryFunction
   subroutine BCUT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the top boundary for u velocity.
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -173,7 +181,7 @@ module BoundaryFunction
   subroutine BCVW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for v velocity
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -191,7 +199,7 @@ module BoundaryFunction
   subroutine BCVE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for v velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -210,7 +218,7 @@ module BoundaryFunction
   subroutine BCVS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for v velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -229,7 +237,7 @@ module BoundaryFunction
   subroutine BCVN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for v velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -248,7 +256,7 @@ module BoundaryFunction
   subroutine BCVB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the bottom boundary for v velocity.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -266,7 +274,7 @@ module BoundaryFunction
   subroutine BCVT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the tope boundary for v velocity.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -284,7 +292,7 @@ module BoundaryFunction
   subroutine BCWW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for w velocity
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -302,7 +310,7 @@ module BoundaryFunction
   subroutine BCWE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for w velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -321,7 +329,7 @@ module BoundaryFunction
   subroutine BCWS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for w velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -340,7 +348,7 @@ module BoundaryFunction
   subroutine BCWN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for w velocity
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -359,7 +367,7 @@ module BoundaryFunction
   subroutine BCWB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the bottom boundary for w velocity.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -377,7 +385,7 @@ module BoundaryFunction
   subroutine BCWT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the tope boundary for w velocity.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -395,7 +403,7 @@ module BoundaryFunction
   subroutine BCPW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for pressure
-    class(BCBase), intent(inout)  	      :: this
+    class(BCBase_abstract), intent(inout)  	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -414,7 +422,7 @@ module BoundaryFunction
   subroutine BCPE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for pressure
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -433,7 +441,7 @@ module BoundaryFunction
   subroutine BCPS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for pressure
-    class(BCBase), intent(inout)              :: this
+    class(BCBase_abstract), intent(inout)              :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -452,7 +460,7 @@ module BoundaryFunction
   subroutine BCPN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for pressure
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -471,7 +479,7 @@ module BoundaryFunction
   subroutine BCPB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the bottom boundary for pressure.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -489,7 +497,7 @@ module BoundaryFunction
   subroutine BCPT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the tope boundary for pressure .							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -507,7 +515,7 @@ module BoundaryFunction
   subroutine BCVofW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,  &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for volume of fluid
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -526,7 +534,7 @@ module BoundaryFunction
   subroutine BCVofE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for volume of fluid
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -545,7 +553,7 @@ module BoundaryFunction
   subroutine BCVofS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for volume of fluid
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -564,7 +572,7 @@ module BoundaryFunction
   subroutine BCVofN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for volume of fluid
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -583,7 +591,7 @@ module BoundaryFunction
   subroutine BCVofB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win, &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the bottom boundary for volume of fluid.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -601,7 +609,7 @@ module BoundaryFunction
   subroutine BCVofT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win, &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the tope boundary for volume of fluid .							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -620,7 +628,7 @@ module BoundaryFunction
   subroutine BCLvsW(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,  &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the western boundary for level set function
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -642,7 +650,7 @@ module BoundaryFunction
   subroutine BCLvsE(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the eastern boundary for level set function 
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -664,7 +672,7 @@ module BoundaryFunction
   subroutine BCLvsS(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the southern boundary for level set function 
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -686,7 +694,7 @@ module BoundaryFunction
   subroutine BCLvsN(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win,    &
   							vofin, lvsin, time, nxin, nyin, nzin)
   !! Compute the boundary value at the northern boundary for level set function 
-    class(BCBase), intent(inout) 		   	 :: this
+    class(BCBase_abstract), intent(inout) 		   	 :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -708,7 +716,7 @@ module BoundaryFunction
   subroutine BCLvsB(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win, &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the bottom boundary for level set function.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
@@ -730,7 +738,7 @@ module BoundaryFunction
   subroutine BCLvsT(this, xin, yin, zin, dxin, dyin, dzin, pin, uin, vin, win, &
   							vofin, lvsin, time, nxin, nyin, nzin)
     !! Compute the boundary value at the top boundary for level set function.							
-    class(BCBase), intent(inout) 	      :: this
+    class(BCBase_abstract), intent(inout) 	      :: this
     real(kind=dp), dimension(:,:), intent(in) :: xin, yin, zin, dxin, dyin, dzin 
     real(kind=dp), dimension(:,:), intent(in) :: pin, uin, vin, win
     real(kind=dp), dimension(:,:), intent(in) :: vofin, lvsin
