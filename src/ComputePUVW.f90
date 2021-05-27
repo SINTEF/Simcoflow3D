@@ -574,7 +574,7 @@ Module ComputePUVW
                      Vari%v(:,Jmax,:), Vari%w(:,Jmax,:), PCell%vof(:,Jmax,:),  &
                      PCell%phi(:,Jmax,:), Time)
       !       
-      call ComputeGhostVarBoundary(BCp%flag(4), Vari%p(1:Imax,Jmax,1:Kmax),BCp%VarN       &
+      call ComputeGhostVarBoundary(BCp%flag(4), Vari%p(1:Imax,Jmax,1:Kmax),BCp%VarN,       &
                                     Vari%p(1:Imax,Jmax+jght,1:Kmax))
       !                      
       ! For the bottom boundary

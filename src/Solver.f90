@@ -113,7 +113,7 @@ Module Solver
           !<per-nag
           !call PrintHistory(itt,Uconv)
           !call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
-                                 PCell, UCell, VCell, WCell, itt, Time%NondiT)
+          !                       PCell, UCell, VCell, WCell, itt, Time%NondiT)
           !>per-nag
           !               
           ite = itt
@@ -123,7 +123,7 @@ Module Solver
           !
           if(mod(itt,iprint)==0)then 
             !      
-            write(*,*), itt,Time%PhysT,Time%NondiT
+            print*, itt,Time%PhysT,Time%NondiT
             ! call PrintResultVTK(PGrid,TVar,PCell,itt)
             !<per-nag
             !call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
@@ -226,7 +226,7 @@ Module Solver
         !
         ! correction for internal cells, zero fields
         !
-        call VariablesInternalCellCondition(TVar, PCell, UCell, VCell, WCell)
+        call VariablesInternalCellCondition(PCell,UCell,VCell,WCell, TVar)
         !
         ! Calculate the three kind of norm for convergence
         !
@@ -357,7 +357,7 @@ Module Solver
        Integer(kind=it8b),intent(in):: itt
        Type(SolverConvergence),intent(in):: TNorm
        !
-       Open(unit=5,file='Convergence.dat',access='append')
+       Open(unit=5,file='Convergence.dat',position='append')
        Write(5,76) itt,TNorm%N1,TNorm%N2,TNorm%Ninf,TNorm%N1c,TNorm%N2c,       &
                                                               TNorm%Ninfc
        Close(5)
@@ -569,7 +569,7 @@ Module Solver
       Real(kind=dp)      :: nx,ny,nz,area,Cdp1,Cdf,Pr,dpx,dpy,dpz,pw
       Real(kind=dp)      :: Clpy1,Clfy,Clpz1,Clfz,tol,cdp2,Clpy2,Clpz2,Cl1,Cl2
       !
-      Open(unit=10,file='DragLiftCoef.dat',access='append')
+      Open(unit=10,file='DragLiftCoef.dat',position='append')
       tol = 1.d-8
       Pr = 0.d0 !TVar%p(1,Jm2)
       Cdp1 = 0.d0;Cdp2 = 0.d0

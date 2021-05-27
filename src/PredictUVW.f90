@@ -24,7 +24,7 @@ Module PredictorUVW
     USE StateVariables
     USE Matrix
     !<per-nag
-    USE Printresult
+    !USE Printresult
     !>per-nag
     USE MPI
     use BoundaryInterface
@@ -471,7 +471,9 @@ Module PredictorUVW
               DFluxn0=DFluxn0-                                                 &
                       0.5d0*BetaVis*DFTB(i,j,k,2)*(TVar%v(i,j,k)-BCv%VarB(i,j)) 
             else
-              DFluxn0=DFluxn0-                 +                               &
+              !DFluxn0=DFluxn0-                 +                               &
+              !            BetaVis*DFTB(i,j,k,2)*(TVar%v(i,j,k)-TVar%v(i,j,k-1))   
+              DFluxn0=DFluxn0-                                                &
                           BetaVis*DFTB(i,j,k,2)*(TVar%v(i,j,k)-TVar%v(i,j,k-1))   
             end if  
             FluxDiv(i,j,k,2)=FluxDiv(i,j,k,2)-DFluxn0/                         &

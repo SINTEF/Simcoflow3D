@@ -21,6 +21,7 @@ Module Clsvof
     USE Cutcell
     USE StateVariables
     USE BoundaryFunction
+    USE BoundaryInterface
 
     implicit none
     private

@@ -33,14 +33,15 @@ Program Main
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
+    Integer(kind=it8b) :: itt
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
     
     allocate(Constin(6))
     Open(unit=5,file='input.dat',action='read')
-    Read(5,*),
-    Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
+    Read(5,*)
+    Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     close(5)
     Ta = 1000.d0
     wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
@@ -188,7 +189,8 @@ Program Main
     !
     ! compute cell's parameters: cell center and face coverage area
     !
-    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
+    itt=1
+    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,itt)
     !
     ! define the U, V, W cells that will be involved in exchange momentum
     !
