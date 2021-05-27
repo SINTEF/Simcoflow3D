@@ -20,6 +20,7 @@ Program Main
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
+    Integer(kind=it4b) :: i,j,k
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
@@ -163,6 +164,9 @@ Program Main
     Call InitialClsvofFluidFieldDamBreak(WGrid,WCell)
     
     Call InitialClsvofLiquidFieldDamBreak(PGrid,PCell)
+    Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
+    Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
+    Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
 
     call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
                                                  UGrid,VGrid,WGrid)
