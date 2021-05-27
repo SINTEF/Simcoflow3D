@@ -17,7 +17,7 @@ Program Main
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    USE PrintResult
+    !USE PrintResult
     USE MPI
     USE Solver
     USE BoundaryInterface
@@ -37,10 +37,10 @@ Program Main
     
     allocate(Constin(6))
     Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/FlowSphere/input.dat',action='read')
-    Read(5,*),
-    Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
-    Read(5,*),
-    Read(5,*), TimeOrder, SpaceOrder
+    Read(5,*)
+    Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
+    Read(5,*)
+    Read(5,*) TimeOrder, SpaceOrder
     close(5)
     Ta = 1000.d0
     wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
@@ -138,13 +138,20 @@ Program Main
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
     deallocate(Constin)
+
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
-    Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
-    Call InitialUVGrid(PGrid,UGrid,0,Lref)
-    Call InitialUVGrid(PGrid,VGrid,1,Lref)
-    Call InitialUVGrid(PGrid,WGrid,2,Lref)
+
+    Call InitialGrid(NI,NJ,NK,Irec,Jrec,Krec,Lref,SPoint,EPoint,ReS,ReE, PGrid)
+    !Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
+
+    Call InitialUVGrid(0,Lref,PGrid, UGrid)
+    Call InitialUVGrid(1,Lref,PGrid, VGrid)
+    Call InitialUVGrid(2,Lref,PGrid, WGrid)
+
     Call MPI_Initial
+
     Call HYPRE_CreateGrid(PGrid)
+
     Call InitialClsvofFluidField(PGrid,PCell)
     Call InitialClsvofFluidField(UGrid,UCell)
     Call InitialClsvofFluidField(VGrid,VCell)
@@ -154,24 +161,31 @@ Program Main
     Call InitialClsvofLiquidField(UGrid,UCell)
     Call InitialClsvofLiquidField(VGrid,VCell)
     Call InitialClsvofLiquidField(WGrid,WCell)
-    Call InitialVar(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
+
+    Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
  !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
  !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
-    Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+
+    !<per -nag
+    !Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
+    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+    !<per -nag
     
-    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
-    Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
+    Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+
+    Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
     
-    Call NumberExternalCell(PCell,0,0,0)
-    Call NumberExternalCell(UCell,1,0,0)
-    Call NumberExternalCell(VCell,0,1,0)
-    Call NumberExternalCell(WCell,0,0,1)
-    Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
-    Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
+    Call NumberExternalCell(0,0,0, PCell)
+    Call NumberExternalCell(1,0,0, UCell)
+    Call NumberExternalCell(0,1,0, VCell)
+    Call NumberExternalCell(0,0,1, WCell)
+
+    Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+
+    Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
     Pause
 End program main
 

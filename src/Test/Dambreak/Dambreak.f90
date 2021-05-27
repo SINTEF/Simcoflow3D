@@ -4,7 +4,7 @@ Program Main
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    USE PrintResult
+    !USE PrintResult
     USE MPI
     USE Solver
     USE ComputePUVW
@@ -26,10 +26,10 @@ Program Main
     
     allocate(Constin(6))
     Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/Dambreak/input.dat',action='read')
-    Read(5,*),
-    Read(5,*), Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
-    Read(5,*),
-    Read(5,*), TimeOrder, SpaceOrder
+    Read(5,*)
+    Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
+    Read(5,*)
+    Read(5,*) TimeOrder, SpaceOrder
     close(5)
    
     
@@ -142,20 +142,28 @@ Program Main
     BCLvsF%North  => BCLvsN
     BCLvsF%Bottom => BCLvsB
     BCLvsF%Top    => BCLvsT
+
     deallocate(Constin)
+
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
+
     Call InitialGridDamBreak(SPoint,EPoint,PGrid,Lref)
-    Call InitialUVGrid(PGrid,UGrid,0,Lref)
-    Call InitialUVGrid(PGrid,VGrid,1,Lref)
-    Call InitialUVGrid(PGrid,WGrid,2,Lref)
+
+    Call InitialUVGrid(0,Lref,PGrid, UGrid)
+    Call InitialUVGrid(1,Lref,PGrid, VGrid)
+    Call InitialUVGrid(2,Lref,PGrid, WGrid)
+
     Call MPI_Initial
+
     Call HYPRE_CreateGrid(PGrid)
+
     Call InitialClsvofFluidFieldDamBreak(PGrid,PCell)
     Call InitialClsvofFluidFieldDamBreak(UGrid,UCell)
     Call InitialClsvofFluidFieldDamBreak(VGrid,VCell)
     Call InitialClsvofFluidFieldDamBreak(WGrid,WCell)
     
     Call InitialClsvofLiquidFieldDamBreak(PGrid,PCell)
+
     call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
                                                  UGrid,VGrid,WGrid)
  !   Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
@@ -164,29 +172,37 @@ Program Main
 
     call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
+
  !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
  !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
  !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
  !   Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
-    Call PrintResultVTR3D(UGrid,Var,UCell,"FlowFieldU",INT8(0))
-    Call PrintResultVTR3D(VGrid,Var,VCell,"FlowFieldV",INT8(0))
-    Call PrintResultVTR3D(WGrid,Var,WCell,"FlowFieldW",INT8(0))
+    !<per-nag
+    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+    !Call PrintResultVTR3D(UGrid,Var,UCell,"FlowFieldU",INT8(0))
+    !Call PrintResultVTR3D(VGrid,Var,VCell,"FlowFieldV",INT8(0))
+    !Call PrintResultVTR3D(WGrid,Var,WCell,"FlowFieldW",INT8(0))
+    !>per-nag
     
-    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,int8(1))
+    Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell)
+
     Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
     
-    Call NumberExternalCell(PCell,0,0,0)
-    Call NumberExternalCell(UCell,1,0,0)
-    Call NumberExternalCell(VCell,0,1,0)
-    Call NumberExternalCell(WCell,0,0,1)
-    Call NewCellFace(PCell,UCell,VCell,WCell,PGrid,UGrid,VGrid,WGrid)
+    Call NumberExternalCell(0,0,0, PCell)
+    Call NumberExternalCell(1,0,0, UCell)
+    Call NumberExternalCell(0,1,0, VCell)
+    Call NumberExternalCell(0,0,1, WCell)
+
+    Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
     
     Call InitialVarDambreak(Var,vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref)
-    call BoundaryConditionVarNew(PGrid, PCell, Var, BCp, BCu, BCv, BCw, 0.d0)
-    Call IterationSolution(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,1)
+
+    call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
+
+    Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
+                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
+
     Pause
 End program main
 
