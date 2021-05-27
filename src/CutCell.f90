@@ -355,7 +355,7 @@ Module Cutcell
                 TCell%vofL(i,j,k)=0.d0
               End if
               !
-              If(TCell%vof(i,j,k)>=epsi.and.TCell%vof(i,j,k)<=1.d0-epsi) ! Cut cell 
+              If(TCell%vof(i,j,k)>=epsi.and.TCell%vof(i,j,k)<=1.d0-epsi)then ! Cut cell 
                 TCell%Cell_Type(i,j,k) = 1  
               End if
               !                    
