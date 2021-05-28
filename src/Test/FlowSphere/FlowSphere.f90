@@ -20,6 +20,7 @@ Program Main
     !USE PrintResult
     USE MPI
     USE Solver
+    USE ComputePUVW
     USE BoundaryInterface
     USE BoundaryFunction
     
@@ -189,6 +190,8 @@ Program Main
     Call NumberExternalCell(0,0,1, WCell)
 
     Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+
+    call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
                            BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
