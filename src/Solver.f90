@@ -83,7 +83,7 @@ Module Solver
         !
         FluxDivOld(:,:,:,:) = 0.d0
         !
-        Time%iter = 1d4!10**6
+        Time%iter = 3!10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.3d0
         !

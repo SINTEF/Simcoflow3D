@@ -125,11 +125,12 @@ Module ProjectionP
       type(PoissonCoefficient),intent(in) 	   :: PVel
       real(kind=dp),intent(in)			   :: Roref
       integer(kind=it4b),intent(in)	  	   :: ium,jvm,kwm,iup,jvp,kwp
+
+      integer(kind=it4b)			   :: i,j,k
+      integer(kind=it4b)		  	   :: ii,jj,kk,im,jm,km
       real(kind=dp),dimension(:,:,:)		   :: TPoCoef
       real(kind=dp)			  	   :: Lamda,BetaP,BetaM
       real(kind=dp)				   :: BetaW,BetaD
-      integer(kind=it4b)			   :: i,j,k
-      integer(kind=it4b)		  	   :: ii,jj,kk,im,jm,km
       real(kind=dp)			  	   :: DGrid
       
       BetaP = 1.d0/(row/Roref)
@@ -149,21 +150,41 @@ Module ProjectionP
                     
             Lamda=dabs(PCell%phiL(i,j,k))/(dabs(PCell%phiL(i,j,k))+            &
                                            dabs(PCell%phiL(ii,jj,kk))+tol)                  
-            if((PCell%vofL(i,j,k)>=0.5d0.and.                                  &
-                PCell%vof(i,j,k)>1.d0-epsi).or.                                &
-               (PCell%phiL(i,j,k)<0.d0.and.                                    &
-                PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then 	 ! The cell is in liquid and it is assigned wet cell 
-              if((PCell%vofL(ii,jj,kk)<0.5d0.and.                              &
-                  PCell%vof(ii,jj,kk)>1.d0-epsi).or.                           &
-                 (PCell%phiL(ii,jj,kk)>=0.d0.and.                              &
+            !                       
+            !print*, 'i,j,k', i,j,k
+            !print*, 'ii,jj,kk', ii,jj,kk
+            !  print*, "0-find_the_bug"
+            !  print*, epsi, 1-epsi
+            !  print*, Pcell%vofL(i,j,k)
+            !  Print*, Pcell%vof(i,j,k)
+            !  print*, Pcell%phiL(i,j,k)
+            !  print*, Pcell%vofL(ii,jj,kk)
+            !  print*, Pcell%vof(ii,jj,kk)
+            !  print*, Pcell%phiL(ii,jj,kk)
+            if((PCell%vofL(i,j,k)>=0.5d0.and.PCell%vof(i,j,k)>1.d0-epsi).or.(PCell%phiL(i,j,k)<0.d0.and. &
+                PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then ! The cell is in liquid and it is assigned wet cell 
+               ! 
+               if((PCell%vofL(ii,jj,kk)<0.5d0.and.PCell%vof(ii,jj,kk)>1.d0-epsi).or.(PCell%phiL(ii,jj,kk)>=0.d0.and. &
                   PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell            
-                BetaW=Lamda*BetaM+(1.d0-Lamda)*BetaP           
-              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.   		                   &
-                      PCell%vof(ii,jj,kk)>1.d0-epsi).or.    		               &
-                     (PCell%phiL(ii,jj,kk)<0.d0.and.     		                   &
+                  !
+                  BetaW=Lamda*BetaM+(1.d0-Lamda)*BetaP           
+                  !
+              elseif((PCell%vofL(ii,jj,kk)>=0.5d0.and.PCell%vof(ii,jj,kk)>1.d0-epsi).or.(PCell%phiL(ii,jj,kk)<0.d0.and. &
                   PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then ! The neighbour cell is in liquid and assigned wet cell
-                BetaW=BetaM
+                  !
+                  BetaW=BetaM
+                  !
               end if
+
+             ! print*, "1-find_the_bug"
+             ! print*, epsi, 1-epsi
+             ! print*, Pcell%vofL(i,j,k)
+             ! Print*, Pcell%vof(i,j,k)
+             ! print*, Pcell%phiL(i,j,k)
+             ! print*, Pcell%vofL(ii,jj,kk)
+             ! print*, Pcell%vof(ii,jj,kk)
+             ! print*, Pcell%phiL(ii,jj,kk)
+
               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaW
               !if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
               !  print*,'print out values'
@@ -181,22 +202,30 @@ Module ProjectionP
               !  print*, PCell%phiL(i,j,k),PCell%phiL(ii,jj,kk)
               !  pause 'Test Lamda 142'
               !end if  
-            elseif((PCell%vofL(i,j,k)<0.5d0.and.			                         &
-                    PCell%vof(i,j,k)>1.d0-epsi).or.   			                   &
-                   (PCell%phiL(i,j,k)>=0.d0.and.			                         &
+            elseif((PCell%vofL(i,j,k)<0.5d0.and.PCell%vof(i,j,k)>1.d0-epsi).or.(PCell%phiL(i,j,k)>=0.d0.and. &
                     PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then  ! The cell is in gas and it is assigned dry cell
-              if((PCell%vofL(ii,jj,kk)>=0.5d0.and.        		       &
-                  PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     		       &
-                 (PCell%phiL(ii,jj,kk)<0.d0.and.        		       &
-                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in liquid and assigned wet cell     
-                BetaD=Lamda*BetaP+(1.d0-Lamda)*BetaM
-              elseif((PCell%vofL(ii,jj,kk)<0.5d0.and.        		       &
-                      PCell%vof(ii,jj,kk)>1.d0-epsi).or. 	     	       &
-                     (PCell%phiL(ii,jj,kk)>=0.d0.and.        		       &
-                  PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell    
-                BetaD=BetaP
-              end if     
-              TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaD 
+               !     
+               if((PCell%vofL(ii,jj,kk)>=0.5d0.and.PCell%vof(ii,jj,kk)>1.d0-epsi).or.(PCell%phiL(ii,jj,kk)<0.d0.and. &
+                   PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in liquid and assigned wet cell     
+                  ! 
+                  BetaD=Lamda*BetaP+(1.d0-Lamda)*BetaM
+                  !
+               elseif((PCell%vofL(ii,jj,kk)<0.5d0.and.PCell%vof(ii,jj,kk)>1.d0-epsi).or.(PCell%phiL(ii,jj,kk)>=0.d0.and. &
+                      PCell%vof(ii,jj,kk)<=1.d0-epsi.and.PCell%vof(ii,jj,kk)>epsi)) then  ! The neighbour cell is in gas and assigned dry cell    
+                  !  
+                  BetaD=BetaP
+                  !
+               end if     
+               
+             ! print*, "2-find_the_bug"
+             ! print*, epsi, 1-epsi
+             ! print*, Pcell%vofL(i,j,k)
+             ! Print*, Pcell%vof(i,j,k)
+             ! print*, Pcell%phiL(i,j,k)
+             ! print*, Pcell%vofL(ii,jj,kk)
+             ! print*, Pcell%vof(ii,jj,kk)
+             ! print*, Pcell%phiL(ii,jj,kk)
+               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaD 
               !if(isnan(betaD).or.isnan(TPoCoef(i,j,k))) then
               !  print*,Lamda
               !  print*,i,j,k

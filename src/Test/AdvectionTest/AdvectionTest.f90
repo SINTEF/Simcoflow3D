@@ -27,10 +27,11 @@ program main
     
     allocate(Constin(6))
     
-    open(unit=1,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/AdvectionTest/input.txt',status='old',action='read')
+    Open(unit=1,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/AdvectionTest/input.txt',status='old',action='read')
     read(1,*)
     read(1,*)
     read(1,*) imax,jmax,kmax,tp,iprint,iprint1,eta,nv,cfl
+    close(1)
     
     SPoint%x = 0.d0
     SPoint%y = 0.d0

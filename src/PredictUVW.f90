@@ -340,11 +340,14 @@ Module PredictorUVW
 
             FluxDiv(i,j,k,1)=FluxDiv(i,j,k,1)-DFluxn0/                         &
               (UCellO%vofL(i,j,k)*RhoWRef+(1.d0-UCellO%vofL(i,j,k))*RhoAref)    
-            if(DFEW(i,j,k,1)<1.d-15.or.DFEW(i+1,j,k,1)<1.d-15) then
-              print*, 'Something wrong with computing the diffusive flux'
-              print*, i,j,k
-              pause 'Predictuvw 346'
-            end if  
+            !< per-commented-test nag
+            !if(DFEW(i,j,k,1)<1.d-15.or.DFEW(i+1,j,k,1)<1.d-15) then
+            !  print*, 'Something wrong with computing the diffusive flux'
+            !  print*, i,j,k
+            !  pause 'Predictuvw 346'
+            !end if  
+            !> per-commented-test nag
+
              ! if(j==1.and.dabs(TVar%u(i,j,k))>1.d0) then  
              !   print*, 'Test DiffusiveFlux predict 307'
              !   print*, Fluxn0
@@ -602,13 +605,15 @@ Module PredictorUVW
                           BetaVis*DFNS(i,j,k,3)*(TVar%w(i,j,k)-Tvar%w(i,j-1,k))
             end if
 
-            if(DFEW(i,j,k,3)<1.d-15.or.DFEW(i+1,j,k,3)<1.d-15.or.              &
-               DFNS(i,j,k,3)<1.d-15.or.DFNS(i,j+1,k,3)<1.d-15.or.              &
-               DFTB(i,j,k,3)<1.d-15.or.DFTB(i,j,k+1,3)<1.d-15) then
-              print*, 'Something wrong with computing the diffusive flux'
-              print*, i,j,k
-              pause 'Predictuvw 346'
-            end if 
+            !< per-commented-test nag
+            !if(DFEW(i,j,k,3)<1.d-15.or.DFEW(i+1,j,k,3)<1.d-15.or.              &
+            !   DFNS(i,j,k,3)<1.d-15.or.DFNS(i,j+1,k,3)<1.d-15.or.              &
+            !   DFTB(i,j,k,3)<1.d-15.or.DFTB(i,j,k+1,3)<1.d-15) then
+            !  print*, 'Something wrong with computing the diffusive flux'
+            !  print*, i,j,k
+            !  pause 'Predictuvw 346'
+            !end if 
+            !> per-commented-test nag
             FluxDiv(i,j,k,3)=FluxDiv(i,j,k,3)-DFluxn0/                         &
               (WCellO%vofL(i,j,k)*RhoWRef+(1.d0-WCellO%vofL(i,j,k))*RhoARef)
 
