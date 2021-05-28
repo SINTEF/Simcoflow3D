@@ -36,12 +36,18 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     
     allocate(Constin(6))
-    Open(unit=5,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/FlowSphere/input.dat',action='read')
+    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/input.dat',action='read')
     Read(5,*)
     Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     Read(5,*)
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
+
+    gx = 0.d0
+    gy = 0.d0
+    gz = -g
+    print*, 'gx,gy,gz', gx,gy,gz
+    
     Ta = 1000.d0
     wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
     
