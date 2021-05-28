@@ -35,6 +35,13 @@ Module InitialVof
       
       tol = 1.d-20
       epsi = 1.d-40
+      !
+      nullify(vflF)
+      nullify(phiF)
+      nullify(nxF)
+      nullify(nyF)
+      nullify(nzF)
+      !
       if(associated(vflF).eqv..false.) then
         vflF => TCell%vof
       else

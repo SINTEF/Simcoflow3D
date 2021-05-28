@@ -186,6 +186,10 @@ program main
             dt=dmin1(dt,cfl*PGrid%dx(1,1,1)/dabs(Var%u(i,j,k)+1.d-30),         &
                      cfl*PGrid%dy(1,1,1)/dabs(Var%v(i,j,k)+1.d-30),  	         &
                      cfl*PGrid%dz(1,1,1)/dabs(Var%w(i,j,k)+1.d-30))
+             !<per-nag
+             Var%p(i,j,k)=0.d0
+             !>per-nag
+             !
              end do
           end do
        end do  
