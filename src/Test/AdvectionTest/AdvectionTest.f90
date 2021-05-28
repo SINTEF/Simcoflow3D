@@ -194,6 +194,9 @@ program main
           end do
        end do  
 
+       call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
+       call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
+
        call BoundaryConditionVarNew(t,PGrid,PCell,Var,BCp,BCu,BCv,BCw)
 
        if(dt>=cfl*PGrid%dx(1,1,1)/0.2d0) dt = cfl*PGrid%dx(1,1,1)/0.2d0

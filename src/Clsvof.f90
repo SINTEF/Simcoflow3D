@@ -1008,7 +1008,9 @@ Module Clsvof
     ! level set
        do i = 1,imax
          do k = 1,kmax
+           !
            do j = 2,jmax-1 
+             !
              if(ve(i,j,k)>=0.d0) then
                lsn=phi(i,j,k)+PGrid%dy(i,j,k)/2.d0*(1.d0-ve(i,j,k)*dtv/        &
                    PGrid%dy(i,j,k))*(phi(i,j+1,k)-phi(i,j-1,k))/               &
@@ -1023,10 +1025,15 @@ Module Clsvof
                      PGrid%dy(i,j,k))*(phi(i,j+1,k)-phi(i,j,k))/PGrid%dy(i,j,k)
                end if
              end if
+             !
              flux=lsn*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
+             !
              if(j>=2) temls(i,j,k) = temls(i,j,k)-flux
+             !
              if(j<jmax) temls(i,j+1,k) = temls(i,j+1,k)+flux
+             !
            end do
+           !
            if(ve(i,1,k)>=0.d0) then
              lsn=phi(i,1,k)+PGrid%dy(i,1,k)/2.d0*(1.d0-ve(i,1,k)*              &
                  dtv/PGrid%dy(i,1,k))*(phi(i,2,k)-phi(i,1,k))/                 &
@@ -1036,12 +1043,18 @@ Module Clsvof
                  dtv/PGrid%dy(i,2,k))*(phi(i,3,k)-phi(i,1,k))/                 &
                 (PGrid%y(i,3,k)-PGrid%y(i,1,k))
            end if
+           !
            flux=lsn*ve(i,1,k)*dtv
+           !
            temls(i,1,k)=temls(i,1,k)-flux/PGrid%dy(i,1,k)
            temls(i,2,k)=temls(i,2,k)+flux/PGrid%dy(i,2,k)
-           ! for i=1
+           !
+           ! for j=1
+           !
            flux=BCLvs%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
+           !
            temls(i,1,k)=temls(i,1,k)+flux
+           !
            if(ve(i,jmax,k)>0.d0) then
              lsn=phi(i,jmax,k)+PGrid%dy(i,jmax,k)/2.d0*(1.d0-ve(i,jmax,k)*dtv/ &
                  PGrid%dy(i,jmax,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/          &
@@ -1051,10 +1064,14 @@ Module Clsvof
                  PGrid%dy(i,jmax-1,k))*(phi(i,jmax,k)-phi(i,jmax-1,k))/        &
                  (PGrid%y(i,jmax,k)-PGrid%y(i,jmax-1,k))
            end if
+           !
            flux=lsn*ve(i,jmax,k)*dtv
+           !
            temls(i,jmax,k)=temls(i,jmax,k)-flux/PGrid%dy(i,jmax,k) 
+           !
          end do
        end do
+       !
     end subroutine Y_Sweep
 
     subroutine Z_Sweep(PGrid,vfl,phi,temvf,temls,ue,ve,we,BCw,BCVof,BCLvs,     &
