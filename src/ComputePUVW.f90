@@ -80,6 +80,7 @@ Module ComputePUVW
       !
       ! The predictor step to compute the predicting velocities
       !
+      print*, 'before predictor'
       call PredictingUVW(PGrid, UGrid, VGrid, WGrid,                           &
                         PCell, UCell, VCell, WCell,                            &
                         PCellO, UCellO, VCellO, WCellO,                        &
@@ -88,6 +89,7 @@ Module ComputePUVW
       !          
       ! Solve the Poisson equation
       !
+      print*, 'before projection'
       call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
                                 PCell, UCell, VCell, WCell,                    &
                                 TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)

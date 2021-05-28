@@ -1632,7 +1632,9 @@ Module PredictorUVW
       !! The water density regarding to the reference density
       INTEGER(kind=it4b)   :: i,j,k
       REAL(KIND=dp)        :: uw,uwn,uwp,eta,phinew,dist,vofFace
+      !
       flux=0.d0
+      !
       do j = 1,Jmax
         do k = 1,Kmax
           ! For i = 1, u velocity continuity equation flux
@@ -1662,6 +1664,7 @@ Module PredictorUVW
           else
             flux(1,j,k,3)=0.d0
           end if  
+
           ! For i = Imax, u velocity continuity  equation flux   
           uw=0.5d0*(un12(Imax,j,k)+un12(Imax+1,j,k))
           if(UCell%EEArea(Imax,j,k)>=epsi) then
@@ -1775,6 +1778,7 @@ Module PredictorUVW
       !! The water density regarding to the reference densit
       INTEGER(kind=it4b)    :: i,j,k
       REAL(KIND=dp)         :: vs,vsn,vsp,eta,phinew,dist,vofFace
+
       flux=0.d0
       do i=1,Imax
         do k=1,Kmax
@@ -1805,6 +1809,7 @@ Module PredictorUVW
           else
             flux(i,1,k,3)=0.d0
           endif  
+
           ! For j=Jmax, u velocity continuity equation
           vs=0.5d0*(vn12(i-1,Jmax,k)+vn12(i,Jmax,k))
           if(UCell%NEArea(i,Jmax,k)>epsi) then
@@ -1815,7 +1820,8 @@ Module PredictorUVW
             flux(i,Jmax+1,k,1)=0.d0
           end if 
           ! For j=Jmax, v velocity continuity equation
-          vs=0.5d0*(vn12(i,Jmax,k-1)+vn12(i,Jmax,k))
+          !vs=0.5d0*(vn12(i,Jmax,k-1)+vn12(i,Jmax,k)) ! per -BIG BUG
+          vs=0.5d0*(vn12(i,Jmax,k)+vn12(i,Jmax+1,k))
           if (VCell%NEArea(i,Jmax,k)>epsi) then
             flux(i,Jmax+1,k,2)=vs*((PCell%vof(i,Jmax,k)-PCell%vofL(i,Jmax,k))* &
                                     RhoARef+PCell%vofL(i,Jmax,k)*RhoWRef)* &
@@ -1824,11 +1830,13 @@ Module PredictorUVW
             flux(i,Jmax+1,k,2)=0.d0
           endif
           ! For j=Jmax, w velocity continuity equation
-          vs=0.5d0*(vn12(i,Jmax+1,k-1)+vn12(i,Jmax+1,k))
-          if(WCell%NEArea(i,j,kmax)>epsi) then
+          !vs=0.5d0*(vn12(i,Jmax+1,k-1)+vn12(i,Jmax+1,k)) ! per-BIG BUG
+          vs=0.5d0*(vn12(i,Jmax,k-1)+vn12(i,Jmax,k))
+          !if(WCell%NEArea(i,j,kmax)>epsi) then ! per_BIG BUG
+          if(WCell%NEArea(i,Jmax,k)>epsi) then
             flux(i,Jmax+1,k,3)=vs*((WCell%vof(i,jmax,k)-WCell%vofL(i,jmax,k))* &
                                     RhoARef+WCell%vofL(i,Jmax,k)*RhoWRef)* &
-                 WCell%NEArea(i,jmax,k)*WGrid%dx(i,jmax,k)*WGrid%dz(i,jmax,k)
+                                    WCell%NEArea(i,jmax,k)*WGrid%dx(i,jmax,k)*WGrid%dz(i,jmax,k)
           else
             flux(i,Jmax+1,k,3)=0.d0
           endif   
@@ -1922,7 +1930,9 @@ Module PredictorUVW
       !! The water density regarding to the reference densit
       INTEGER(kind=it4b)    :: i,j,k
       REAL(KIND=dp)         :: wb,wbn,wbp,eta,phinew,dist,vofFace
+      !
       flux=0.d0
+      !
       do i=1,Imax
         do j=1,Jmax
           ! For k=1, u velocity continuity equation
@@ -1952,6 +1962,7 @@ Module PredictorUVW
           else
             flux(i,j,1,3)=0.d0
           endif
+
           ! For k=kmax, u velocity continuity equation
           wb=0.5d0*(wn12(i-1,j,kmax)+wn12(i,j,kmax))      
           if(UCell%TEArea(i,j,Kmax)>epsi) then
@@ -1962,7 +1973,8 @@ Module PredictorUVW
             flux(i,j,kmax+1,1)=0.d0
           endif
           ! for k=kmax, v velocity continuity equation
-          wb=0.5d0*(wn12(i,j-1,kmax)+wn12(i,j,kmax+1))
+          !wb=0.5d0*(wn12(i,j-1,kmax)+wn12(i,j,kmax+1)) !per-BIG BUG
+          wb=0.5d0*(wn12(i,j-1,kmax)+wn12(i,j,kmax))
           if(VCell%TEArea(i,j,Kmax)>epsi) then
             flux(i,j,kmax+1,2)=wb*((VCell%vof(i,j,kmax)-VCell%vofL(i,j,kmax))* &
                                  RhoARef+VCell%vofL(i,j,kmax)*RhoWRef)*    &
@@ -1972,6 +1984,7 @@ Module PredictorUVW
           endif
           ! for k=kmax, w velocity continuity equation
           wb=0.5d0*(wn12(i,j,kmax)+wn12(i,j,kmax+1))
+          !if(WCell%TEArea(i,j,kmax+1)>epsi) then !per-BIG BUG
           if(WCell%TEArea(i,j,kmax+1)>epsi) then
             flux(i,j,kmax+1,3)=wb*((PCell%vof(i,j,kmax)-PCell%vofL(i,j,kmax))* &
                                  RhoARef+PCell%vofL(i,j,kmax)*RhoWRef)*    &
@@ -1979,6 +1992,7 @@ Module PredictorUVW
           else
             flux(i,j,kmax+1,3)=0.d0
           endif
+          !
           do k=2,kmax
             ! Convective velocity: w, scalar advective : rho in u continuity equation
             flux(i,j,k,1)=0.d0

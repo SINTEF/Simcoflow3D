@@ -83,7 +83,7 @@ Module Solver
         !
         FluxDivOld(:,:,:,:) = 0.d0
         !
-        Time%iter = 10**6
+        Time%iter = 1000!10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.3d0
         !
@@ -199,7 +199,6 @@ Module Solver
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
         end if  
         !
-        print*, 'Solver.f90 151'
         print*, 'Time step size:', dt
         !
         ! Compute the previous cell configuration 
@@ -223,10 +222,12 @@ Module Solver
                         UCellO, VCellO, WCellO, PCellO,                        &
                         BCu, BCv, BCw, BCp, BCVof, BCLvs,                      &
                         FluxDivOld, TVar_n, TVar)
+        print*, 'after updatepuvw'
         !
         ! correction for internal cells, zero fields
         !
         call VariablesInternalCellCondition(PCell,UCell,VCell,WCell, TVar)
+        print*, 'after Variables InternalCell'
         !
         ! Calculate the three kind of norm for convergence
         !
