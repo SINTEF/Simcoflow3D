@@ -125,12 +125,12 @@ program main
     BCw%Bottom => BCWB
     BCw%Top    => BCWT
     
-    BCp%West   => BCWW
-    BCp%East   => BCWE
-    BCp%South  => BCWS
-    BCp%North  => BCWN
-    BCp%Bottom => BCWB
-    BCp%Top    => BCWT
+    BCp%West   => BCPW
+    BCp%East   => BCPE
+    BCp%South  => BCPS
+    BCp%North  => BCPN
+    BCp%Bottom => BCPB
+    BCp%Top    => BCPT
 
     BCVof%West   => BCVofW
     BCVof%East   => BCVofE
@@ -146,6 +146,13 @@ program main
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
     
+    BCVofF%West   => BCVofW
+    BCVofF%East   => BCVofE
+    BCVofF%South  => BCVofS
+    BCVofF%North  => BCVofN
+    BCVofF%Bottom => BCVofB
+    BCVofF%Top    => BCVofT
+
     BCLvsF%West   => BCLvsW
     BCLvsF%East   => BCLvsE
     BCLvsF%South  => BCLvsS

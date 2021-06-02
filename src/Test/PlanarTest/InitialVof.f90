@@ -36,6 +36,11 @@ Module InitialVof
       
       tol = 1.d-20
       epsi = 1.d-40
+      nullify(vflF)
+      nullify(phiF)
+      nullify(nxF)
+      nullify(nyF)
+      nullify(nzF)
       if(associated(vflF).eqv..false.) then
         vflF => TCell%vof
       else
@@ -81,11 +86,13 @@ Module InitialVof
           end do
         end do
       end do
+      !
       nullify(vflF)
       nullify(phiF)
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
+      !
     end subroutine InitialClsvofFluidFieldPlanarTest
     
     subroutine InitialClsvofLiquidFieldPlanarTest(TGrid,TCell)
@@ -129,10 +136,13 @@ Module InitialVof
           end do
         end do
       end do
+      !
       nullify(vfl)
       nullify(phi)
       nullify(nxF)
       nullify(nyF)
       nullify(nzF)
+      !
     end subroutine InitialClsvofLiquidFieldPlanarTest
+    !
 end module InitialVof
