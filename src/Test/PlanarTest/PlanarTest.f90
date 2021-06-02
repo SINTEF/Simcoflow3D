@@ -179,6 +179,7 @@ program main
 
     do itt = 1,INT(100000,it8b)
       dt = 1.d0
+      print*, 'itt, ', itt, ', dt, ', dt
       do i = 1,imax
         do j = 1,jmax
           do k = 1,kmax
@@ -195,6 +196,10 @@ program main
           end do
         end do
       end do  
+ 
+      call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
+      call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
+
 
       call BoundaryConditionVarNew(t,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
