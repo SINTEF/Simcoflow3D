@@ -27,7 +27,7 @@ program main
     
     allocate(Constin(6))
     
-    open(unit=1,file='/home/sontd/code/CutCell3DGFMCLSVOF/src/Test/PlanarTest/input.txt',status='old',action='read')
+    Open(unit=1,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/PlanarTest/input.txt',status='old',action='read')
     read(1,*)
     read(1,*)
     read(1,*) imax,jmax,kmax,tp,iprint,iprint1,eta,nv,cfl

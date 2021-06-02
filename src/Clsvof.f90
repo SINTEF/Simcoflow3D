@@ -367,24 +367,27 @@ Module Clsvof
     end subroutine DirectionAverageArray
 
     subroutine Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,Time,dt,itt)
-      !! The subroutine is used to track the interface using the couple leve set volume of fluid
+      !      
+      !! The subroutine is used to track the interface using the couple level set volume of fluid
       implicit none
-      type(Grid),intent(in)           :: PGrid
+      !
       !! The pressure grid
-      type(Cell),intent(inout),target :: PCell
+      type(Grid),intent(in)           :: PGrid
       !! The pressure cell
-      type(Variables),intent(in)      :: TVar
+      type(Cell),intent(inout),target :: PCell
       !! The StateVariables
-      type(BCBase),intent(in)         :: BCu,BCv,BCw
+      type(Variables),intent(in)      :: TVar
       !! The velocity boundary condition
-      type(BCBase),intent(inout)      :: BCLvs,BCvof
+      type(BCBase),intent(in)         :: BCu,BCv,BCw
       !! The interface boundary condition
-      real(kind=dp),intent(in)        :: Time
+      type(BCBase),intent(inout)      :: BCLvs,BCvof
       !! The time
-      integer(it8b),intent(in)        :: itt
+      real(kind=dp),intent(in)        :: Time
       !! The total number of iterations
-      real(dp),intent(in)             :: dt
+      integer(it8b),intent(in)        :: itt
       !! The time step size
+      real(dp),intent(in)             :: dt
+
       integer(it4b)			              :: i,j,k,kk
       real(dp)				                :: dtv
       real(kind=dp),dimension(:,:,:),pointer :: vfl,vflF    ! vfl represents the liquid volume fraction, vflF represents fluid volume fraction
@@ -460,9 +463,13 @@ Module Clsvof
         nullify(nzF)
         nzF(0:,0:,0:)=>PCell%nz
       end if  
+      !
       ! Compute the sub time step size for clsvof
+      !
       dtv=dt/dble(nv)
+      !
       ! Set the cell face velocity to the state velocities 
+      !
       do i = 0,imax+1
         do j = 0,jmax+1
           do k = 0,kmax+1
@@ -472,28 +479,40 @@ Module Clsvof
           end do
         end do
       end do
-    !  print*, ue(32,32,32),ve(10,10,10),we(10,10,10)
+      ! print*, ue(32,32,32),ve(10,10,10),we(10,10,10)
+      !
       do kk=1,nv
+        !
         if(mod(kk,3)==0) then
+          !      
           temvfx(0:Imax+1,0:Jmax+1,0:Kmax+1) = vfl(0:Imax+1,0:Jmax+1,0:Kmax+1)
           temlsx(0:Imax+1,0:Jmax+1,0:Kmax+1) = phi(0:Imax+1,0:Jmax+1,0:Kmax+1)
+          !
           ! print*,'X_Sweep first 000000000000000000000000000000000000000000000'
           ! print*,vfl(24,32,32)
+          !
           ! Advance the interface in the x-direction
+          !
           call X_Sweep(PGrid,vfl,phi,temvfx,temlsx,ue,ve,we,BCu,BCVof,BCLvs,   &
                                                               nx,ny,nz,dis,dtv)
           
+          !                                            
           do i = 1,imax
             do j = 1,jmax
               do k = 1,kmax
+                !
                 ! Compute the temporary liquid volume fraction and level set function
+                !
                 temvfx(i,j,k)=temvfx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*         &
                                      (ue(i,j,k)-ue(i-1,j,k)))
                 temlsx(i,j,k)=temlsx(i,j,k)/(1.d0-dtv/PGrid%dx(i,j,k)*         &
                                      (ue(i,j,k)-ue(i-1,j,k)))
+                !             
                 ! Check for undercomputed or overcomputed volume fraction 
+                !
                 if(temvfx(i,j,k)<=vofeps) temvfx(i,j,k) = 0.d0
                 if(temvfx(i,j,k)>=(1.d0-vofeps)) temvfx(i,j,k) = 1.d0
+                !
                 ! Check for nan volume fraction or level set function
                 !if(isnan(temvfx(i,j,k)).or.isnan(temlsx(i,j,k)).or.            &
                 !                           dabs(temlsx(i,j,k))>1.d10) then
@@ -501,11 +520,14 @@ Module Clsvof
                 !   print*, ue(i,j,k)-ue(i-1,j,k)
                 !!  pause 'X_Sweep 277'
                 !end if  
+                !
                 vfl(i,j,k) = temvfx(i,j,k)
                 phi(i,j,k) = temlsx(i,j,k)
+                !
               end do
             end do
           end do
+          !
           ! print*,'X_Sweep first after X_Sweep 00000000000000000000000000000000'
           ! print*,vfl(24,32,32),temvfx(24,32,32)
           ! print*,vfl(23,32,32),temvfx(23,32,32)
@@ -2203,15 +2225,19 @@ Module Clsvof
                Vari%w(1:Imax,1:Jmax,Kmax), PCell%vofL(1:Imax,1:Jmax,Kmax), PCell%phiL(1:Imax,1:Jmax,Kmax), Time)
       PCell%vofL(1:Imax,1:Jmax,Kmax+1)=PCell%vofL(1:Imax,1:Jmax,Kmax)
     end subroutine BoundaryConditionLvsVof 
-  ! Boundary condition for fluid field
+    !
+    ! Boundary condition for fluid field
+    !
     subroutine BoundaryConditionLvsVofFluid(PGrid, PCell, Vari, BCLvsF, BCVofF, Time)
+      !      
       type(Grid), intent(in)         :: PGrid
       type(Cell), intent(inout)      :: PCell
       type(Variables), intent(in)    :: Vari
       type(BCBase), intent(inout)    :: BCLvsF,BCVofF
       real(kind=dp), intent(in)      :: Time
+      !
       integer(kind=it4b)             :: i,j,k
-
+      !
       ! For the western boundary
       call BCLvsF%West(PGrid%x(1,1:Jmax,1:Kmax)-PGrid%dx(1,1:Jmax,1:Kmax)/2.d0,&
                       PGrid%y(1,1:Jmax,1:Kmax), PGrid%z(1,1:Jmax,1:Kmax),     &
@@ -2224,6 +2250,7 @@ Module Clsvof
                       PCell%nz(1,1:Jmax,1:Kmax))
       PCell%phi(0,1:Jmax,1:Kmax)=PCell%phi(1,1:Jmax,1:Kmax)-                  &
                           PCell%nx(1,1:Jmax,1:Kmax)*PGrid%dx(1,1:Jmax,1:Kmax)
+      !            
       ! For the eastern boundary
       call BCLvsF%East(PGrid%x(Imax,1:Jmax,1:Kmax)+PGrid%dx(Imax,1:Jmax,1:Kmax)/2.d0, &
                     PGrid%y(Imax,1:Jmax,1:Kmax),PGrid%z(Imax,1:Jmax,1:Kmax),  &
@@ -2236,6 +2263,7 @@ Module Clsvof
                     PCell%ny(Imax,1:Jmax,1:Kmax),PCell%nz(Imax,1:Jmax,1:Kmax))
       PCell%phi(Imax+1,1:Jmax,1:Kmax)=PCell%phi(Imax,1:Jmax,1:Kmax)+          &
                           PCell%nx(Imax,1:Jmax,1:Kmax)*PGrid%dx(Imax,1:Jmax,1:Kmax)
+      !            
       ! For the southern boundary
       call BCLvsF%South(PGrid%x(1:Imax,1,1:Kmax),                             &
                   PGrid%y(1:Imax,1,1:Kmax)-PGrid%dy(1:Imax,1,1:Kmax)/2.d0,    &
@@ -2245,6 +2273,7 @@ Module Clsvof
                   Vari%v(1:Imax,1,1:Kmax), Vari%w(1:Imax,1,1:Kmax),           &
                   PCell%vof(1:Imax,1,1:Kmax), PCell%phi(1:Imax,1,1:Kmax), Time)
       PCell%phi(1:Imax,0,1:Kmax)=PCell%phi(1:Imax,1,1:Kmax)-PCell%ny(1:Imax,1,1:Kmax)*PGrid%dy(1:Imax,1,1:Kmax)
+      !
       ! For the northern boundary
       call BCLvsF%North(PGrid%x(1:Imax,Jmax,1:Kmax),                          &
                PGrid%y(1:Imax,Jmax,1:Kmax)+PGrid%dy(1:Imax,Jmax,1:Kmax)/2.d0, &
@@ -2254,6 +2283,7 @@ Module Clsvof
                Vari%v(1:Imax,Jmax,1:Kmax), Vari%w(1:Imax,Jmax,1:Kmax),        &
                PCell%vof(1:Imax,Jmax,1:Kmax), PCell%phi(1:Imax,Jmax,1:Kmax), Time) 
       PCell%phi(1:Imax,Jmax+1,1:Kmax)=PCell%phi(1:Imax,Jmax,1:Kmax)-PCell%ny(1:Imax,Jmax,1:Kmax)*PGrid%dy(1:Imax,Jmax,1:Kmax)
+      !
       ! For the bottom boundary
       call BCLvsF%Bottom(PGrid%x(1:Imax,1:Jmax,1), PGrid%y(1:Imax,1:Jmax,1),   &
                PGrid%z(1:Imax,1:Jmax,1)-PGrid%dz(1:Imax,1:Jmax,1)/2.d0,        &
@@ -2263,6 +2293,7 @@ Module Clsvof
                Vari%w(1:Imax,1:Jmax,1), PCell%vof(1:Imax,1:Jmax,1),            &
                PCell%phi(1:Imax,1:Jmax,1), Time)
       PCell%phi(1:Imax,1:Jmax,0)=PCell%phi(1:Imax,1:Jmax,1)-PCell%nz(1:Imax,1:Jmax,1)*PGrid%dz(1:Imax,1:Jmax,1)
+      !
       ! For the top boundary
       call BCLvsF%Top(PGrid%x(1:Imax,1:Jmax,Kmax),PGrid%y(1:Imax,1:Jmax,Kmax), &
                PGrid%z(1:Imax,1:Jmax,Kmax)+PGrid%dz(1:Imax,1:Jmax,Kmax)/2.d0,  &
@@ -2272,8 +2303,8 @@ Module Clsvof
                Vari%w(1:Imax,1:Jmax,Kmax), PCell%vof(1:Imax,1:Jmax,Kmax),      &
                PCell%phi(1:Imax,1:Jmax,Kmax), Time)
       PCell%phi(1:Imax,1:Jmax,Kmax+1)=PCell%phi(1:Imax,1:Jmax,Kmax)+PCell%nz(1:Imax,1:Jmax,Kmax)*PGrid%dz(1:Imax,1:Jmax,Kmax)
-      
-
+      !
+      ! For the western boundary
       call BCVofF%West(PGrid%x(1,1:Jmax,1:Kmax)-PGrid%dx(1,1:Jmax,1:Kmax)/2.d0, &
                PGrid%y(1,1:Jmax,1:Kmax), PGrid%z(1,1:Jmax,1:Kmax),             &
                PGrid%dx(1,1:Jmax,1:Kmax), PGrid%dy(1,1:Jmax,1:Kmax),           &
@@ -2282,6 +2313,7 @@ Module Clsvof
                Vari%w(1,1:Jmax,1:Kmax), PCell%vof(1,1:Jmax,1:Kmax),           &
                PCell%phi(1,1:Jmax,1:Kmax), Time)
       PCell%vof(0,1:Jmax,1:Kmax)=PCell%vof(1,1:Jmax,1:Kmax)
+      !
       ! For the eastern boundary
       call BCVofF%East(PGrid%x(Imax,1:Jmax,1:Kmax)+PGrid%dx(Imax,1:Jmax,1:Kmax)/2.d0, &
                PGrid%y(Imax,1:Jmax,1:Kmax), PGrid%z(Imax,1:Jmax,1:Kmax),       &
@@ -2291,6 +2323,7 @@ Module Clsvof
                Vari%w(Imax,1:Jmax,1:Kmax), PCell%vof(Imax,1:Jmax,1:Kmax),     &
                PCell%phi(Imax,1:Jmax,1:Kmax), Time)
       PCell%vof(Imax+1,1:Jmax,1:Kmax)=PCell%vof(Imax,1:Jmax,1:Kmax)      
+      !
       ! For the southern boundary
       call BCVofF%South(PGrid%x(1:Imax,1,1:Kmax),                               &
                PGrid%y(1:Imax,1,1:Kmax)-PGrid%dy(1:Imax,1,1:Kmax)/2.d0,        &
@@ -2300,6 +2333,7 @@ Module Clsvof
                Vari%v(1:Imax,1,1:Kmax), Vari%w(1:Imax,1,1:Kmax), PCell%vof(1:Imax,1,1:Kmax),         &
                PCell%phi(1:Imax,1,1:Kmax), Time)
       PCell%vof(1:Imax,0,1:Kmax)=PCell%vof(1:Imax,1,1:Kmax)      
+      !
       ! For the northern boundary
       call BCVofF%North(PGrid%x(1:Imax,Jmax,1:Kmax),                                      &
                PGrid%y(1:Imax,Jmax,1:Kmax)+PGrid%dy(1:Imax,Jmax,1:Kmax)/2.d0,                &
@@ -2309,6 +2343,7 @@ Module Clsvof
                Vari%v(1:Imax,Jmax,1:Kmax), Vari%w(1:Imax,Jmax,1:Kmax),         &
                PCell%vof(1:Imax,Jmax,1:Kmax), PCell%phi(1:Imax,Jmax,1:Kmax), Time) 
       PCell%vof(1:Imax,Jmax+1,1:Kmax)=PCell%vof(1:Imax,Jmax,1:Kmax)
+      !
       ! For the bottom boundary
       call BCVofF%Bottom(PGrid%x(1:Imax,1:Jmax,1), PGrid%y(1:Imax,1:Jmax,1),                         &
                PGrid%z(1:Imax,1:Jmax,1)-PGrid%dz(1:Imax,1:Jmax,1)/2.d0,        &
@@ -2318,6 +2353,7 @@ Module Clsvof
                Vari%w(1:Imax,1:Jmax,1), PCell%vof(1:Imax,1:Jmax,1),           &
                PCell%phi(1:Imax,1:Jmax,1), Time)
       PCell%vof(1:Imax,1:Jmax,0)=PCell%vof(1:Imax,1:Jmax,1)
+      !
       ! For the top boundary
       call BCVofF%Top(PGrid%x(1:Imax,1:Jmax,Kmax),PGrid%y(1:Imax,1:Jmax,Kmax),                      &
                PGrid%z(1:Imax,1:Jmax,Kmax)+PGrid%dz(1:Imax,1:Jmax,Kmax)/2.d0,                   &
@@ -2325,6 +2361,7 @@ Module Clsvof
                Vari%p(1:Imax,1:Jmax,Kmax), Vari%u(1:Imax,1:Jmax,Kmax), Vari%v(1:Imax,1:Jmax,Kmax),        &
                Vari%w(1:Imax,1:Jmax,Kmax), PCell%vof(1:Imax,1:Jmax,Kmax), PCell%phi(1:Imax,1:Jmax,Kmax), Time)
       PCell%vof(1:Imax,1:Jmax,Kmax+1)=PCell%vof(1:Imax,1:Jmax,Kmax)
+      !
     end subroutine BoundaryConditionLvsVofFluid
 
     subroutine Normal_Vector_Irre(PGrid,vfl,phi,i,j,k,nxx,nyy,nzz)

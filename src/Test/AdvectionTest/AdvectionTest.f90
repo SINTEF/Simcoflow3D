@@ -148,6 +148,13 @@ program main
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
     
+    BCVofF%West   => BCVofW
+    BCVofF%East   => BCVofE
+    BCVofF%South  => BCVofS
+    BCVofF%North  => BCVofN
+    BCVofF%Bottom => BCVofB
+    BCVofF%Top    => BCVofT
+
     BCLvsF%West   => BCLvsW
     BCLvsF%East   => BCLvsE
     BCLvsF%South  => BCLvsS
@@ -172,7 +179,9 @@ program main
     Var%v(:,:,:) = 0.d0
     Var%w(:,:,:) = 0.d0
 
-    do itt = 1,INT(100000, it8b)
+    !do itt = 1,INT(100000, it8b)
+    do itt = 1,INT(1000, it8b)
+      print*, 'itt, ', itt, ' t, ', t
       dt = 1.d0
       do i = 1,imax
         do j = 1,jmax
@@ -193,12 +202,9 @@ program main
              end do
           end do
        end do  
-
        call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
        call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
-
        call BoundaryConditionVarNew(t,PGrid,PCell,Var,BCp,BCu,BCv,BCw)
-
        if(dt>=cfl*PGrid%dx(1,1,1)/0.2d0) dt = cfl*PGrid%dx(1,1,1)/0.2d0
        if(t<tp.and.(t+dt)>=tp) then
          pause ' do you want to continue '
