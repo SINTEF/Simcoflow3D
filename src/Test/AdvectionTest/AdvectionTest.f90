@@ -127,12 +127,12 @@ program main
     BCw%Bottom => BCWB
     BCw%Top    => BCWT
     
-    BCp%West   => BCWW
-    BCp%East   => BCWE
-    BCp%South  => BCWS
-    BCp%North  => BCWN
-    BCp%Bottom => BCWB
-    BCp%Top    => BCWT
+    BCp%West   => BCPW
+    BCp%East   => BCPE
+    BCp%South  => BCPS
+    BCp%North  => BCPN
+    BCp%Bottom => BCPB
+    BCp%Top    => BCPT
 
     BCVof%West   => BCVofW
     BCVof%East   => BCVofE
