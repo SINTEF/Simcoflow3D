@@ -48,6 +48,7 @@ Module ProjectionP
         real(kind=dp)			      :: final_res_norm,tol
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: PoCoef   ! the coefficient for Poisson solving
         
+
         call Compute1DGFMCoefficient(PGrid,PCell,UGrid,PU,row,	               &
                                                    1,0,0,0,0,0,PoCoef(:,:,:,1))
         call Compute1DGFMCoefficient(PGrid,PCell,VGrid,PV,row,	               &
@@ -151,16 +152,17 @@ Module ProjectionP
             Lamda=dabs(PCell%phiL(i,j,k))/(dabs(PCell%phiL(i,j,k))+            &
                                            dabs(PCell%phiL(ii,jj,kk))+tol)                  
             !                       
-            !print*, 'i,j,k', i,j,k
-            !print*, 'ii,jj,kk', ii,jj,kk
-            !  print*, "0-find_the_bug"
-            !  print*, epsi, 1-epsi
-            !  print*, Pcell%vofL(i,j,k)
-            !  Print*, Pcell%vof(i,j,k)
-            !  print*, Pcell%phiL(i,j,k)
-            !  print*, Pcell%vofL(ii,jj,kk)
-            !  print*, Pcell%vof(ii,jj,kk)
-            !  print*, Pcell%phiL(ii,jj,kk)
+            ! print*, 'i,j,k', i,j,k
+            ! print*, 'ii,jj,kk', ii,jj,kk
+            ! print*, "0-find_the_bug"
+            ! print*, epsi, 1-epsi
+            ! print*, Pcell%vofL(i,j,k)
+            ! Print*, Pcell%vof(i,j,k)
+            ! print*, Pcell%phiL(i,j,k)
+            ! print*, Pcell%vofL(ii,jj,kk)
+            ! print*, Pcell%vof(ii,jj,kk)
+            ! print*, Pcell%phiL(ii,jj,kk)
+            !
             if((PCell%vofL(i,j,k)>=0.5d0.and.PCell%vof(i,j,k)>1.d0-epsi).or.(PCell%phiL(i,j,k)<0.d0.and. &
                 PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then ! The cell is in liquid and it is assigned wet cell 
                ! 

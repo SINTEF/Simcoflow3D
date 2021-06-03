@@ -30,7 +30,7 @@ Program Main
     Type(Cell)      :: UCell,VCell,WCell,PCell
     Type(Point)     :: SPoint,EPoint,ReS,ReE
     Type(Variables) :: Var
-    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs
+    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
@@ -81,7 +81,10 @@ Program Main
     BCw = BCBase(Imax,Jmax,Kmax)
     BCvof = BCBase(Imax,Jmax,Kmax)
     BClvs = BCBase(Imax,Jmax,Kmax)
-    
+    BCvofF = BCBase(Imax,Jmax,Kmax)
+    BClvsF = BCBase(Imax,Jmax,Kmax)
+
+
     ! For flow over sphere
     call BCp%SetDN(1,0,1,1,1,1)
     call BCu%SetDN(0,1,0,0,0,0)
@@ -100,9 +103,12 @@ Program Main
     Constin(1)=1.d0
     Constin(2)=1.d0
     call BCVof%SetConstant(Constin)
+    call BCVofF%SetConstant(Constin)
     Constin(1)=-1.d3
     Constin(2)=-1.d3
     call BCLvs%SetConstant(Constin)
+    call BCLvsF%SetConstant(Constin)
+
     BCu%West   => BCUW
     BCu%East   => BCUE
     BCu%South  => BCUS
@@ -144,6 +150,21 @@ Program Main
     BCLvs%North  => BCLvsN
     BCLvs%Bottom => BCLvsB
     BCLvs%Top    => BCLvsT
+
+    BCVofF%West   => BCVofW
+    BCVofF%East   => BCVofE
+    BCVofF%South  => BCVofS
+    BCVofF%North  => BCVofN
+    BCVofF%Bottom => BCVofB
+    BCVofF%Top    => BCVofT
+
+    BCLvsF%West   => BCLvsW
+    BCLvsF%East   => BCLvsE
+    BCLvsF%South  => BCLvsS
+    BCLvsF%North  => BCLvsN
+    BCLvsF%Bottom => BCLvsB
+    BCLvsF%Top    => BCLvsT
+
     deallocate(Constin)
 
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
@@ -168,6 +189,9 @@ Program Main
     Call InitialClsvofLiquidField(UGrid,UCell)
     Call InitialClsvofLiquidField(VGrid,VCell)
     Call InitialClsvofLiquidField(WGrid,WCell)
+
+    call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
+    call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
 
     Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
  !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))

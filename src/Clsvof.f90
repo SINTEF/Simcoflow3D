@@ -2099,13 +2099,18 @@ Module Clsvof
     end subroutine Boundary_Condition
 
     subroutine BoundaryConditionLvsVof(PGrid, PCell, Vari, BCLvs, BCVof, Time)
+      !      
+      real(kind=dp), intent(in)      :: Time
       type(Grid), intent(in)         :: PGrid
-      type(Cell), intent(inout)      :: PCell
       type(Variables), intent(in)    :: Vari
       type(BCBase), intent(inout)    :: BCLvs,BCVof
-      real(kind=dp), intent(in)      :: Time
+      type(Cell), intent(inout)      :: PCell
+
       integer(kind=it4b)             :: i,j,k
 
+      !
+      ! For PhiL
+      !
       ! For the western boundary
       call BCLvs%West(PGrid%x(1,1:Jmax,1:Kmax)-PGrid%dx(1,1:Jmax,1:Kmax)/2.d0,&
                       PGrid%y(1,1:Jmax,1:Kmax), PGrid%z(1,1:Jmax,1:Kmax),     &
@@ -2171,7 +2176,10 @@ Module Clsvof
       PCell%phiL(1:Imax,1:Jmax,Kmax+1)=PCell%phiL(1:Imax,1:Jmax,Kmax)+         &
                       PCell%nz(1:Imax,1:Jmax,Kmax)*PGrid%dz(1:Imax,1:Jmax,Kmax)
       
-
+      !
+      ! For VofL
+      !
+      ! For the western boundary
       call BCVof%West(PGrid%x(1,1:Jmax,1:Kmax)-PGrid%dx(1,1:Jmax,1:Kmax)/2.d0, &
                PGrid%y(1,1:Jmax,1:Kmax), PGrid%z(1,1:Jmax,1:Kmax),             &
                PGrid%dx(1,1:Jmax,1:Kmax), PGrid%dy(1,1:Jmax,1:Kmax),           &
