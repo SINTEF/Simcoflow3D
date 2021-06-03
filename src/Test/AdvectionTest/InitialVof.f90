@@ -119,7 +119,7 @@ Module InitialVof
             ii=max(1,min(Imax,i))
             jj=max(1,min(Jmax,j))
             kk=max(1,min(Kmax,k))
-            dx=TGrid%x(ii,jj,kk)-0.35d0
+            dx=TGrid%x(ii,jj,kk)-0.35d0 ! per - should be -0.5d0
             dy=TGrid%y(ii,jj,kk)-0.35d0
             dz=TGrid%z(ii,jj,kk)-0.35d0
             phi(i,j,k)=dsqrt(dx**2.d0+dy**2.d0+dz**2.d0)-Radius

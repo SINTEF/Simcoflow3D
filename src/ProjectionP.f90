@@ -126,13 +126,15 @@ Module ProjectionP
       type(PoissonCoefficient),intent(in) 	   :: PVel
       real(kind=dp),intent(in)			   :: Roref
       integer(kind=it4b),intent(in)	  	   :: ium,jvm,kwm,iup,jvp,kwp
+      real(kind=dp),dimension(:,:,:), intent(inout)  :: TPoCoef
 
       integer(kind=it4b)			   :: i,j,k
       integer(kind=it4b)		  	   :: ii,jj,kk,im,jm,km
-      real(kind=dp),dimension(:,:,:)		   :: TPoCoef
       real(kind=dp)			  	   :: Lamda,BetaP,BetaM
       real(kind=dp)				   :: BetaW,BetaD
       real(kind=dp)			  	   :: DGrid
+
+      TPoCoef(:,:,:)=0.d0
       
       BetaP = 1.d0/(row/Roref)
       BetaM = 1.d0/(roa/Roref)
@@ -163,6 +165,7 @@ Module ProjectionP
             ! print*, Pcell%vof(ii,jj,kk)
             ! print*, Pcell%phiL(ii,jj,kk)
             !
+
             if((PCell%vofL(i,j,k)>=0.5d0.and.PCell%vof(i,j,k)>1.d0-epsi).or.(PCell%phiL(i,j,k)<0.d0.and. &
                 PCell%vof(i,j,k)<=1.d0-epsi.and.PCell%vof(i,j,k)>epsi)) then ! The cell is in liquid and it is assigned wet cell 
                ! 
@@ -188,6 +191,7 @@ Module ProjectionP
              ! print*, Pcell%phiL(ii,jj,kk)
 
               TPoCoef(i,j,k)=PVel%Dp(im,jm,km)/DGrid*BetaP*BetaM/BetaW
+
               !if(isnan(betaW).or.isnan(TPoCoef(i,j,k))) then
               !  print*,'print out values'
               !  print*,Lamda*BetaM,(1.d0-Lamda)*BetaP 
@@ -238,7 +242,9 @@ Module ProjectionP
               !  print*,PCell%phi(ii,jj,kk),PCell%vof(ii,jj,kk)
               !  pause 'Test Lamda 168'
               !end if  
-            end if   
+              else
+              print*,' problem', i,j,k,Pcell%vofL(i,j,k), Pcell%phiL(i,j,k),PCell%vof(i,j,k), epsi, 1.d0-epsi
+              end if   
           end do
         end do
       end do    
