@@ -17,7 +17,7 @@ Program Main
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    !USE PrintResult
+    USE PrintResult
     USE MPI
     USE Solver
     USE ComputePUVW
@@ -200,8 +200,8 @@ Program Main
  !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
 
     !<per -nag
-    !Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+    Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
+    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
     Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)

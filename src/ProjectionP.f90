@@ -243,7 +243,7 @@ Module ProjectionP
               !  pause 'Test Lamda 168'
               !end if  
               else
-              print*,' problem', i,j,k,Pcell%vofL(i,j,k), Pcell%phiL(i,j,k),PCell%vof(i,j,k), epsi, 1.d0-epsi
+              !print*,' problem', i,j,k,Pcell%vofL(i,j,k), Pcell%phiL(i,j,k),PCell%vof(i,j,k), epsi, 1.d0-epsi
               end if   
           end do
         end do

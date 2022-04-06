@@ -83,7 +83,7 @@ Module Solver
         !
         FluxDivOld(:,:,:,:) = 0.d0
         !
-        Time%iter = 3!10**6
+        Time%iter = 2000!10**6
         Time%NondiT = 0.d0
         Time%Cfl = 0.3d0
         !
@@ -112,8 +112,8 @@ Module Solver
           !
           !<per-nag
           !call PrintHistory(itt,Uconv)
-          !call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
-          !                       PCell, UCell, VCell, WCell, itt, Time%NondiT)
+          call PrintDragLiftCoef(TVar, PGrid, UGrid, VGrid, WGrid,             &
+                                 PCell, UCell, VCell, WCell, itt, Time%NondiT)
           !>per-nag
           !               
           ite = itt

@@ -103,7 +103,8 @@ Module PrintResult
       INTEGER(kind=it8b),INTENT(IN) :: itt
       TYPE(VTR_file_handle)         :: fd
       CHARACTER(len=70)              :: dir
-      dir = trim("/home/sontd/code/CutCell3DGFMCLSVOF/Result/")
+      !dir = trim("/home/sontd/code/CutCell3DGFMCLSVOF/Result/")
+      dir = trim("/home/elena-roxanap/Documents/Iceload/simco3d/Result/")
 
       call VTR_open_file(Prefix=trim(PrintName),dir=dir,itera=itt,FD=fd)
     ! use keyword argument due to huge number of optional dummy argument
