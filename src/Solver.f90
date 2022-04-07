@@ -27,7 +27,7 @@ Module Solver
     Real(kind=dp):: Tref,Prn
     Real(dp),dimension(:,:,:),pointer:: Tem,u,v,w
 
-    public:: IterationSolution
+    public:: IterationSolution,PrintDragCoef2
 
     interface IterationSolution
       module Procedure IterationSolution
@@ -121,6 +121,7 @@ Module Solver
           !
           ! save fields for visualization
           !
+          Call PrintDragCoef2(PGrid,UGrid,VGrid,Wgrid,TVar,Pcell,UCell,VCell,WCell,itt)
           if(mod(itt,iprint)==0)then 
             !      
             print*, itt,Time%PhysT,Time%NondiT
@@ -638,4 +639,90 @@ Module Solver
       !
     End subroutine PrintDragLiftCoef
     !
+    subroutine PrintDragCoef2(PGrid,UGrid,VGrid,Wgrid,TVar,Pcell,UCell,VCell,WCell,itt)
+      ! compute and save the drag coefficient
+      ! PER 06-04-22
+      !                                            
+      Implicit none
+      !
+      type(Grid),         intent(in):: PGrid,UGrid,VGrid,WGrid
+      type(Variables),    intent(in) :: TVar
+      type(Cell),         intent(in):: PCell,UCell,VCell,WCell
+      Integer(kind=it8b), intent(in):: itt
+
+      Integer(kind=it4b) :: i,j,k
+      real(kind=dp) :: volCell,surfSphere,radius,volSphere,muLiq
+      real(kind=dp) :: dFx,dFxp,dFxv
+      real(kind=dp) :: Cdp,Cdv,Cd
+      real(kind=dp), allocatable, dimension(:,:,:) :: uc
+      !
+      allocate(uc(1:imax,1:jmax,1:kmax))
+      !
+      Open(unit=10,file='DragCoef2.dat',position='append')
+          if(itt.eq.1) then
+              write(10,'(A26)') 'TITLE="Drag Coefficient time evolution"'
+              write(10,'(A28)') 'VARIABLES="ite" "time" "Cdp" "Cdv" "Cd"'
+           endif
+      ! initialisation
+      dFx=0.d0
+      surfSphere=0.d0
+      volSphere=0.d0
+      radius=0.5d0/Pgrid%lref
+      muLiq=nuref/TVar%roref
+      volCell=0.d0
+
+      ! centered velocity
+      do i=1,imax
+      do j=1,jmax
+      do k=1,kmax
+          uc(i,j,k) = 0.5*(TVar%u(i,j,k)+TVar%u(i-1,j,k))
+      enddo
+      enddo
+      enddo
+      
+      do i=3,imax-2
+      do j=3,jmax-2
+      do k=3,kmax-2
+      ! surface computation for the pressure term
+          dFxp=dFxp+TVar%p(i,j,k)*Pcell%nx(i,j,k)*Pcell%WlLh(i,j,k)
+          ! WlLh should be zero for non cut cells
+          ! avoid if conditions in a do loop-high computational cost
+      ! volume computation for the viscous term
+          !
+          if(PCell%Cell_Type(i,j,k)==1) then
+              ! cell volume
+              volCell=Pgrid%dx(i,j,k)*Pgrid%dy(i,j,k)*Pgrid%dz(i,j,k)
+              !
+              if(PCell%Cell_Type(i+1,j,k)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i,j,k)-2.d0*uc(i-1,j,k)+uc(i-2,j,k))*volCell/(Pgrid%dx(i,j,k)*Pgrid%dx(i-1,j,k))
+              elseif(PCell%Cell_Type(i-1,j,k)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i+2,j,k)-2.d0*uc(i+1,j,k)+uc(i,j,k))*volCell/(Pgrid%dx(i,j,k)*Pgrid%dx(i+1,j,k))
+              endif
+              if(PCell%Cell_Type(i,j+1,k)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i,j,k)-2.d0*uc(i,j-1,k)+uc(i,j-2,k))*volCell/(Pgrid%dy(i,j,k)*Pgrid%dy(i,j-1,k))
+              elseif(PCell%Cell_Type(i,j-1,k)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i,j+2,k)-2.d0*uc(i,j+1,k)+uc(i,j,k))*volCell/(Pgrid%dy(i,j,k)*Pgrid%dy(i,j+1,k))
+              endif
+              if(PCell%Cell_Type(i,j,k+1)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i,j,k)-2.d0*uc(i,j,k-1)+uc(i,j,k-2))*volCell/(Pgrid%dz(i,j,k)*Pgrid%dz(i,j,k-1))
+              elseif(PCell%Cell_Type(i,j,k-1)/=1) then
+                  dFxv=dFxv-muLiq*(uc(i,j,k+2)-2.d0*uc(i,j,k+1)+uc(i,j,k))*volCell/(Pgrid%dz(i,j,k)*Pgrid%dz(i,j,k+1))
+              endif
+          endif
+          dFx=dFxp+dFxv
+          surfSphere=surfSphere+Pcell%WlLh(i,j,k)
+          volSphere=volSphere+volCell
+      enddo
+      enddo
+      enddo
+      Cdp = 2.d0*dFxp/(acos(-1.d0)*Tvar%Uref**2.d0*Tvar%roRef*radius**2.d0)
+      Cdv = 2.d0*dFxv/(acos(-1.d0)*Tvar%Uref**2.d0*Tvar%roref*radius**2.d0)
+      Cd  = 2.d0*dFx/(acos(-1.d0)*Tvar%Uref**2.d0*Tvar%roRef*radius**2.d0) 
+      write(10,*) itt,Cdp,Cdv,Cd
+      close(10)
+      print*, "surfSphere: ", surfSphere, " , and theoretical surfSphere:  ", 4.d0*acos(-1.d0)*radius**2.d0
+      print*, "volSphere: ", volSphere, " , and theoretical volSphere:  ", 4.d0*acos(-1.d0)*radius**3.d0/3.d0
+      print*, "Cdp: ", Cdp, dFxp,", Cdv: ", Cdv, dFxv,", Cd: ", Cd,dFx
+      !
+    end subroutine PrintDragCoef2
 End module Solver
