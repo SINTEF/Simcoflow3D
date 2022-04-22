@@ -17,7 +17,7 @@ Program Main
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    USE PrintResult
+    !USE PrintResult
     USE MPI
     USE Solver
     USE ComputePUVW
@@ -32,6 +32,7 @@ Program Main
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
+    integer(it4b) :: i,j,k
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
@@ -56,7 +57,8 @@ Program Main
     yc = 0.d0
     zc = 0.d0
     
-    vel = dble(Rey*nuw/Lref)
+    vel = dble(Rey*nuw/Lref/row)
+    print*, "vel", vel, Rey, nuw,Lref, row
     
     NI = Imax+1
     NJ = Jmax+1
@@ -194,14 +196,13 @@ Program Main
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
 
     Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
- !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
- !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
- !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
- !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
-
+    !Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
+    !Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
+    !Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
+    !Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
     !<per -nag
-    Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
+    !Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
+    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
     Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
@@ -258,16 +259,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(PGrid%dz(Imax,Jmax,Kmax))
 
     allocate(UCell%Cell_Type(Imax,Jmax,Kmax))
-    allocate(UCell%vof(Imax,Jmax,Kmax))
-    allocate(UCell%phi(Imax,Jmax,Kmax))
-    allocate(UCell%nx(Imax,Jmax,Kmax))
-    allocate(UCell%ny(Imax,Jmax,Kmax))
-    allocate(UCell%nz(Imax,Jmax,Kmax))
-    allocate(UCell%vofL(Imax,Jmax,Kmax))
-    allocate(UCell%phiL(Imax,Jmax,Kmax))
-    allocate(UCell%nxL(Imax,Jmax,Kmax))
-    allocate(UCell%nyL(Imax,Jmax,Kmax))
-    allocate(UCell%nzL(Imax,Jmax,Kmax))
+    allocate(UCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(UCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(UCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -296,16 +297,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(UCell%WePr(Imax-1,Jmax,Kmax))
 
     allocate(VCell%Cell_Type(Imax,Jmax,Kmax))
-    allocate(VCell%vof(Imax,Jmax,Kmax))
-    allocate(VCell%phi(Imax,Jmax,Kmax))
-    allocate(VCell%nx(Imax,Jmax,Kmax))
-    allocate(VCell%ny(Imax,Jmax,Kmax))
-    allocate(VCell%nz(Imax,Jmax,Kmax))
-    allocate(VCell%vofL(Imax,Jmax,Kmax))
-    allocate(VCell%phiL(Imax,Jmax,Kmax))
-    allocate(VCell%nxL(Imax,Jmax,Kmax))
-    allocate(VCell%nyL(Imax,Jmax,Kmax))
-    allocate(VCell%nzL(Imax,Jmax,Kmax))
+    allocate(VCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     allocate(VCell%Cell_Cent(Imax,Jmax,Kmax,3))
     allocate(VCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -334,16 +335,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     allocate(VCell%WePr(Imax,Jmax,Kmax))
 
     Allocate(WCell%Cell_Type(Imax,Jmax,Kmax))
-    Allocate(WCell%vof(Imax,Jmax,Kmax))
-    Allocate(WCell%phi(Imax,Jmax,Kmax))
-    Allocate(WCell%nx(Imax,Jmax,Kmax))
-    Allocate(WCell%ny(Imax,Jmax,Kmax))
-    Allocate(wCell%nz(Imax,Jmax,Kmax))
-    Allocate(WCell%vofL(Imax,Jmax,Kmax))
-    Allocate(WCell%phiL(Imax,Jmax,Kmax))
-    Allocate(WCell%nxL(Imax,Jmax,Kmax))
-    Allocate(WCell%nyL(Imax,Jmax,Kmax))
-    Allocate(wCell%nzL(Imax,Jmax,Kmax))
+    Allocate(WCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(wCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(wCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(WCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(WCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -372,16 +373,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(WCell%WePr(Imax,Jmax,Kmax))
 
     Allocate(PCell%Cell_Type(Imax,Jmax,Kmax))
-    Allocate(PCell%vof(Imax,Jmax,Kmax))
-    Allocate(PCell%phi(Imax,Jmax,Kmax))
-    Allocate(PCell%nx(Imax,Jmax,Kmax))
-    Allocate(PCell%ny(Imax,Jmax,Kmax))
-    Allocate(PCell%nz(Imax,Jmax,Kmax))
-    Allocate(PCell%vofL(Imax,Jmax,Kmax))
-    Allocate(PCell%phiL(Imax,Jmax,Kmax))
-    Allocate(PCell%nxL(Imax,Jmax,Kmax))
-    Allocate(PCell%nyL(Imax,Jmax,Kmax))
-    Allocate(PCell%nzL(Imax,Jmax,Kmax))
+    Allocate(PCell%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(PCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(PCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
