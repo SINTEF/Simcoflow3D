@@ -60,6 +60,7 @@ Module Solver
         Type(Variables),       intent(inout) :: TVar
         type(BCBase),          intent(inout) :: BCu, BCv, BCw, BCp, BCVof, BCLvs
 
+        integer(it4b) :: i,j,k
         Integer(kind=it8b)                   :: itt
         Real(kind=dp),dimension(:,:,:,:),allocatable :: FluxDivOld
         Real(kind=dp),dimension(:,:,:),allocatable :: GraP
@@ -636,6 +637,7 @@ Module Solver
       Write(10,76) itt,time,8.d0*(Cdp1+Cdf)/pi,8.d0*(Cdp2+Cdf)/pi,Cl1,Cl2
       Close(10)
  76   Format(I10,5(f15.10))
+      Write(*,*) "itt, time, Cd1, Cd2, Cl1, Cl2",itt,time,8.d0*(Cdp1+Cdf)/pi,8.d0*(Cdp2+Cdf)/pi,Cl1,Cl2
       !
     End subroutine PrintDragLiftCoef
     !
@@ -665,10 +667,12 @@ Module Solver
            endif
       ! initialisation
       dFx=0.d0
+      dFxp =0.d0
+      dFxv=0.d0
       surfSphere=0.d0
       volSphere=0.d0
       radius=0.5d0/Pgrid%lref
-      muLiq=nuref/TVar%roref
+      muLiq=nuref
       volCell=0.d0
 
       ! centered velocity
@@ -720,6 +724,7 @@ Module Solver
       Cd  = 2.d0*dFx/(acos(-1.d0)*Tvar%Uref**2.d0*Tvar%roRef*radius**2.d0) 
       write(10,*) itt,Cdp,Cdv,Cd
       close(10)
+      print*, "uref",Tvar%roRef,Tvar%Uref
       print*, "surfSphere: ", surfSphere, " , and theoretical surfSphere:  ", 4.d0*acos(-1.d0)*radius**2.d0
       print*, "volSphere: ", volSphere, " , and theoretical volSphere:  ", 4.d0*acos(-1.d0)*radius**3.d0/3.d0
       print*, "Cdp: ", Cdp, dFxp,", Cdv: ", Cdv, dFxv,", Cd: ", Cd,dFx
