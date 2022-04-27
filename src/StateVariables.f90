@@ -87,6 +87,46 @@ Module StateVariables
     !  wall________________________
     !             dp/dn = 0.d0, u,v = 0.d0
     !*******************************************************
+    !
+    subroutine get_max_min(var, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !
+      implicit none
+      !
+      real(dp), dimension(0:,0:,0:), intent(in) :: var
+      real(dp), intent(out) :: maxvalue,minvalue
+      integer(it4b), dimension(3),intent(out) :: idxMaxvalue,idxMinvalue
+
+      integer(it4b) :: i,j,k
+
+      maxvalue=10e-12
+      minvalue=10e+12
+      !
+      i=-1
+      j=-1
+      k=-1
+      !
+      do k=1,kmax
+      do j=1,jmax
+      do i=1,imax
+          !print*, 'inside',i,j,k,var(i,j,k)
+          if(var(i,j,k).gt.maxvalue)then
+              maxvalue=var(i,j,k)
+              idxMaxvalue(1)=i 
+              idxMaxvalue(2)=j 
+              idxMaxvalue(3)=k 
+           endif
+          if(var(i,j,k).lt.minvalue)then
+              minvalue=var(i,j,k)
+              idxMinvalue(1)=i 
+              idxMinvalue(2)=j 
+              idxMinvalue(3)=k 
+           endif
+      enddo
+      enddo
+      enddo
+      !
+      end subroutine get_max_min
+      !
 End Module StateVariables
 
 
