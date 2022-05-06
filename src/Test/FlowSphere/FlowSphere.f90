@@ -32,10 +32,12 @@ Program Main
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
+    integer(it8b) :: itt
     integer(it4b) :: i,j,k
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
+    real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
     
     allocate(Constin(6))
     Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/input.dat',action='read')
@@ -45,22 +47,35 @@ Program Main
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
 
+    itt=0 ! iteration number
+
     gx = 0.d0
     gy = 0.d0
-    gz = -g
+    gz = 0.d0!-g
     print*, 'gx,gy,gz', gx,gy,gz
+
     
     Ta = 1000.d0
-    wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
+    wa = dsqrt(2.d0*Ta*mu**2.d0/((R1+R2)*(R2-R1)**3.d0))
     
     xc = 0.d0
     yc = 0.d0
     zc = 0.d0
     
-    vel = dble(Rey*nuw/Lref/row)
-    print*, "vel", vel, Rey, nuw,Lref, row
+    vel = dble(Rey*muw/Lref/row)
+    print*, "vel", vel, Rey, muw,Lref, row
     
     NI = Imax+1
+    Uref=vel
+    Tref=0.d0
+    Roref=row
+    Tref=300.d0
+    Uint=vel
+    Vint=0.d0
+    Wint=0.d0
+    Pint=0.d0
+    Tint=300.d0
+
     NJ = Jmax+1
     NK = Kmax+1
     
@@ -95,7 +110,7 @@ Program Main
     call BCVof%SetDN(0,0,1,1,1,1)
     call BCLvs%SetDN(0,0,1,1,1,1)
     ! Set Constant for boundary condition
-    Constin(1) = vel
+    Constin(1) = vel/Uref
     Constin(2:6) = 0.d0
     call BCu%SetConstant(Constin)    
     Constin(:) = 0.d0
@@ -195,7 +210,7 @@ Program Main
     call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
 
-    Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
+    Call InitialVar(Uint,Vint,Wint,Pint,Tint,Uref,Tref,row,Lref, Var)
     !Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
     !Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
     !Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
@@ -205,7 +220,7 @@ Program Main
     !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
-    Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
     

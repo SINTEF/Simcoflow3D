@@ -5,10 +5,10 @@ Module StateVariables
     Integer(kind=it4b):: ight=1,jght=1,kght=1
     Integer(kind=it4b):: ite
     Real(kind=dp),parameter   :: pi = 4.d0*datan(1.d0),Cp = 1.005d3
-    Real(kind=dp),parameter   :: nu = 1.002d-3,kT = 0.0271d0,kTw = 0.0271d0
-    Real(kind=dp),parameter   :: nuw=1.002d-3,nua=1.506d-5,                     &
+    Real(kind=dp),parameter   :: mu = 1.002d-3,kT = 0.0271d0,kTw = 0.0271d0
+    Real(kind=dp),parameter   :: muw=1.002d-3,mua=1.506d-5,                     &
                                  roa=1.205d0,row=998.3d0,g=9.80665d0 
-    Real(kind=dp),public      :: nuref,gx,gy,gz
+    Real(kind=dp),public      :: muref,gx,gy,gz
     Real(kind=dp) 	          :: Fr,Rey,wa,Ta,xc,yc,zc,R1=0.5d0,R2=4.d0
     Integer(kind=it4b),public :: TimeOrder,SpaceOrder
 
@@ -43,13 +43,16 @@ Module StateVariables
       Vari%Pref = Roref*Uref**2.d0
       Vari%Tref = Tref
       !
-      nuref = nu
+      muref = mu
       !
-      Do i = 0,Imax+1
-        Do j = 0,Jmax+1
-          Do k = 0,Kmax+1
+      !Do i = 0,Imax+1
+      !  Do j = 0,Jmax+1
+      !    Do k = 0,Kmax+1
+      Do i = 1,Imax
+        Do j = 1,Jmax
+          Do k = 1,Kmax
             !
-            Vari%u(i,j,k) = 0.d0 !Uint/Uref
+            Vari%u(i,j,k) = Uint/Uref
             Vari%v(i,j,k) = 0.d0 !Vint/Uref
             Vari%w(i,j,k) = 0.d0
             Vari%p(i,j,k) = Pint/Vari%Pref
@@ -66,10 +69,10 @@ Module StateVariables
       Open(unit=5,file='Convergence.dat')
       close(5,status='delete')
       !
-      Rey = Uref*Lref*Roref/nuref
+      Rey = Uref*Lref*Roref/muref
       Fr = Uref/dsqrt(g*Lref)
       !
-      Print*,"Reynolds number:",Rey,Uref,Lref,Roref,nuref
+      Print*,"Reynolds number:",Rey,Uref,Lref,Roref,muref
       Print*,"Froude number:",Fr
       !
     End subroutine InitialVar

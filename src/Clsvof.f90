@@ -130,7 +130,7 @@ Module Clsvof
             !
             vflF(i,j,k)=vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
             !
-            phiF(i,j,k)=dis
+            phiF(i,j,k)= dis
             !
           end do
         end do

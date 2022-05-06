@@ -5,7 +5,7 @@ Module Solver
     USE CutCell
     USE Clsvof
     !<per-nag
-    !USE PrintResult
+    USE PrintResult
     !>per-nag
     USE ComputePUVW
     USE MPI
@@ -64,10 +64,10 @@ Module Solver
         Integer(kind=it8b)                   :: itt
         Real(kind=dp),dimension(:,:,:,:),allocatable :: FluxDivOld
         Real(kind=dp),dimension(:,:,:),allocatable :: GraP
-        Type(SolverTime)                     :: Time
         Type(SolverConvergence)              :: UConv, VConv, WConv, PConv
         Type(Variables)                      :: TVar_n
         Type(Cell)                           :: PCellO, UCellO, VCellO, WCellO
+        Type(SolverTime) :: Time
         !
         
         allocate(TVar_n%p(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
@@ -84,9 +84,9 @@ Module Solver
         !
         FluxDivOld(:,:,:,:) = 0.d0
         !
-        Time%iter = 2000!10**6
-        Time%NondiT = 0.d0
-        Time%Cfl = 0.3d0
+        Time%iter = 2000!10**6 ! max number of iterations
+        Time%NondiT = 0.d0 ! non dim time
+        Time%Cfl = 0.3d0 ! cfl
         !
         ! Print out the information about numerical method
         !
@@ -97,6 +97,8 @@ Module Solver
         !
         do itt = 1,Time%iter
           !
+          Call ComputeTimeStep(itt,PGrid,UGrid,VGrid,WGrid,TVar, Time)
+          !
           ! solve the equations using Adam Basfort scheme
           !
           call AdamBasforthBDF2(itt,PGrid,UGrid,VGrid,WGrid,                    &
@@ -106,10 +108,6 @@ Module Solver
                                 TVar, TVar_n, FluxDivOld,                      &
                                 UConv, VConv, WConv, PConv)
           !              
-          Time%NondiT = Time%NondiT+Time%dt
-          Time%PhysT  = Time%Nondit*PGrid%Lref/TVar%URef
-          !
-          ! ??
           !
           !<per-nag
           !call PrintHistory(itt,Uconv)
@@ -117,19 +115,16 @@ Module Solver
                                  PCell, UCell, VCell, WCell, itt, Time%NondiT)
           !>per-nag
           !               
-          ite = itt
-          ! print*, itt
           !
           ! save fields for visualization
           !
           Call PrintDragCoef2(PGrid,UGrid,VGrid,Wgrid,TVar,Pcell,UCell,VCell,WCell,itt)
           if(mod(itt,iprint)==0)then 
             !      
-            print*, itt,Time%PhysT,Time%NondiT
-            ! call PrintResultVTK(PGrid,TVar,PCell,itt)
+            call PrintResultVTK(PGrid,TVar,PCell,itt)
             !<per-nag
-            !call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
-            !call PrintResultVTR3D(UGrid,TVar,UCell,"FlowFieldU",itt)
+            call PrintResultVTR3D(PGrid,TVar,PCell,"FlowFieldP",itt)
+            call PrintResultVTR3D(UGrid,TVar,UCell,"FlowFieldU",itt)
             !>per-nag
             ! call PrintResultTecplotPCent(PGrid,TVar,PCell,itt)
             ! call PrintResultTecplotPCentXY(PGrid,TVar,PCell,itt)
@@ -184,15 +179,12 @@ Module Solver
         type(BCBase),                     intent(inout) :: BCu, BCv, BCw, BCp, BCVof, BCLvs
         Type(Variables),                  intent(inout) :: TVar, TVar_n
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: FluxDivOld
-        Type(SolverTime),                 intent(inout) :: Time
+        Type(SolverTime),                 intent(in) :: Time
         Type(SolverConvergence),          intent(out)   :: UConv, VConv, WConv, PConv
 
         Integer(kind=it4b)                              :: i,j,k
-        Real(kind=dp)                                   :: dt,mres
+        Real(kind=dp)                                   :: mres
         !
-        Call ComputeTimeStep(itt,UGrid,VGrid,WGrid,TVar, Time)
-        !
-        dt = Time%dt
         !
         if(itt==1) then
           TVar_n%p(:,:,:) = TVar%p(:,:,:)
@@ -200,8 +192,6 @@ Module Solver
           TVar_n%v(:,:,:) = TVar%v(:,:,:)
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
         end if  
-        !
-        print*, 'Time step size:', dt
         !
         ! Compute the previous cell configuration 
         !
@@ -219,7 +209,7 @@ Module Solver
         !
         ! update the velocity and pressure
         !
-        call UpdatePUVW(itt, Time%NondiT, dt, UGrid, VGrid, WGrid, PGrid,      &
+        call UpdatePUVW(itt, Time%NondiT, Time%dt, UGrid, VGrid, WGrid, PGrid,      &
                         UCell, VCell, WCell, PCell,                            &
                         UCellO, VCellO, WCellO, PCellO,                        &
                         BCu, BCv, BCw, BCp, BCVof, BCLvs,                      &
@@ -258,17 +248,22 @@ Module Solver
         !
     end Subroutine AdamBasforthBDF2
     !
-    Subroutine ComputeTimeStep(itt,UGrid,VGrid,WGrid,TVar, Time)
+    Subroutine ComputeTimeStep(itt,Pgrid,UGrid,VGrid,WGrid,TVar, Time)
         !    
         implicit none
         !
         integer(kind=it8b),intent(in) :: itt
-        type(Grid),intent(in)	      :: UGrid,VGrid,WGrid
+        type(Grid),intent(in)	      :: PGrid,UGrid,VGrid,WGrid
         type(Variables),intent(in)    :: TVar
         type(SolverTime),intent(inout)  :: Time
 
         integer(kind=it4b)	      :: i,j,k
         real(kind=dp)		      :: tol
+        real(kind=dp)                 :: a,b,c,cfl_conv
+        real(kind=dp)                 :: d_u_min,d_v_min,d_w_min
+        real(kind=dp)                 :: dx_min,dy_min,dz_min
+        real(kind=dp)                 :: dmin,min_d
+        real(kind=dp)                 :: dt_conv, dt_visc
         !
         tol = 1.d-20
         Time%dt = 1.d0
@@ -310,7 +305,104 @@ Module Solver
           end do
           !
         end if        
-        !
+!        !
+!        ! per 04-05-2022
+!        !
+!        cfl_conv=Time%cfl
+!        !
+!        ! smallest segment of the grid
+!        !
+!        Time%dt =1d5
+!
+!        dx_min=1d5
+!        dy_min=dx_min
+!        dz_min=dx_min
+!
+!        do k=1,kmax
+!        do j=1,jmax
+!        do i=1,imax
+!                dx_min=dmin1(dabs(Ugrid%dx(i,j,k)),dx_min)
+!        enddo
+!        enddo
+!        enddo
+!
+!        do k=1,kmax
+!        do j=1,jmax
+!        do i=1,imax
+!                dy_min=dmin1(dabs(Vgrid%dy(i,j,k)),dy_min)
+!        enddo
+!        enddo
+!        enddo
+!
+!        do k=1,kmax
+!        do j=1,jmax
+!        do i=1,imax
+!                dz_min=dmin1(dabs(Wgrid%dz(i,j,k)),dz_min)
+!        enddo
+!        enddo
+!        enddo
+!        !
+!        ! time step due to convection
+!        !
+!        tol=1d-6
+!        
+!        d_u_min=1d5
+!        d_v_min=1d5
+!        d_w_min=1d5
+!
+!        do k=1,kmax
+!        do j=1,jmax
+!        do i=1,imax
+!
+!                a=dabs(Ugrid%dx(i,j,k)/(Tvar%u(i,j,k)+tol))
+!                b=dabs(Vgrid%dy(i,j,k)/(Tvar%v(i,j,k)+tol))
+!                c=dabs(Wgrid%dz(i,j,k)/(Tvar%w(i,j,k)+tol))
+!
+!         print*, 'a,b,c', a,b,c
+!                d_u_min=dmin1(a,d_u_min)
+!                d_v_min=dmin1(a,d_v_min)
+!                d_w_min=dmin1(a,d_w_min)
+!
+!         enddo
+!         enddo
+!         enddo
+!
+!         dmin=dmin1(d_u_min,d_v_min,d_w_min)
+!
+!         dt_conv=cfl_conv*dmin
+!
+!         !
+!         ! time step due to viscosity
+!         !
+!                
+!         min_d=dmin1(dx_min,dy_min,dz_min)
+!
+!         dt_visc=0.25d0*min_d*min_d/dmax1(muw/row,mua/roa)
+!
+!         !
+!         ! time step due to the gravity
+!         !
+!
+!         !
+!         ! overall time step
+!         !
+!
+!         Time%dt=dt_conv
+!
+!         Time%dt=Time%dt*dt_visc/(Time%dt+dt_visc)
+!
+         ! compute time nondim and phys time of the simulation
+         !
+         Time%NondiT = Time%NondiT+Time%dt
+         Time%PhysT  = Time%Nondit*PGrid%Lref/TVar%URef
+         !
+         print*, '******iteration number******: ', itt
+         print*, '******time step******: ', Time%dt
+         !print*, '******convectiv time step******: ', dt_conv
+         !print*, '******viscous time step******: ', dt_visc
+         print*, '******integrated non dim time******: ', Time%NondiT
+         print*, '******integrated phys time******: ', Time%PhysT
+         !
     end Subroutine ComputeTimeStep
     !
     Subroutine ResidualNormCalculate(TCell,Varn1,Varn,Tres,Conv)
@@ -672,7 +764,7 @@ Module Solver
       surfSphere=0.d0
       volSphere=0.d0
       radius=0.5d0/Pgrid%lref
-      muLiq=nuref
+      muLiq=muref
       volCell=0.d0
 
       ! centered velocity
