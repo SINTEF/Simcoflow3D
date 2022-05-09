@@ -218,10 +218,12 @@ Module InitialVof
       nullify(nzF)
     end subroutine InitialClsvofLiquidFieldDambreak
     
-    Subroutine InitialVarDambreak(Vari,Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref)
+    Subroutine InitialVarDambreak(Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref, Vari)
+      !
       Real(kind=dp),intent(in):: Uint,Vint,Wint,Pint,Tint,Uref,Tref,Roref,Lref
       Type(Variables),intent(inout):: Vari
       Integer(kind=it4b):: i,j,k
+      !
       Vari%Uint = Uint
       Vari%Vint = Vint
       Vari%Wint = Wint
@@ -231,7 +233,7 @@ Module InitialVof
       Vari%Roref = Roref
       Vari%Pref = Roref*Uref**2.d0
       Vari%Tref = Tref
-      nuref = nu
+      muref = mu
       Do i = 0,Imax+1
         Do j = 0,Jmax+1
           Do k = 0,Kmax+1
@@ -248,7 +250,7 @@ Module InitialVof
           End do
         End do
       End do
-      Rey = Uref*Lref*Roref/nuref
+      Rey = Uref*Lref*Roref/muref
       Fr = Uref/dsqrt(g*Lref)
       Print*,"Reynolds number:",Rey
       Print*,"Froude number:",Fr

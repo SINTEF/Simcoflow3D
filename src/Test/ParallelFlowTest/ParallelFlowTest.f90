@@ -1,10 +1,23 @@
+    !*******************************************************
+    !              dp/dn = 0.d0,du/dn=0, v = 0
+    !    slip wall________________________
+    !           --->                     --->
+    !           --->                     --->
+    !           --->                     --->
+    ! => inlet : u = 5.d-3          => outflow :: du/dn = 0.d0
+    !          : v = 0.d0                 --->    dv/dn = 0.d0
+    !          : dp/dn = 0.d0             --->    P = 0.d0
+    !           --->                      --->
+    !    slip wall________________________
+    !             dp/dn = 0.d0, u,v = 0.d0
+    !*******************************************************
 Program Main
     USE PrecisionVar
     USE Mesh
     USE Cutcell
     USE Clsvof
     USE StateVariables
-    !USE PrintResult
+    USE PrintResult
     USE MPI
     USE Solver
     USE ComputePUVW
@@ -14,34 +27,45 @@ Program Main
     
     Implicit none
     
-    Type(Grid)      :: UGrid,VGrid,WGrid,PGrid
-    Type(Cell)      :: UCell,VCell,WCell,PCell
-    Type(Point)     :: SPoint,EPoint,ReS,ReE
-    Type(Variables) :: Var
-    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
+    Type(Grid)       :: UGrid,VGrid,WGrid,PGrid
+    Type(Cell)       :: UCell,VCell,WCell,PCell
+    Type(Point)      :: SPoint,EPoint,ReS,ReE
+    Type(Variables)  :: Var
+    Type(BCBase)     :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
     
-    Integer(kind=it8b) :: itt
-    Integer(kind=it4b) :: i,j,k
+    integer(it4b) :: i,j,k
+    integer(it8b) :: itt
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
     real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
+
     
     allocate(Constin(6))
-    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/Dambreak/input.dat',action='read')
+    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/ParallelFlowTest/input.dat',action='read')
     Read(5,*)
     Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     Read(5,*)
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
-   
-    
-    NI = Imax+1
-    NJ = Jmax+1
-    NK = Kmax+1
 
     itt=0 ! iteration number
+
+    gx = 0.d0
+    gy = 0.d0
+    gz = 0.d0!-g
+    print*, 'gx,gy,gz', gx,gy,gz
     
+    Ta = 1000.d0
+    wa = dsqrt(2.d0*Ta*mu**2.d0/((R1+R2)*(R2-R1)**3.d0))
+    
+    xc = 0.d0
+    yc = 0.d0
+    zc = 0.d0
+    
+    vel = dble(Rey*muw/Lref/row)
+    print*, "vel", vel, Rey, muw,Lref, row
+
     Uref=vel
     Tref=0.d0
     Roref=row
@@ -52,19 +76,17 @@ Program Main
     Pint=0.d0
     Tint=300.d0
 
-    gx = 0.d0
-    gy = 0.d0
-    gz = -g
-    vel = dsqrt(dabs(g*Lref))
-  !  Imax = 98
-  !  Jmax = 98
-  !  Kmax = 98
-    SPoint%x = 0.d0
-    SPoint%y = 0.d0
-    SPoint%z = 0.d0
-    EPoint%x = 1.61d0
-    EPoint%y = 0.15d0
-    EPoint%z = 0.60d0
+    
+    NI = Imax+1
+    NJ = Jmax+1
+    NK = Kmax+1
+    
+    SPoint%x = -20.d0
+    SPoint%y = -20.d0
+    SPoint%z = -20.d0
+    EPoint%x = 40.d0
+    EPoint%y = 20.d0
+    EPoint%z = 20.d0
     ReS%x = -1.d0
     ReS%y = -1.d0
     ReS%z = -1.d0
@@ -78,31 +100,34 @@ Program Main
     BCw = BCBase(Imax,Jmax,Kmax)
     BCvof = BCBase(Imax,Jmax,Kmax)
     BClvs = BCBase(Imax,Jmax,Kmax)
-    BCVofF = BCBase(Imax,Jmax,Kmax)
-    BCLvsF = BCBase(Imax,Jmax,Kmax)
-    
-    ! For dambreak flow 
-    ! 0 for Dirichlet, 1 for Neumann Boundary Condition
-    call BCp%SetDN(1,1,1,1,1,0)
-    call BCu%SetDN(0,0,0,0,0,1)
-    call BCv%SetDN(0,0,0,0,0,1)
-    call BCw%SetDN(0,0,0,0,0,1)
-    call BCVof%SetDN(1,1,1,1,1,1)
-    call BCLvs%SetDN(1,1,1,1,1,1)
-    call BCVofF%SetDN(1,1,1,1,1,1)
-    call BCLvsF%SetDN(1,1,1,1,1,1)
+    BCvofF = BCBase(Imax,Jmax,Kmax)
+    BClvsF = BCBase(Imax,Jmax,Kmax)
+
+
+    ! use the same as for flow over sphere
+    call BCp%SetDN(1,0,1,1,1,1)
+    call BCu%SetDN(0,1,0,0,0,0)
+    call BCv%SetDN(0,1,0,0,0,0)
+    call BCw%SetDN(0,1,0,0,0,0)
+    call BCVof%SetDN(0,0,1,1,1,1)
+    call BCLvs%SetDN(0,0,1,1,1,1)
     ! Set Constant for boundary condition
-    Constin(:) = 0.d0
+    Constin(1) = vel/Uref
+    Constin(2:6) = 0.d0
     call BCu%SetConstant(Constin)    
     Constin(:) = 0.d0
     call BCv%SetConstant(Constin)
     call BCw%SetConstant(Constin)
     call BCp%SetConstant(Constin)
+    Constin(1)=1.d0
+    Constin(2)=1.d0
     call BCVof%SetConstant(Constin)
-    call BCLvs%SetConstant(Constin)
     call BCVofF%SetConstant(Constin)
+    Constin(1)=-1.d3
+    Constin(2)=-1.d3
+    call BCLvs%SetConstant(Constin)
     call BCLvsF%SetConstant(Constin)
-    
+
     BCu%West   => BCUW
     BCu%East   => BCUE
     BCu%South  => BCUS
@@ -163,7 +188,8 @@ Program Main
 
     Call AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
 
-    Call InitialGridDamBreak(SPoint,EPoint,PGrid,Lref)
+    Call InitialGrid(NI,NJ,NK,Irec,Jrec,Krec,Lref,SPoint,EPoint,ReS,ReE, PGrid)
+    !Call InitialGrid(SPoint,EPoint,ReS,ReE,NI,NJ,NK,Irec,Jrec,Krec,PGrid,Lref)
 
     Call InitialUVGrid(0,Lref,PGrid, UGrid)
     Call InitialUVGrid(1,Lref,PGrid, VGrid)
@@ -173,40 +199,32 @@ Program Main
 
     Call HYPRE_CreateGrid(PGrid)
 
-    Call InitialClsvofFluidFieldDamBreak(PGrid,PCell)
-    Call InitialClsvofFluidFieldDamBreak(UGrid,UCell)
-    Call InitialClsvofFluidFieldDamBreak(VGrid,VCell)
-    Call InitialClsvofFluidFieldDamBreak(WGrid,WCell)
+    Call InitialClsvofFluidFieldPersonal(PGrid,PCell)
+    Call InitialClsvofFluidFieldPersonal(UGrid,UCell)
+    Call InitialClsvofFluidFieldPersonal(VGrid,VCell)
+    Call InitialClsvofFluidFieldPersonal(WGrid,WCell)
     
-    Call InitialClsvofLiquidFieldDamBreak(PGrid,PCell)
-    Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
-    Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
-    Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
-
-    call ComputeUVWLiquidField(PGrid,PCell,UCell,VCell,WCell,            &
-                                                 UGrid,VGrid,WGrid)
- !   Call InitialClsvofLiquidFieldDamBreak(UGrid,UCell)
- !   Call InitialClsvofLiquidFieldDamBreak(VGrid,VCell)
- !   Call InitialClsvofLiquidFieldDamBreak(WGrid,WCell)
+    Call InitialClsvofLiquidFieldPersonal(PGrid,PCell)
+    Call InitialClsvofLiquidFieldPersonal(UGrid,UCell)
+    Call InitialClsvofLiquidFieldPersonal(VGrid,VCell)
+    Call InitialClsvofLiquidFieldPersonal(WGrid,WCell)
 
     call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
 
- !   Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
- !   Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
- !   Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
- !   Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
- !   Call PrintResultVTK(PGrid,Var,PCell,INT8(0)) 
-    !<per-nag
-    !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
-    !Call PrintResultVTR3D(UGrid,Var,UCell,"FlowFieldU",INT8(0))
-    !Call PrintResultVTR3D(VGrid,Var,VCell,"FlowFieldV",INT8(0))
-    !Call PrintResultVTR3D(WGrid,Var,WCell,"FlowFieldW",INT8(0))
-    !>per-nag
-    
-    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell)
+    Call InitialVarPersonal(Uint,Vint,Wint,Pint,Tint,Uref,Tref,row,Lref, Var)
+    !Call PrintResultTecplotPCent(PGrid,Var,PCell,INT8(0))
+    !Call PrintResultTecplotUCent(UGrid,Var,UCell,INT8(0))
+    !Call PrintResultTecplotVCent(VGrid,Var,VCell,INT8(0))
+    !Call PrintResultTecplotWCent(WGrid,Var,WCell,INT8(0))
+    !<per -nag
+    Call PrintResultVTK(PGrid,Var,PCell,itt) 
+    Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",itt)
+    !<per -nag
 
-    Call DefineMomentumExchangeCell(PCell,UCell,VCell,WCell)
+    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+
+    Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
     
     Call NumberExternalCell(0,0,0, PCell)
     Call NumberExternalCell(1,0,0, UCell)
@@ -214,14 +232,12 @@ Program Main
     Call NumberExternalCell(0,0,1, WCell)
 
     Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
-    
-    Call InitialVarDambreak(Uint,Vint,Wint,Pint,Tint,Uref,Tref,row,Lref, Var)
 
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
-    Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,    &
+    Call IterationSolution(iprint,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
                            BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
-
+ 
     Pause
 End program main
 
@@ -260,16 +276,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(PGrid%dz(Imax,Jmax,Kmax))
 
     allocate(UCell%Cell_Type(Imax,Jmax,Kmax))
-    allocate(UCell%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
     allocate(UCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
     allocate(UCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(UCell%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(UCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(UCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(UCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -298,16 +314,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(UCell%WePr(Imax-1,Jmax,Kmax))
 
     allocate(VCell%Cell_Type(Imax,Jmax,Kmax))
-    allocate(VCell%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
     allocate(VCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
     allocate(VCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    allocate(VCell%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    allocate(VCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     allocate(VCell%Cell_Cent(Imax,Jmax,Kmax,3))
     allocate(VCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -336,16 +352,16 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     allocate(VCell%WePr(Imax,Jmax,Kmax))
 
     Allocate(WCell%Cell_Type(Imax,Jmax,Kmax))
-    Allocate(WCell%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(WCell%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(WCell%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(WCell%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(wCell%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%vof( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(wCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(WCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(WCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(WCell%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(WCell%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(wCell%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(WCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(wCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(WCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(WCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -375,15 +391,15 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
 
     Allocate(PCell%Cell_Type(Imax,Jmax,Kmax))
     Allocate(PCell%vof(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%phi(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%nx(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%ny(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%nz(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%phi( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nx(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%ny(  0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nz(  0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(PCell%vofL(0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(PCell%phiL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%nxL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%nyL(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(PCell%nzL(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nxL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nyL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(PCell%nzL( 0:Imax+1,0:Jmax+1,0:Kmax+1))
     
     Allocate(PCell%Cell_Cent(Imax,Jmax,Kmax,3))
     Allocate(PCell%EEArea(0:Imax+1,0:Jmax+1,0:Kmax+1))
@@ -401,13 +417,13 @@ Subroutine AllocateVar(Pgrid,UGrid,VGrid,WGrid,PCell,UCell,VCell,WCell,Var)
     Allocate(Var%v(0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(Var%w(0:Imax+1,0:Jmax+1,0:Kmax+1))
     Allocate(Var%p(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(Var%Gpu(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(Var%Gpv(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(Var%Gpw(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(Var%Gpu(Imax,Jmax,Kmax))
+    Allocate(Var%Gpv(Imax,Jmax,Kmax))
+    Allocate(Var%Gpw(Imax,Jmax,Kmax))
     Allocate(Var%ures(Imax,Jmax,Kmax))
     Allocate(Var%vres(Imax,Jmax,Kmax))
     Allocate(Var%wres(Imax,Jmax,Kmax))
-    Allocate(Var%pres(0:Imax+1,0:Jmax+1,0:Kmax+1))
-    Allocate(Var%mres(0:Imax+1,0:Jmax+1,0:Kmax+1))
+    Allocate(Var%pres(Imax,Jmax,Kmax))
+    Allocate(Var%mres(Imax,Jmax,Kmax))
     Allocate(Var%t(0:Imax+1,0:Jmax+1,0:Kmax+1))
  End subroutine
