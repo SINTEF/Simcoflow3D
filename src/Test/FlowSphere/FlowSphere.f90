@@ -23,6 +23,8 @@ Program Main
     USE ComputePUVW
     USE BoundaryInterface
     USE BoundaryFunction
+    USE STL
+    USE Geometry
     
     Implicit none
     
@@ -31,6 +33,8 @@ Program Main
     Type(Point)     :: SPoint,EPoint,ReS,ReE
     Type(Variables) :: Var
     Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
+    Type(simcoSTL)  :: ComSTL
+    Type(Gpoint)    :: CentPoint
     
     integer(it8b) :: itt
     integer(it4b) :: i,j,k
@@ -38,6 +42,8 @@ Program Main
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
     real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
+    real(dp) :: ScaleFactor
+    character(len=200) :: STLfilename
     
     allocate(Constin(6))
     Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/input.dat',action='read')
@@ -46,6 +52,8 @@ Program Main
     Read(5,*)
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
+   
+    STLfilename=trim('/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/cylinder.stl')
 
     itt=0 ! iteration number
 
@@ -91,6 +99,11 @@ Program Main
     ReE%x = 1.d0
     ReE%y = 1.d0
     ReE%z = 1.d0
+
+    ! center point
+    CentPoint(1)=0.d0
+    CentPoint(2)=0.d0
+    CentPoint(3)=0.d0
     
     BCp = BCBase(IMax,Jmax,Kmax)
     BCu = BCBase(Imax,Jmax,Kmax)
@@ -196,11 +209,19 @@ Program Main
     Call MPI_Initial
 
     Call HYPRE_CreateGrid(PGrid)
+    
+    call ComSTL%ReadSTLFile(STLfilename)
+    ScaleFactor=1.d0
+    call ComSTL%ModifySTLFile(ScaleFactor, CentPoint, Lref))
+    call LvsObject(Pcell,ComSTL,Pgrid)
+    call LvsObject(Ucell,ComSTL,Ugrid)
+    call LvsObject(Vcell,ComSTL,Vgrid)
+    call LvsObject(Wcell,ComSTL,WPgrid)
 
-    Call InitialClsvofFluidField(PGrid,PCell)
-    Call InitialClsvofFluidField(UGrid,UCell)
-    Call InitialClsvofFluidField(VGrid,VCell)
-    Call InitialClsvofFluidField(WGrid,WCell)
+    !Call InitialClsvofFluidField(PGrid,PCell)
+    !Call InitialClsvofFluidField(UGrid,UCell)
+    !Call InitialClsvofFluidField(VGrid,VCell)
+    !Call InitialClsvofFluidField(WGrid,WCell)
     
     Call InitialClsvofLiquidField(PGrid,PCell)
     Call InitialClsvofLiquidField(UGrid,UCell)
