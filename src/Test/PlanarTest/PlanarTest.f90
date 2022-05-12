@@ -32,6 +32,8 @@ program main
     read(1,*)
     read(1,*) imax,jmax,kmax,tp,iprint,iprint1,eta,nv,cfl
     
+    itt=0 ! iteration number
+
     SPoint%x = 0.d0
     SPoint%y = 0.d0
     SPoint%z = 0.d0

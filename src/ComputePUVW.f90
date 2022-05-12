@@ -59,7 +59,14 @@ Module ComputePUVW
       real(kind=dp),dimension(:,:,:,:),allocatable :: PoCoef
       Type(PoissonCoefficient)       :: PU, PV, PW
       Type(Predictor)                :: Pred
+      !
       Type(Projection)               :: Proj
+      !
+      ! debug per
+      real(dp), allocatable, dimension(:,:,:) :: intermVar
+      real(dp) :: maxvalue,minvalue
+      integer(it4b), dimension(3) :: idxMaxvalue,idxMinvalue
+      allocate(intermVar(0:Imax+1,0:Jmax+1,0:Kmax+1))
       !
       allocate(Pred%u(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
       allocate(Pred%v(1-ight:Imax+ight,1-jght:Jmax+jght,1-kght:Kmax+kght))
@@ -72,6 +79,22 @@ Module ComputePUVW
       !
       ! Set the predictor velocity
       !
+      !do k=1,kmax
+      !do j=1,jmax
+      !do i=1,imax
+      !print*, 'init field', i,j,k,tvar%u(i,j,k),tvar%v(i,j,k),tvar%w(i,j,k)
+      !enddo
+      !enddo
+      !enddo
+      !i=0
+      !do k=1,kmax
+      !do j=1,jmax
+      !print*, 'bc-u,v,w', i,j,k,tvar%u(i,j,k),tvar%v(i,j,k),tvar%w(i,j,k)
+      !enddo
+      !enddo
+      !
+      !guessed fields
+      !
       Pred%u(:,:,:) = TVar%u(:,:,:)
       Pred%v(:,:,:) = TVar%v(:,:,:)
       Pred%w(:,:,:) = TVar%w(:,:,:)
@@ -80,19 +103,69 @@ Module ComputePUVW
       !
       ! The predictor step to compute the predicting velocities
       !
-      print*, 'before predictor'
       call PredictingUVW(PGrid, UGrid, VGrid, WGrid,                           &
                         PCell, UCell, VCell, WCell,                            &
                         PCellO, UCellO, VCellO, WCellO,                        &
                         FluxDivOld, TVar_n, TVar,                              &
                         BCu, BCv, BCw, PU, PV, PW, Pred, dt, itt)
+      !debug per
+      !intermVar(:,:,:) = PU%Dp(:,:,:)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PU is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PU is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PV%Dp(:,:,:)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PV is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PV is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PW%Dp(:,:,:)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PW is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PW is: ', minvalue, "located at ", idxMinvalue
       !          
       ! Solve the Poisson equation
       !
-      print*, 'before projection'
       call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
                                 PCell, UCell, VCell, WCell,                    &
                                 TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)
+      !debug per
+      !intermVar(:,:,:) = PoCoef(:,:,:,1)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefW is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefW is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PoCoef(:,:,:,2)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefS is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefS is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PoCoef(:,:,:,3)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefB is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefB is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PoCoef(:,:,:,4)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefE is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefE is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PoCoef(:,:,:,5)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefN is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefN is: ', minvalue, "located at ", idxMinvalue
+      !intermVar(:,:,:) = PoCoef(:,:,:,6)
+      !call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      !print*, 'max value PoCoefF is: ', maxvalue, "located at ", idxMaxvalue
+      !print*, 'min value PoCoefF is: ', minvalue, "located at ", idxMinvalue
+      !
+      !debug per
+      intermVar(:,:,:) = Proj%Pp(:,:,:)
+      call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      print*, 'max value Proj%Pp is: ', maxvalue, "located at ", idxMaxvalue
+      print*, 'min value Proj%Pp is: ', minvalue, "located at ", idxMinvalue
+      !
+      !do k=1,kmax
+      !do j=1,jmax
+      !do i=1,imax
+      !print*, i,j,k,TVar%u(i,j,k),Tvar%p(i,j,k)
+      !enddo
+      !enddo
+      !enddo
       !                  
       ! Set the velocity at time step n-1
       !
@@ -165,6 +238,19 @@ Module ComputePUVW
       ! print*,Pred%w(iu,iv,iw),Pred%w(iu,iv,iw-1)
       ! print*,'================================='
       !
+      intermVar(:,:,:) = TVar%u(:,:,:)
+      call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      print*, 'max value TVar%u is: ', maxvalue, "located at ", idxMaxvalue
+      print*, 'min value Tvar%u is: ', minvalue, "located at ", idxMinvalue
+      intermVar(:,:,:) = TVar%v(:,:,:)
+      call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      print*, 'max value TVar%v is: ', maxvalue, "located at ", idxMaxvalue
+      print*, 'min value Tvar%v is: ', minvalue, "located at ", idxMinvalue
+      intermVar(:,:,:) = TVar%w(:,:,:)
+      call get_max_min(intermVar, maxvalue,minvalue,idxMaxvalue,idxMinvalue)
+      print*, 'max value TVar%w is: ', maxvalue, "located at ", idxMaxvalue
+      print*, 'min value Tvar%w is: ', minvalue, "located at ", idxMinvalue
+      !stop
       ! call BoundaryConditionVar(TVar)
       call BoundaryConditionVarNew(Time,PGrid,PCell, TVar, BCp, BCu, BCv, BCw)
       !
@@ -323,6 +409,10 @@ Module ComputePUVW
       deallocate(PW%Dp)
       deallocate(PoCoef)
       !
+      !debug per
+      deallocate(intermVar)
+      !
+
     end subroutine UpdatePUVW
     !
     subroutine BoundaryConditionVarNew(Time, PGrid, PCell, Vari, BCp, BCu, BCv, BCw)

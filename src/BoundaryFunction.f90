@@ -1,7 +1,7 @@
 module BoundaryFunction
   use Boundaryinterface
   use PrecisionVar
-  use Constants
+  !use Constants
   implicit none
   private
 

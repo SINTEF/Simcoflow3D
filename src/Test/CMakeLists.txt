@@ -13,6 +13,15 @@ macro(my_add_test Test)
         ${Test})
 endmacro()
 #aux_source_directory(../ SRC_LIST)
+
+list(APPEND ParallelFlowLIST
+    ${SRC_LIST}
+    ParallelFlowTest/InitialVof.f90
+    ParallelFlowTest/ParallelFlowTest.f90)
+add_executable(ParallelFlowTest ${ParallelFlowLIST})
+target_link_libraries(ParallelFlowTest ${LINK_LIBS})
+my_add_test(testparallelflow)
+
 list(APPEND ADVECTIONLIST
     ${SRC_LIST}
     AdvectionTest/InitialVof.f90
@@ -20,6 +29,7 @@ list(APPEND ADVECTIONLIST
 add_executable(AdvectionTest ${ADVECTIONLIST})
 target_link_libraries(AdvectionTest ${LINK_LIBS})
 my_add_test(testadvection)
+
 list(APPEND PlanarLIST
     ${SRC_LIST}
     PlanarTest/InitialVof.f90
@@ -27,6 +37,7 @@ list(APPEND PlanarLIST
 add_executable(PlanarTest ${PlanarLIST})
 target_link_libraries(PlanarTest ${LINK_LIBS})
 my_add_test(testplanar)
+
 list(APPEND DAMBREAKLIST
     ${SRC_LIST}
     Dambreak/InitialVof.f90
@@ -34,6 +45,7 @@ list(APPEND DAMBREAKLIST
 add_executable(Dambreak ${DAMBREAKLIST})
 target_link_libraries(Dambreak ${LINK_LIBS})
 my_add_test(testdambreak)
+
 list(APPEND FLOWSPHERELIST
     ${SRC_LIST}
     FlowSphere/FlowSphere.f90)

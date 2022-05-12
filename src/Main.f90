@@ -36,6 +36,7 @@ Program Main
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
+    real(dp) :: Uref, Roref,Tref,Uint,Vint,Wint,Pint,Tint
     
     allocate(Constin(6))
     Open(unit=5,file='input.dat',action='read')
@@ -43,11 +44,22 @@ Program Main
     Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     close(5)
     Ta = 1000.d0
-    wa = dsqrt(2.d0*Ta*nu**2.d0/((R1+R2)*(R2-R1)**3.d0))
+    wa = dsqrt(2.d0*Ta*mu**2.d0/((R1+R2)*(R2-R1)**3.d0))
     xc = 0.d0
     yc = 0.d0
     zc = 0.d0
-    vel = dble(Rey*nuw/Lref)
+
+    Uref=vel
+    Roref=row
+    Tref=300.d0
+    Uint=vel
+    Vint=0.d0
+    Wint=0.d0
+    Pint=0.d0
+    Tint=300.d0
+
+    vel = dble(Rey*muw/Lref/roref)
+
     NI = Imax+1
     NJ = Jmax+1
     NK = Kmax+1
@@ -172,7 +184,7 @@ Program Main
     !
     ! initialization of variables
     !
-    Call InitialVar(vel,0.d0,0.d0,0.d0,300.d0,vel,300.d0,row,Lref, Var)
+    Call InitialVar(Uint,Vint,Wint,Pint,Tint,Uref,Tref,row,Lref, Var)
     !
     ! save initial field for visualization
     !
@@ -188,7 +200,7 @@ Program Main
     !
     ! compute cell's parameters: cell center and face coverage area
     !
-    Call GridPreProcess(int(1,it8b),PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+    Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
     !
     ! define the U, V, W cells that will be involved in exchange momentum
     !

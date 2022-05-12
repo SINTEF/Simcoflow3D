@@ -59,11 +59,10 @@ Module Cutcell
     !
     Contains
     !
-      Subroutine GridPreprocess(itt,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+      Subroutine GridPreprocess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
         !                                                     
         Implicit none
         !
-        Integer(kind=it8b),intent(in):: itt
         Type(Grid),intent(in):: PGrid,UGrid,VGrid,WGrid
         Type(Cell),intent(inout):: PCell,UCell,VCell,WCell
 
