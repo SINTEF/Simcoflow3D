@@ -70,12 +70,21 @@ module STL
       call this%nt(i)%SetVector(dble(arr(1)),dble(arr(2)),dble(arr(3)))
       call this%nt(i)%NormalizeVector
       ! Read the position of triangle
+
       ! First point
       call ReadArray(iunit,k,arr)
       call this%tri(i)%pTr(1)%SetPoint(dble(arr(1)),dble(arr(2)),dble(arr(3)))
+      meanarr1=meanarr1+arr(1)
+      meanarr2=meanarr2+arr(2)
+      meanarr3=meanarr3+arr(3)
+
       ! Second point
       call ReadArray(iunit,k,arr)
       call this%tri(i)%pTr(2)%SetPoint(dble(arr(1)),dble(arr(2)),dble(arr(3)))
+      meanarr1=meanarr1+arr(1)
+      meanarr2=meanarr2+arr(2)
+      meanarr3=meanarr3+arr(3)
+
       ! Third point
       call ReadArray(iunit,k,arr)
       call this%tri(i)%pTr(3)%SetPoint(dble(arr(1)),dble(arr(2)),dble(arr(3)))
@@ -97,9 +106,9 @@ module STL
     write(*,*) trim(filename),' has this title ',trim(title),' and has',       &
                                                  this%ntri,' triangles'
     close(iunit)
-    meanarr1=meanarr1/this%ntri
-    meanarr2=meanarr2/this%ntri
-    meanarr3=meanarr3/this%ntri
+    meanarr1=meanarr1/this%ntri/3.d0
+    meanarr2=meanarr2/this%ntri/3.d0
+    meanarr3=meanarr3/this%ntri/3.d0
     ! Compute the normal vector at edges and vertices of triangles
     ! Recompute coordinate of points and normal vector
     ! The origin of coordinate is (0,0,0)

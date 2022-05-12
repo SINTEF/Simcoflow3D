@@ -38,13 +38,15 @@ Program Main
     
     integer(it8b) :: itt
     integer(it4b) :: i,j,k
+    integer(it8b) :: minp1_where,maxp1_where
     Integer(kind=it4b) :: Irec,Jrec,Krec,NI,NJ,NK,iprint
     Real(kind=dp)      :: Lref,vel
     real(kind=dp), dimension(:), allocatable :: Constin
     real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
-    real(dp) :: ScaleFactor
+    real(dp) :: ScaleFactor,minp1,maxp1
     character(len=200) :: STLfilename
-    
+    real(dp), dimension(:), allocatable :: intermVar
+    allocate(intermVar(5852)) 
     allocate(Constin(6))
     Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/input.dat',action='read')
     Read(5,*)
@@ -53,7 +55,7 @@ Program Main
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
    
-    STLfilename=trim('/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/cylinder.stl')
+    STLfilename=trim('/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/sphere.stl')
 
     itt=0 ! iteration number
 
@@ -101,9 +103,9 @@ Program Main
     ReE%z = 1.d0
 
     ! center point
-    CentPoint(1)=0.d0
-    CentPoint(2)=0.d0
-    CentPoint(3)=0.d0
+    CentPoint%p(1)=0.d0
+    CentPoint%p(2)=0.d0
+    CentPoint%p(3)=0.d0
     
     BCp = BCBase(IMax,Jmax,Kmax)
     BCu = BCBase(Imax,Jmax,Kmax)
@@ -211,12 +213,28 @@ Program Main
     Call HYPRE_CreateGrid(PGrid)
     
     call ComSTL%ReadSTLFile(STLfilename)
-    ScaleFactor=1.d0
-    call ComSTL%ModifySTLFile(ScaleFactor, CentPoint, Lref))
+    minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
+    maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
+
+    print*, 'minp1,maxp1',minp1,maxp1
+    scalefactor=(maxp1-minp1)/lRef
+
+    call ComSTL%ModifySTLFile(ScaleFactor, CentPoint, Lref)
+    minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
+    maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
+
+    print*, 'minp1,maxp1',minp1,maxp1
     call LvsObject(Pcell,ComSTL,Pgrid)
     call LvsObject(Ucell,ComSTL,Ugrid)
     call LvsObject(Vcell,ComSTL,Vgrid)
-    call LvsObject(Wcell,ComSTL,WPgrid)
+    call LvsObject(Wcell,ComSTL,Wgrid)
+    !do k=1,kmax
+    !do j=1,jmax
+    !do i=1,imax
+    !if(Pcell%phi(i,j,k).ne.1d4) print*,i,j,k,Pcell%phi(i,j,k)
+    !enddo
+    !enddo
+    !enddo
 
     !Call InitialClsvofFluidField(PGrid,PCell)
     !Call InitialClsvofFluidField(UGrid,UCell)
@@ -244,7 +262,7 @@ Program Main
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
-    
+    !
     Call NumberExternalCell(0,0,0, PCell)
     Call NumberExternalCell(1,0,0, UCell)
     Call NumberExternalCell(0,1,0, VCell)
@@ -255,7 +273,7 @@ Program Main
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
-                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
+                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
  
     Pause
 End program main
