@@ -103,8 +103,32 @@ Module PrintResult
       INTEGER(kind=it8b),INTENT(IN) :: itt
       TYPE(VTR_file_handle)         :: fd
       CHARACTER(len=70)              :: dir
+
+      character (len=60) :: folder1,folder2,path
+      character (len=120) :: makedirectory
+      logical :: isthere
+
       !dir = trim("/home/sontd/code/CutCell3DGFMCLSVOF/Result/")
-      dir = trim("/home/elena-roxanap/Documents/Iceload/simco3d/Result/")
+
+      path="/home/elena-roxanap/Documents/Iceload/simco3d/"
+      folder1='Result/'
+      dir=trim(path) // trim(folder1)
+      makedirectory='mkdir -p ' // dir
+  
+      inquire(file=dir,exist=isthere)
+
+      if(isthere.eqv..False.) then
+          call system(makedirectory)
+      endif
+
+      folder2='Paraview/'
+      makedirectory='mkdir -p ' // trim(path) // trim(folder1) // trim(folder2)
+  
+      inquire(file=trim(path) // trim(folder1) // trim(folder2),exist=isthere)
+
+      if(isthere.eqv..False.) then
+          call system(makedirectory)
+      endif
 
       call VTR_open_file(Prefix=trim(PrintName),dir=dir,itera=itt,FD=fd)
     ! use keyword argument due to huge number of optional dummy argument
