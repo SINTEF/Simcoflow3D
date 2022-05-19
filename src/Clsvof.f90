@@ -351,6 +351,7 @@ Module Clsvof
             call Volume_Fraction_Calc(TGrid%dx(i,j,k),TGrid%dy(i,j,k),      &
                                       TGrid%dz(i,j,k),nx,ny,nz,s,vol)
             TCell%vof(i,j,k)=vol/(TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k))
+            ! per debug 13.05
             if(TCell%vof(i,j,k)<tolpar) TCell%vof(i,j,k)      = 0.d0
             if(TCell%vof(i,j,k)>1.d0-tolpar) TCell%vof(i,j,k) = 1.d0
             if(isnan(TCell%vof(i,j,k))) then
@@ -364,6 +365,17 @@ Module Clsvof
           end do
         end do
       end do
+      !per debug
+      do i=1,Imax
+        do j=1,Jmax
+          do k=1,Kmax
+          if(TCell%phi(i,j,k).lt.0.d0.and.TCell%phi(i+1,j,k).eq.1d4)then
+                  TCell%phi(i+1,j,k)=-1d4
+          endif
+          end do
+        end do
+      end do
+
       close(5)
       !
     end subroutine LvsObject
