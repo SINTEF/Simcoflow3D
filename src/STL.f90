@@ -26,7 +26,7 @@ module STL
                          this)
     !! The subroutine is used to read data from STL file
     class(simcoSTL),intent(inout)  :: this
-    character(len=80),intent(in)   :: filename
+    character(len=400),intent(in)   :: filename
     type(vector)                   :: e1, e2, n0
     integer*2                      :: padding
     integer(kind=it4b)             :: iunit,i,k,ctrp1,ctrp2,ctrp3
@@ -37,6 +37,7 @@ module STL
     real                              minarr1, minarr2, minarr3
     logical                        :: isExist,Edge1,Edge2,Edge3
     integer(kind=it4b)             :: stat,im,ierr 
+    real(dp) :: start, finish
 
     iunit=13
     inquire(file=filename,exist=isExist)
@@ -64,6 +65,7 @@ module STL
     minarr1=1.d6
     minarr2=1.d6
     minarr3=1.d6
+    call cpu_time(start)
     do i=1,this%ntri
       ! Read normal vector
       call ReadArray(iunit,k,arr)
@@ -103,16 +105,24 @@ module STL
       if(arr(2)<minarr2) minarr2 = arr(2)
       if(arr(3)<minarr3) minarr3 = arr(3)
     end do
+    close(iunit)
+
+    !
+    call cpu_time(finish)
+    print*, 'cycle_ntri_time spent here_1 is: ', finish-start
+    !
+
     write(*,*) trim(filename),' has this title ',trim(title),' and has',       &
                                                  this%ntri,' triangles'
-    close(iunit)
     meanarr1=meanarr1/this%ntri/3.d0
     meanarr2=meanarr2/this%ntri/3.d0
     meanarr3=meanarr3/this%ntri/3.d0
+
     ! Compute the normal vector at edges and vertices of triangles
     ! Recompute coordinate of points and normal vector
     ! The origin of coordinate is (0,0,0)
     ! The centre point of object is set at the origin
+    call cpu_time(start)
     do i=1,this%ntri
       this%tri(i)%PTr(:)%p(1)=(this%tri(i)%PTr(:)%p(1)-meanarr1)
       this%tri(i)%PTr(:)%p(2)=(this%tri(i)%PTr(:)%p(2)-meanarr2)
@@ -126,69 +136,74 @@ module STL
       call n0%NormalizeVector
       this%nt(i)%v(:) = n0%v(:)
     end do  
+    call cpu_time(finish)
+    print*, 'cycle_ntri_time spent here_2 is: ', finish-start
 
-    do i=1,this%ntri
-      this%npt(i,1)%v=this%nt(i)%v
-      this%npt(i,2)%v=this%nt(i)%v
-      this%npt(i,3)%v=this%nt(i)%v
+    !call cpu_time(start)
+    !do i=1,this%ntri
+    !  this%npt(i,1)%v=this%nt(i)%v
+    !  this%npt(i,2)%v=this%nt(i)%v
+    !  this%npt(i,3)%v=this%nt(i)%v
 
-      ctrp1=1
-      ctrp2=1
-      ctrp3=1
-      do k=1,this%ntri
-        if(i/=k) then
-      ! Compute the normal vector for shared points
-          if((compare(this%tri(i)%pTr(1),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(1),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(1),this%tri(k)%pTr(3)).eqv..TRUE.)) then 
-            ctrp1=ctrp1+1
-      ! the formulation is based on the work of J.Andreas Barentzen and Henrik Aanes
-      ! "Generating Signed Distance Fields from Triangle Meshes"  
-            this%npt(i,1)%v=this%npt(i,1)%v+this%nt(k)%v
-            Edge1=.TRUE.
-          else
-          Edge1 = .false.
-          end if
-          if((compare(this%tri(i)%pTr(2),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(2),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(2),this%tri(k)%pTr(3)).eqv..TRUE.)) then
-            ctrp2=ctrp2+1
-            this%npt(i,2)%v=this%npt(i,2)%v+this%nt(k)%v
-            Edge2=.TRUE.
-          else
-            Edge2=.false.
-          end if
-          if((compare(this%tri(i)%pTr(3),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(3),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
-             (compare(this%tri(i)%pTr(3),this%tri(k)%pTr(3)).eqv..TRUE.)) then
-            ctrp3=ctrp3+1
-            this%npt(i,3)%v=this%npt(i,3)%v+this%nt(k)%v
-            Edge3=.TRUE.
-          else
-            Edge3=.false.
-          end if
-          ! Compute the normal vector for triangle edges
-          if((Edge1.eqv..TRUE.).and.(Edge2.eqv..TRUE.)) then
-            this%nee(i,1)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
-            call this%nee(i,1)%NormalizeVector
-          end if
-          if((Edge2.eqv..TRUE.).and.(Edge3.eqv..TRUE.)) then
-            this%nee(i,2)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
-            call this%nee(i,2)%NormalizeVector
-          end if
-          if((Edge3.eqv..TRUE.).and.(Edge1.eqv..TRUE.)) then
-            this%nee(i,3)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
-            call this%nee(i,3)%NormalizeVector
-          end if      
-        end if
-      end do
-      if(ctrp1>0) this%npt(i,1)%v=this%npt(i,1)%v/dble(ctrp1)
-      call this%npt(i,1)%NormalizeVector
-      if(ctrp2>0) this%npt(i,2)%v=this%npt(i,2)%v/dble(ctrp2)
-      call this%npt(i,2)%NormalizeVector
-      if(ctrp3>0) this%npt(i,3)%v=this%npt(i,3)%v/dble(ctrp3)
-      call this%npt(i,3)%NormalizeVector
-    end do
+    !  ctrp1=1
+    !  ctrp2=1
+    !  ctrp3=1
+    !  do k=1,this%ntri
+    !    if(i/=k) then
+    !  ! Compute the normal vector for shared points
+    !      if((compare(this%tri(i)%pTr(1),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(1),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(1),this%tri(k)%pTr(3)).eqv..TRUE.)) then 
+    !        ctrp1=ctrp1+1
+    !  ! the formulation is based on the work of J.Andreas Barentzen and Henrik Aanes
+    !  ! "Generating Signed Distance Fields from Triangle Meshes"  
+    !        this%npt(i,1)%v=this%npt(i,1)%v+this%nt(k)%v
+    !        Edge1=.TRUE.
+    !      else
+    !      Edge1 = .false.
+    !      end if
+    !      if((compare(this%tri(i)%pTr(2),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(2),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(2),this%tri(k)%pTr(3)).eqv..TRUE.)) then
+    !        ctrp2=ctrp2+1
+    !        this%npt(i,2)%v=this%npt(i,2)%v+this%nt(k)%v
+    !        Edge2=.TRUE.
+    !      else
+    !        Edge2=.false.
+    !      end if
+    !      if((compare(this%tri(i)%pTr(3),this%tri(k)%pTr(1)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(3),this%tri(k)%pTr(2)).eqv..TRUE.).or.   &
+    !         (compare(this%tri(i)%pTr(3),this%tri(k)%pTr(3)).eqv..TRUE.)) then
+    !        ctrp3=ctrp3+1
+    !        this%npt(i,3)%v=this%npt(i,3)%v+this%nt(k)%v
+    !        Edge3=.TRUE.
+    !      else
+    !        Edge3=.false.
+    !      end if
+    !      ! Compute the normal vector for triangle edges
+    !      if((Edge1.eqv..TRUE.).and.(Edge2.eqv..TRUE.)) then
+    !        this%nee(i,1)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
+    !        call this%nee(i,1)%NormalizeVector
+    !      end if
+    !      if((Edge2.eqv..TRUE.).and.(Edge3.eqv..TRUE.)) then
+    !        this%nee(i,2)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
+    !        call this%nee(i,2)%NormalizeVector
+    !      end if
+    !      if((Edge3.eqv..TRUE.).and.(Edge1.eqv..TRUE.)) then
+    !        this%nee(i,3)%v=0.5d0*(this%nt(i)%v+this%nt(k)%v)
+    !        call this%nee(i,3)%NormalizeVector
+    !      end if      
+    !    end if
+    !  end do
+    !  if(ctrp1>0) this%npt(i,1)%v=this%npt(i,1)%v/dble(ctrp1)
+    !  call this%npt(i,1)%NormalizeVector
+    !  if(ctrp2>0) this%npt(i,2)%v=this%npt(i,2)%v/dble(ctrp2)
+    !  call this%npt(i,2)%NormalizeVector
+    !  if(ctrp3>0) this%npt(i,3)%v=this%npt(i,3)%v/dble(ctrp3)
+    !  call this%npt(i,3)%NormalizeVector
+    !end do
+    !call cpu_time(finish)
+    !print*, 'double_cycle_ntri_time spent here_3 is: ', finish-start
   end subroutine ReadSTLFile
 
   subroutine ModifySTLFile(this, ScaleFactor, CentPos, Lref)
