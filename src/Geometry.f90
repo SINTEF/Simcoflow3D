@@ -386,7 +386,7 @@ module Geometry
     type(Gpoint),intent(in)   :: pTar
     real(kind=dp),intent(in)  :: dSur
 
-    d=pTar%p(1)*nSur%v(1)+pTar%p(2)*nSur%v(2)+pTar%p(3)*nSur%v(3)+dSur
+    d=dabs(pTar%p(1)*nSur%v(1)+pTar%p(2)*nSur%v(2)+pTar%p(3)*nSur%v(3)+dSur)/dsqrt(nSur%v(1)**2.d0+nSur%v(2)**2.d0+nSur%v(3)**2.d0)
   end function DistancetoSurface
 
   pure real(kind=dp) function DistanceTwoPoints(p1,p2) result(d)
