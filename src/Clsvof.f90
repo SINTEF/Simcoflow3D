@@ -109,6 +109,7 @@ Module Clsvof
       type(vector)                                    :: vec,v12,v1t,npoint
       logical                                         :: Isin, IsinE1, IsinE2, IsinE3
       type(Gpoint)                                    :: TriCenter
+      real(dp) :: start,finish
 
 
       bw = 4
@@ -123,51 +124,51 @@ Module Clsvof
 
       TCell%phi = maxLvs
 
-      do i = 1, ComSTL%ntri
-        ! Compute maximum object position in the x direction
-        if(ComSTL%tri(i)%pTr(1)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(1)%p(1)
-        if(ComSTL%tri(i)%pTr(2)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(2)%p(1)
-        if(ComSTL%tri(i)%pTr(3)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(3)%p(1)
-        ! Compute maximum object position in the y direction
-        if(ComSTL%tri(i)%pTr(1)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(1)%p(2)
-        if(ComSTL%tri(i)%pTr(2)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(2)%p(2)
-        if(ComSTL%tri(i)%pTr(3)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(3)%p(2)
-        ! Compute maximum object position in the z direction
-        if(ComSTL%tri(i)%pTr(1)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(1)%p(3)
-        if(ComSTL%tri(i)%pTr(2)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(2)%p(3)
-        if(ComSTL%tri(i)%pTr(3)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(3)%p(3)
-        ! Compute minimum object position in the x direction
-        if(ComSTL%tri(i)%pTr(1)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(1)%p(1)
-        if(ComSTL%tri(i)%pTr(2)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(2)%p(1)
-        if(ComSTL%tri(i)%pTr(3)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(3)%p(1)
-        ! Compute minimum object position in the y direction
-        if(ComSTL%tri(i)%pTr(1)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(1)%p(2)
-        if(ComSTL%tri(i)%pTr(2)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(2)%p(2)
-        if(ComSTL%tri(i)%pTr(3)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(3)%p(2)
-        ! Compute minimum object position in the z direction
-        if(ComSTL%tri(i)%pTr(1)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(1)%p(3)
-        if(ComSTL%tri(i)%pTr(2)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(2)%p(3)
-        if(ComSTL%tri(i)%pTr(3)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(3)%p(3)
-      end do
-      ! Determine the box which contains the object
-      do i = 2, Imax-1
-        if(TGrid%x(i,1,1)>=MinObjX.and.TGrid%x(i-1,1,1)<MinObjX) iboxL = i-1
-        if(TGrid%x(i,1,1)>=MaxObjX.and.TGrid%x(i-1,1,1)<MaxObjX) iboxU = i
-      end do
-      do j = 2, Jmax-1
-        if(TGrid%y(1,j,1)>=MinObjY.and.TGrid%y(1,j-1,1)<MinObjY) jboxL = j-1
-        if(TGrid%y(1,j,1)>=MaxObjY.and.TGrid%y(1,j-1,1)<MaxObjY) jboxU = j
-      end do
-      do k = 2, Kmax-1
-        if(TGrid%z(1,1,k)>=MinObjZ.and.TGrid%z(1,1,k-1)<MinObjZ) kboxL = k-1
-        if(TGrid%z(1,1,k)>=MaxObjZ.and.TGrid%z(1,1,k-1)<MaxObjZ) kboxU = k
-      end do
-      iboxL = max(1,iboxL-bw)
-      iboxU = min(Imax,iboxU+bw)
-      jboxL = max(1,jboxL-bw)
-      jboxU = min(Jmax,jboxU+bw)
-      kboxL = max(1,kboxL-bw)
-      kboxU = min(Kmax,kboxU+bw)
+      !do i = 1, ComSTL%ntri
+      !  ! Compute maximum object position in the x direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(1)%p(1)
+      !  if(ComSTL%tri(i)%pTr(2)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(2)%p(1)
+      !  if(ComSTL%tri(i)%pTr(3)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(3)%p(1)
+      !  ! Compute maximum object position in the y direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(1)%p(2)
+      !  if(ComSTL%tri(i)%pTr(2)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(2)%p(2)
+      !  if(ComSTL%tri(i)%pTr(3)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(3)%p(2)
+      !  ! Compute maximum object position in the z direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(1)%p(3)
+      !  if(ComSTL%tri(i)%pTr(2)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(2)%p(3)
+      !  if(ComSTL%tri(i)%pTr(3)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(3)%p(3)
+      !  ! Compute minimum object position in the x direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(1)%p(1)
+      !  if(ComSTL%tri(i)%pTr(2)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(2)%p(1)
+      !  if(ComSTL%tri(i)%pTr(3)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(3)%p(1)
+      !  ! Compute minimum object position in the y direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(1)%p(2)
+      !  if(ComSTL%tri(i)%pTr(2)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(2)%p(2)
+      !  if(ComSTL%tri(i)%pTr(3)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(3)%p(2)
+      !  ! Compute minimum object position in the z direction
+      !  if(ComSTL%tri(i)%pTr(1)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(1)%p(3)
+      !  if(ComSTL%tri(i)%pTr(2)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(2)%p(3)
+      !  if(ComSTL%tri(i)%pTr(3)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(3)%p(3)
+      !end do
+      !! Determine the box which contains the object
+      !do i = 2, Imax-1
+      !  if(TGrid%x(i,1,1)>=MinObjX.and.TGrid%x(i-1,1,1)<MinObjX) iboxL = i-1
+      !  if(TGrid%x(i,1,1)>=MaxObjX.and.TGrid%x(i-1,1,1)<MaxObjX) iboxU = i
+      !end do
+      !do j = 2, Jmax-1
+      !  if(TGrid%y(1,j,1)>=MinObjY.and.TGrid%y(1,j-1,1)<MinObjY) jboxL = j-1
+      !  if(TGrid%y(1,j,1)>=MaxObjY.and.TGrid%y(1,j-1,1)<MaxObjY) jboxU = j
+      !end do
+      !do k = 2, Kmax-1
+      !  if(TGrid%z(1,1,k)>=MinObjZ.and.TGrid%z(1,1,k-1)<MinObjZ) kboxL = k-1
+      !  if(TGrid%z(1,1,k)>=MaxObjZ.and.TGrid%z(1,1,k-1)<MaxObjZ) kboxU = k
+      !end do
+      !iboxL = max(1,iboxL-bw)
+      !iboxU = min(Imax,iboxU+bw)
+      !jboxL = max(1,jboxL-bw)
+      !jboxU = min(Jmax,jboxU+bw)
+      !kboxL = max(1,kboxL-bw)
+      !kboxU = min(Kmax,kboxU+bw)
       ! print*, 'Clsvof.f90 155'
       ! print*, TGrid%dx(1,1,1), TGrid%dy(1,1,1), TGrid%dz(1,1,1)
       ! print*, iboxL, MinObjX, iboxU, MaxObjX
@@ -177,6 +178,9 @@ Module Clsvof
       allocate(GridIndex(ComSTL%ntri,3))
       allocate(BoxSizePos(ComSTL%ntri,3))
       allocate(BoxSizeNeg(ComSTL%ntri,3))
+
+
+      call cpu_time(start)
       ! Determine local box size for each triangles
       do i=1,ComSTL%ntri
         call CenterPoint(ComSTL%tri(i),TriCenter)
@@ -209,8 +213,12 @@ Module Clsvof
         BoxSizeNeg(i,3) = min(-4,int(MinObjZ/TGrid%dz(1,1,Kmax/2))-4)
       end do
 
+      call cpu_time(finish)
+      print*, 'cycle_ntri_time spent here_4 is: ', finish-start
+
       call ComputeGridIndexObject(TGrid,ComSTL,GridIndex)
 
+      call cpu_time(start)
       do i=1,ComSTL%ntri
         do ii=BoxSizeNeg(i,1),BoxSizePos(i,1)
           do jj=BoxSizeNeg(i,2),BoxSizePos(i,2)
@@ -225,8 +233,8 @@ Module Clsvof
               pt%p(1) = TGrid%x(i1,1,1)
               pt%p(2) = TGrid%y(1,j1,1)
               pt%p(3) = TGrid%z(1,1,k1)
-              Isin    = CheckPointTriangle(ComSTL%tri(i),ComSTL%nt(i),pt)
               ! Check whether the projection of a point lie inside the triangle.
+              Isin    = CheckPointTriangle(ComSTL%tri(i),ComSTL%nt(i),pt)
               if(Isin.eqv..TRUE.) then
                 ! Compute the distance from a point to a surface
                 dSur  = -dot_product(ComSTL%tri(i)%pTr(1)%p,ComSTL%nt(i)%v)
@@ -266,7 +274,7 @@ Module Clsvof
                         dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                     ! Vector connecting the point and its projected point
                     npoint%v = pt%p-projpt%p
-                    tempd = dabs(d1)*dsign(1.d0,dot_product(ComSTL%nee(i,1)%v,npoint%v))
+                  !  tempd = dabs(d1)*dsign(1.d0,dot_product(ComSTL%nee(i,1)%v,npoint%v))
                   end if
                   if(dabs(d2)<dabs(d1).and.dabs(d2)<dabs(d3).and.(IsinE2.eqv..TRUE.)) then
                     v1t%v = pt%p-ComSTL%tri(i)%pTr(2)%p
@@ -275,7 +283,7 @@ Module Clsvof
                     projpt%p = ComSTL%tri(i)%pTr(2)%p+                         &
                         dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                     npoint%v = pt%p-projpt%p
-                    tempd = dabs(d2)*dsign(1.d0,dot_product(ComSTL%nee(i,2)%v,npoint%v))
+                  !  tempd = dabs(d2)*dsign(1.d0,dot_product(ComSTL%nee(i,2)%v,npoint%v))
                   end if
                   if(dabs(d3)<dabs(d1).and.dabs(d3)<dabs(d2).and.(IsinE3.eqv..TRUE.)) then
                     v1t%v = pt%p-ComSTL%tri(i)%pTr(3)%p
@@ -284,8 +292,9 @@ Module Clsvof
                     projpt%p = ComSTL%tri(i)%pTr(3)%p+                         &
                         dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                     npoint%v = pt%p-projpt%p
-                    tempd = dabs(d3)*dsign(1.d0,dot_product(ComSTL%nee(i,3)%v,npoint%v))
+                  !  tempd = dabs(d3)*dsign(1.d0,dot_product(ComSTL%nee(i,3)%v,npoint%v))
                   end if
+                  tempd=min(d1,d2,d3)
                 else
                   tempd = maxLvs
                 end if
@@ -296,17 +305,19 @@ Module Clsvof
                 ! Compare distances and chose the smallest one
                 if(dabs(d1)<dabs(d2).and.dabs(d1)<dabs(d3).and.dabs(d1)<dabs(tempd)) then
                   npoint%v=pt%p-ComSTL%tri(i)%pTr(1)%p
-                  tempd=dabs(d1)*dsign(1.d0,dot_product(ComSTL%npt(i,1)%v,npoint%v))
+                !  tempd=dabs(d1)*dsign(1.d0,dot_product(ComSTL%npt(i,1)%v,npoint%v))
                 end if
                 if(dabs(d2)<dabs(d1).and.dabs(d2)<dabs(d3).and.dabs(d2)<dabs(tempd)) then
                   npoint%v=pt%p-ComSTL%tri(i)%pTr(2)%p
-                  tempd=dabs(d2)*dsign(1.d0,dot_product(ComSTL%npt(i,2)%v,npoint%v))
+                !  tempd=dabs(d2)*dsign(1.d0,dot_product(ComSTL%npt(i,2)%v,npoint%v))
                 end if
                 if(dabs(d3)<dabs(d1).and.dabs(d3)<dabs(d2).and.dabs(d3)<dabs(tempd)) then
                   npoint%v=pt%p-ComSTL%tri(i)%pTr(3)%p
-                  tempd=dabs(d3)*dsign(1.d0,dot_product(ComSTL%npt(i,3)%v,npoint%v))
+                !  tempd=dabs(d3)*dsign(1.d0,dot_product(ComSTL%npt(i,3)%v,npoint%v))
                 end if
+                tempd=min(d1,d2,d3)
               end if
+
               if(dabs(tempd)<dabs(TCell%phi(i1,j1,k1))) then
                       TCell%phi(i1,j1,k1) = tempd
                 call npoint%NormalizeVector
@@ -319,6 +330,10 @@ Module Clsvof
           end do
         end do
       end do
+      call cpu_time(finish)
+      print*, 'cycle_ntri_time spent here_5 is: ', finish-start
+
+      call cpu_time(start)
       ! Using ray casting method to check whether the point inside or outside object
       do i = 1, Imax
         do j = 1, Jmax
@@ -337,8 +352,13 @@ Module Clsvof
           end do
         end do
       end do
+      call cpu_time(finish)
+      print*, 'ijk_raycasting_time spent here_6 is: ', finish-start
+
       deallocate(GridIndex)
       deallocate(BoxSizeNeg, BoxSizePos)
+
+      call cpu_time(start)
       do i=1,Imax
         do j=1,Jmax
           do k=1,Kmax
@@ -354,17 +374,21 @@ Module Clsvof
             ! per debug 13.05
             if(TCell%vof(i,j,k)<tolpar) TCell%vof(i,j,k)      = 0.d0
             if(TCell%vof(i,j,k)>1.d0-tolpar) TCell%vof(i,j,k) = 1.d0
-            if(isnan(TCell%vof(i,j,k))) then
-              print*, 'Clsvof.f90 341'
-              print*, TCell%phi(i,j,k)
-              print*, vol
-              print*, i,j,k
-              print*, TCell%phi(i,j,k)
-            end if
-            write(5,*) TCell%vof(i,j,k)
+            !if(isnan(TCell%vof(i,j,k))) then
+            !  print*, 'Clsvof.f90 341'
+            !  print*, TCell%phi(i,j,k)
+            !  print*, vol
+            !  print*, i,j,k
+            !  print*, TCell%phi(i,j,k)
+            !end if
+            !write(5,*) TCell%vof(i,j,k)
           end do
         end do
       end do
+      call cpu_time(finish)
+      print*, 'ijk_vof_time spent here_7 is: ', finish-start
+
+      call cpu_time(start)
       !per debug
       do i=1,Imax
         do j=1,Jmax
@@ -375,6 +399,8 @@ Module Clsvof
           end do
         end do
       end do
+      call cpu_time(finish)
+      print*, 'ijk_vof_time spent here_8 is: ', finish-start
 
       close(5)
       !
