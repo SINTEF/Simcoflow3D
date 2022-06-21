@@ -12,7 +12,14 @@ Module StateVariables
     Real(kind=dp) 	          :: Fr,Rey,wa,Ta,xc,yc,zc,R1=0.5d0,R2=4.d0
     Integer(kind=it4b),public :: TimeOrder,SpaceOrder
 
+    Type,Public:: SolverTime
+        Integer(kind=it8b):: iter
+        Real(kind=dp):: cfl
+        Real(kind=dp):: dt,PhysT,NondiT
+    End Type SolverTime
+
     Type :: Variables
+      Type(SolverTime)                          :: Time
       Real(kind=dp),dimension(:,:,:),allocatable:: u,v,w,p,t,Gpu,Gpv,Gpw,      &
                                                    ures,vres,wres,pres,mres
       Real(kind=dp):: Uint,Vint,Wint,Pint,Tint,Uref,Roref,Pref,Tref

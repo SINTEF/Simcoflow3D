@@ -24,17 +24,19 @@ Program Main
     USE BoundaryInterface
     USE BoundaryFunction
     USE STL
+    USE SolidBody,         ONLY : TSolidBody
     USE Geometry
     
     Implicit none
     
-    Type(Grid)      :: UGrid,VGrid,WGrid,PGrid
-    Type(Cell)      :: UCell,VCell,WCell,PCell
-    Type(Point)     :: SPoint,EPoint,ReS,ReE
-    Type(Variables) :: Var
-    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
-    Type(simcoSTL)  :: ComSTL
-    Type(Gpoint)    :: CentPoint
+    Type(Grid)       :: UGrid,VGrid,WGrid,PGrid
+    Type(Cell)       :: UCell,VCell,WCell,PCell
+    Type(Point)      :: SPoint,EPoint,ReS,ReE
+    Type(Variables)  :: Var
+    Type(BCBase)     :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
+    Type(simcoSTL)   :: ComSTL
+    Type(Gpoint)     :: CentPoint
+    Type(TSolidBody) :: sphere
     
     integer(it8b) :: itt
     integer(it4b) :: i,j,k
@@ -224,10 +226,9 @@ Program Main
     maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
     print*, 'minp1,maxp1',minp1,maxp1
-    call LvsObject(Pcell,ComSTL,Pgrid)
-    call LvsObject(Ucell,ComSTL,Ugrid)
-    call LvsObject(Vcell,ComSTL,Vgrid)
-    call LvsObject(Wcell,ComSTL,Wgrid)
+    sphere = TSolidBody(10, 10, 10)
+    call sphere%setUpSolid( ComSTL )
+
     !do k=1,kmax
     !do j=1,jmax
     !do i=1,imax
@@ -272,8 +273,10 @@ Program Main
 
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
+    Call sphere%setInitialPosition( 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp )
+
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
-                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
+                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,sphere)
  
     Pause
 End program main
