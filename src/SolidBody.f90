@@ -25,8 +25,10 @@ MODULE SolidBody
   !  TODO: This could use generic grid and cell objects instead of redefining everything
   !
   TYPE, PUBLIC :: TSolidBody
-    REAL(dp)              :: xc, yc, zc       ! Coordinates of the center of mass
-    REAL(dp)              :: p, q, r          ! Orientation angles of solid
+    REAL(dp)              :: CMpoint(3)       ! Coordinates of the center of mass
+    REAL(dp)              :: CMorient(3)      ! Orientation angles of solid at the center of mass
+    REAL(dp)              :: rotMatGtoL(3,3)  ! Rotation matrix to express a vector defined in main grid coordinates
+                                              ! in terms of local grid coordinates
     INTEGER               :: Imax, Jmax, Kmax ! Size of local mesh
     REAL(dp)              :: dx, dy, dz       ! Sizes of the cells (Uniform mesh)
     REAL(dp), ALLOCATABLE :: x(:), y(:), z(:) ! Coordinates of the cell centers
@@ -42,6 +44,8 @@ MODULE SolidBody
     PROCEDURE, PASS(this), PUBLIC  :: advance
     PROCEDURE, PASS(this), PRIVATE :: interpolateLvS
     PROCEDURE, PASS(this), PRIVATE :: LvsObject
+    PROCEDURE, PASS(this), PRIVATE :: calcRotationMatrix
+    PROCEDURE, PASS(this), PRIVATE :: transferMeshGtoL
   END TYPE TSolidBody
 
   INTERFACE TSolidBody
@@ -113,13 +117,13 @@ CONTAINS
        END DO
        SELECT CASE( id )
        CASE( 1 ) 
-          this%dx = (maxDim - minDim)/(this%Imax+2)  ! Keep 1 cell margin around shape
+          this%dx = (maxDim - minDim)/(this%Imax-8)  ! Keep 4 cells margin around shape
           this%x(this%Imax/2) = -0.5_dp * this%dx    ! Assume even grid size
        CASE( 2 ) 
-          this%dy = (maxDim - minDim)/(this%Jmax+2)  ! Keep 1 cell margin around shape
+          this%dy = (maxDim - minDim)/(this%Jmax-8)  ! Keep 4 cells margin around shape
           this%y(this%Jmax/2) = -0.5_dp * this%dy    ! Assume even grid size
        CASE( 3 ) 
-          this%dz = (maxDim - minDim)/(this%Kmax+2)  ! Keep 1 cell margin around shape
+          this%dz = (maxDim - minDim)/(this%Kmax-8)  ! Keep 4 cells margin around shape
           this%z(this%Kmax/2) = -0.5_dp * this%dz    ! Assume even grid size
        END SELECT
     END DO
@@ -174,6 +178,7 @@ CONTAINS
     TYPE(Tvector)                     :: vec,v12,v1t,npoint
     LOGICAL                           :: Isin, IsinE1, IsinE2, IsinE3
     TYPE(TGpoint)                     :: TriCenter
+    REAL(dp) :: start,finish
 
     bw = 4
     maxLvs=1.d4
@@ -187,51 +192,51 @@ CONTAINS
 
     this%phi = maxLvs
 
-    do i = 1, ComSTL%ntri
-      ! Compute maximum object position in the x direction
-      if(ComSTL%tri(i)%pTr(1)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(1)%p(1)
-      if(ComSTL%tri(i)%pTr(2)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(2)%p(1)
-      if(ComSTL%tri(i)%pTr(3)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(3)%p(1)
-      ! Compute maximum object position in the y direction
-      if(ComSTL%tri(i)%pTr(1)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(1)%p(2)
-      if(ComSTL%tri(i)%pTr(2)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(2)%p(2)
-      if(ComSTL%tri(i)%pTr(3)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(3)%p(2)
-      ! Compute maximum object position in the z direction
-      if(ComSTL%tri(i)%pTr(1)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(1)%p(3)
-      if(ComSTL%tri(i)%pTr(2)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(2)%p(3)
-      if(ComSTL%tri(i)%pTr(3)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(3)%p(3)
-      ! Compute minimum object position in the x direction
-      if(ComSTL%tri(i)%pTr(1)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(1)%p(1)
-      if(ComSTL%tri(i)%pTr(2)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(2)%p(1)
-      if(ComSTL%tri(i)%pTr(3)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(3)%p(1)
-      ! Compute minimum object position in the y direction
-      if(ComSTL%tri(i)%pTr(1)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(1)%p(2)
-      if(ComSTL%tri(i)%pTr(2)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(2)%p(2)
-      if(ComSTL%tri(i)%pTr(3)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(3)%p(2)
-      ! Compute minimum object position in the z direction
-      if(ComSTL%tri(i)%pTr(1)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(1)%p(3)
-      if(ComSTL%tri(i)%pTr(2)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(2)%p(3)
-      if(ComSTL%tri(i)%pTr(3)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(3)%p(3)
-    end do
-    ! Determine the box which contains the object
-    do i = 2, this%Imax-1
-      if(this%x(i)>=MinObjX.and.this%x(i-1)<MinObjX) iboxL = i-1
-      if(this%x(i)>=MaxObjX.and.this%x(i-1)<MaxObjX) iboxU = i
-    end do
-    do j = 2, this%Jmax-1
-      if(this%y(j)>=MinObjY.and.this%y(j-1)<MinObjY) jboxL = j-1
-      if(this%y(j)>=MaxObjY.and.this%y(j-1)<MaxObjY) jboxU = j
-    end do
-    do k = 2, this%Kmax-1
-      if(this%z(k)>=MinObjZ.and.this%z(k-1)<MinObjZ) kboxL = k-1
-      if(this%z(k)>=MaxObjZ.and.this%z(k-1)<MaxObjZ) kboxU = k
-    end do
-    iboxL = max(1,iboxL-bw)
-    iboxU = min(this%Imax,iboxU+bw)
-    jboxL = max(1,jboxL-bw)
-    jboxU = min(this%Jmax,jboxU+bw)
-    kboxL = max(1,kboxL-bw)
-    kboxU = min(this%Kmax,kboxU+bw)
+    !do i = 1, ComSTL%ntri
+    !  ! Compute maximum object position in the x direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(1)%p(1)
+    !  if(ComSTL%tri(i)%pTr(2)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(2)%p(1)
+    !  if(ComSTL%tri(i)%pTr(3)%p(1)>MaxObjX) MaxObjX = ComSTL%tri(i)%PTr(3)%p(1)
+    !  ! Compute maximum object position in the y direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(1)%p(2)
+    !  if(ComSTL%tri(i)%pTr(2)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(2)%p(2)
+    !  if(ComSTL%tri(i)%pTr(3)%p(2)>MaxObjY) MaxObjY = ComSTL%tri(i)%PTr(3)%p(2)
+    !  ! Compute maximum object position in the z direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(1)%p(3)
+    !  if(ComSTL%tri(i)%pTr(2)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(2)%p(3)
+    !  if(ComSTL%tri(i)%pTr(3)%p(3)>MaxObjZ) MaxObjZ = ComSTL%tri(i)%PTr(3)%p(3)
+    !  ! Compute minimum object position in the x direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(1)%p(1)
+    !  if(ComSTL%tri(i)%pTr(2)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(2)%p(1)
+    !  if(ComSTL%tri(i)%pTr(3)%p(1)<MinObjX) MinObjX = ComSTL%tri(i)%PTr(3)%p(1)
+    !  ! Compute minimum object position in the y direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(1)%p(2)
+    !  if(ComSTL%tri(i)%pTr(2)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(2)%p(2)
+    !  if(ComSTL%tri(i)%pTr(3)%p(2)<MinObjY) MinObjY = ComSTL%tri(i)%PTr(3)%p(2)
+    !  ! Compute minimum object position in the z direction
+    !  if(ComSTL%tri(i)%pTr(1)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(1)%p(3)
+    !  if(ComSTL%tri(i)%pTr(2)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(2)%p(3)
+    !  if(ComSTL%tri(i)%pTr(3)%p(3)<MinObjZ) MinObjZ = ComSTL%tri(i)%PTr(3)%p(3)
+    !end do
+    !! Determine the box which contains the object
+    !do i = 2, Imax-1
+    !  if(this%x(i,1,1)>=MinObjX.and.this%x(i-1,1,1)<MinObjX) iboxL = i-1
+    !  if(this%x(i,1,1)>=MaxObjX.and.this%x(i-1,1,1)<MaxObjX) iboxU = i
+    !end do
+    !do j = 2, Jmax-1
+    !  if(this%y(1,j,1)>=MinObjY.and.this%y(1,j-1,1)<MinObjY) jboxL = j-1
+    !  if(this%y(1,j,1)>=MaxObjY.and.this%y(1,j-1,1)<MaxObjY) jboxU = j
+    !end do
+    !do k = 2, Kmax-1
+    !  if(this%z(1,1,k)>=MinObjZ.and.this%z(1,1,k-1)<MinObjZ) kboxL = k-1
+    !  if(this%z(1,1,k)>=MaxObjZ.and.this%z(1,1,k-1)<MaxObjZ) kboxU = k
+    !end do
+    !iboxL = max(1,iboxL-bw)
+    !iboxU = min(Imax,iboxU+bw)
+    !jboxL = max(1,jboxL-bw)
+    !jboxU = min(Jmax,jboxU+bw)
+    !kboxL = max(1,kboxL-bw)
+    !kboxU = min(Kmax,kboxU+bw)
     ! print*, 'Clsvof.f90 155'
     ! print*, this%dx(1,1,1), this%dy(1,1,1), this%dz(1,1,1)
     ! print*, iboxL, MinObjX, iboxU, MaxObjX
@@ -241,6 +246,9 @@ CONTAINS
     allocate(GridIndex(ComSTL%ntri,3))
     allocate(BoxSizePos(ComSTL%ntri,3))
     allocate(BoxSizeNeg(ComSTL%ntri,3))
+
+
+    call cpu_time(start)
     ! Determine local box size for each triangles
     do i=1,ComSTL%ntri
       call CenterPoint(ComSTL%tri(i),TriCenter)
@@ -264,17 +272,21 @@ CONTAINS
                       (ComSTL%tri(i)%pTr(2)%p(3)-TriCenter%p(3)),        &
                       (ComSTL%tri(i)%pTr(3)%p(3)-TriCenter%p(3)))
 
-      BoxSizePos(i,1) = max(4,int(MaxObjX/this%dx)+4) !(Imax/2,1,1))+4)
-      BoxSizePos(i,2) = max(4,int(MaxObjY/this%dy)+4) !(1,Jmax/2,1))+4)
-      BoxSizePos(i,3) = max(4,int(MaxObjZ/this%dz)+4) !(1,1,Kmax/2))+4)
+      BoxSizePos(i,1) = max(4,int(MaxObjX/this%dx)+4)    !(Imax/2,1,1)
+      BoxSizePos(i,2) = max(4,int(MaxObjY/this%dy)+4)    !(1,Jmax/2,1)
+      BoxSizePos(i,3) = max(4,int(MaxObjZ/this%dz)+4)    !(1,1,Kmax/2)
 
-      BoxSizeNeg(i,1) = min(-4,int(MinObjX/this%dx)-4) !(Imax/2,1,1))-4)
-      BoxSizeNeg(i,2) = min(-4,int(MinObjY/this%dy)-4) !(1,Jmax/2,1))-4)
-      BoxSizeNeg(i,3) = min(-4,int(MinObjZ/this%dz)-4) !(1,1,Kmax/2))-4)
+      BoxSizeNeg(i,1) = min(-4,int(MinObjX/this%dx)-4)   !(Imax/2,1,1)
+      BoxSizeNeg(i,2) = min(-4,int(MinObjY/this%dy)-4)   !(1,Jmax/2,1)
+      BoxSizeNeg(i,3) = min(-4,int(MinObjZ/this%dz)-4)   !(1,1,Kmax/2)
     end do
+
+    call cpu_time(finish)
+    print*, 'cycle_ntri_time spent here_4 is: ', finish-start
 
     call ComputeGridIndexObject(this,ComSTL,GridIndex)
 
+    call cpu_time(start)
     do i=1,ComSTL%ntri
       do ii=BoxSizeNeg(i,1),BoxSizePos(i,1)
         do jj=BoxSizeNeg(i,2),BoxSizePos(i,2)
@@ -289,8 +301,8 @@ CONTAINS
             pt%p(1) = this%x(i1)
             pt%p(2) = this%y(j1)
             pt%p(3) = this%z(k1)
-            Isin    = CheckPointTriangle(ComSTL%tri(i),ComSTL%nt(i),pt)
             ! Check whether the projection of a point lie inside the triangle.
+            Isin    = CheckPointTriangle(ComSTL%tri(i),ComSTL%nt(i),pt)
             if(Isin.eqv..TRUE.) then
               ! Compute the distance from a point to a surface
               dSur  = -dot_product(ComSTL%tri(i)%pTr(1)%p,ComSTL%nt(i)%v)
@@ -330,7 +342,7 @@ CONTAINS
                       dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                   ! Vector connecting the point and its projected point
                   npoint%v = pt%p-projpt%p
-                  tempd = dabs(d1)*dsign(1.d0,dot_product(ComSTL%nee(i,1)%v,npoint%v))
+                !  tempd = dabs(d1)*dsign(1.d0,dot_product(ComSTL%nee(i,1)%v,npoint%v))
                 end if
                 if(dabs(d2)<dabs(d1).and.dabs(d2)<dabs(d3).and.(IsinE2.eqv..TRUE.)) then
                   v1t%v = pt%p-ComSTL%tri(i)%pTr(2)%p
@@ -339,7 +351,7 @@ CONTAINS
                   projpt%p = ComSTL%tri(i)%pTr(2)%p+                         &
                       dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                   npoint%v = pt%p-projpt%p
-                  tempd = dabs(d2)*dsign(1.d0,dot_product(ComSTL%nee(i,2)%v,npoint%v))
+                !  tempd = dabs(d2)*dsign(1.d0,dot_product(ComSTL%nee(i,2)%v,npoint%v))
                 end if
                 if(dabs(d3)<dabs(d1).and.dabs(d3)<dabs(d2).and.(IsinE3.eqv..TRUE.)) then
                   v1t%v = pt%p-ComSTL%tri(i)%pTr(3)%p
@@ -348,8 +360,9 @@ CONTAINS
                   projpt%p = ComSTL%tri(i)%pTr(3)%p+                         &
                       dot_product(v1t%v,v12%v)/dot_product(v12%v,v12%v)*v12%v
                   npoint%v = pt%p-projpt%p
-                  tempd = dabs(d3)*dsign(1.d0,dot_product(ComSTL%nee(i,3)%v,npoint%v))
+                !  tempd = dabs(d3)*dsign(1.d0,dot_product(ComSTL%nee(i,3)%v,npoint%v))
                 end if
+                tempd=min(d1,d2,d3)
               else
                 tempd = maxLvs
               end if
@@ -360,17 +373,19 @@ CONTAINS
               ! Compare distances and chose the smallest one
               if(dabs(d1)<dabs(d2).and.dabs(d1)<dabs(d3).and.dabs(d1)<dabs(tempd)) then
                 npoint%v=pt%p-ComSTL%tri(i)%pTr(1)%p
-                tempd=dabs(d1)*dsign(1.d0,dot_product(ComSTL%npt(i,1)%v,npoint%v))
+              !  tempd=dabs(d1)*dsign(1.d0,dot_product(ComSTL%npt(i,1)%v,npoint%v))
               end if
               if(dabs(d2)<dabs(d1).and.dabs(d2)<dabs(d3).and.dabs(d2)<dabs(tempd)) then
                 npoint%v=pt%p-ComSTL%tri(i)%pTr(2)%p
-                tempd=dabs(d2)*dsign(1.d0,dot_product(ComSTL%npt(i,2)%v,npoint%v))
+              !  tempd=dabs(d2)*dsign(1.d0,dot_product(ComSTL%npt(i,2)%v,npoint%v))
               end if
               if(dabs(d3)<dabs(d1).and.dabs(d3)<dabs(d2).and.dabs(d3)<dabs(tempd)) then
                 npoint%v=pt%p-ComSTL%tri(i)%pTr(3)%p
-                tempd=dabs(d3)*dsign(1.d0,dot_product(ComSTL%npt(i,3)%v,npoint%v))
+              !  tempd=dabs(d3)*dsign(1.d0,dot_product(ComSTL%npt(i,3)%v,npoint%v))
               end if
+              tempd=min(d1,d2,d3)
             end if
+
             if(dabs(tempd)<dabs(this%phi(i1,j1,k1))) then
                     this%phi(i1,j1,k1) = tempd
               call npoint%NormalizeVector
@@ -383,6 +398,10 @@ CONTAINS
         end do
       end do
     end do
+    call cpu_time(finish)
+    print*, 'cycle_ntri_time spent here_5 is: ', finish-start
+
+    call cpu_time(start)
     ! Using ray casting method to check whether the point inside or outside object
     do i = 1, this%Imax
       do j = 1, this%Jmax
@@ -401,34 +420,43 @@ CONTAINS
         end do
       end do
     end do
+    call cpu_time(finish)
+    print*, 'ijk_raycasting_time spent here_6 is: ', finish-start
+
     deallocate(GridIndex)
     deallocate(BoxSizeNeg, BoxSizePos)
+
+    call cpu_time(start)
     do i=1,this%Imax
       do j=1,this%Jmax
         do k=1,this%Kmax
           nx = this%nx(i,j,k)
           ny = this%ny(i,j,k)
           nz = this%nz(i,j,k)
-          s=this%phi(i,j,k)+0.5*(dabs(nx)*this%dx+ & !(i,j,k)+               &
-                                 dabs(ny)*this%dy+ & !(i,j,k)+               &
-                                 dabs(nz)*this%dz)   !(i,j,k))
-          call Volume_Fraction_Calc(this%dx,this%dy,this%dz, &  !this%dx(i,j,k),this%dy(i,j,k),this%dz(i,j,k),
-                                    nx,ny,nz,s,vol)
-          this%vof(i,j,k)=vol/(this%dx*this%dy*this%dz)      !(this%dx(i,j,k)*this%dy(i,j,k)*this%dz(i,j,k))
+          s=this%phi(i,j,k)+0.5*(dabs(nx)*this%dx+               &     !(i,j,k)
+                                 dabs(ny)*this%dy+               &     !(i,j,k)
+                                 dabs(nz)*this%dz)                     !(i,j,k)
+          call Volume_Fraction_Calc(this%dx,this%dy,      &            !(i,j,k)
+                                    this%dz,nx,ny,nz,s,vol)
+          this%vof(i,j,k)=vol/(this%dx*this%dy*this%dz)
           ! per debug 13.05
           if(this%vof(i,j,k)<tolpar) this%vof(i,j,k)      = 0.d0
           if(this%vof(i,j,k)>1.d0-tolpar) this%vof(i,j,k) = 1.d0
-          if(isnan(this%vof(i,j,k))) then
-            print*, 'Clsvof.f90 341'
-            print*, this%phi(i,j,k)
-            print*, vol
-            print*, i,j,k
-            print*, this%phi(i,j,k)
-          end if
-          write(5,*) this%vof(i,j,k)
+          !if(isnan(this%vof(i,j,k))) then
+          !  print*, 'Clsvof.f90 341'
+          !  print*, this%phi(i,j,k)
+          !  print*, vol
+          !  print*, i,j,k
+          !  print*, this%phi(i,j,k)
+          !end if
+          !write(5,*) this%vof(i,j,k)
         end do
       end do
     end do
+    call cpu_time(finish)
+    print*, 'ijk_vof_time spent here_7 is: ', finish-start
+
+    call cpu_time(start)
     !per debug
     do i=1,this%Imax
       do j=1,this%Jmax
@@ -439,10 +467,13 @@ CONTAINS
         end do
       end do
     end do
+    call cpu_time(finish)
+    print*, 'ijk_vof_time spent here_8 is: ', finish-start
 
     close(5)
-    !
+
   END SUBROUTINE LvsObject
+
 
   LOGICAL FUNCTION RayCasting(pt,ComSTL) RESULT(Isin)
     !
@@ -486,7 +517,7 @@ CONTAINS
   !! Determine the cell where the element triangle of STL locates at
   !
   PURE SUBROUTINE ComputeGridIndexObject(this, ComSTL, GridIndex)
-  !
+    !
     CLASS(TSolidBody),               INTENT(inout) :: this
     TYPE(TsimcoSTL),                 INTENT(in)    :: ComSTL
     INTEGER(KIND=it4b), ALLOCATABLE, INTENT(inout) :: GridIndex(:,:)
@@ -512,43 +543,126 @@ CONTAINS
         end if
       end do
     end do
-
+    !
   END SUBROUTINE ComputeGridIndexObject
 
 
-  SUBROUTINE setInitialPosition( this, xc, yc, zc, p, q, r )
+
+  SUBROUTINE setInitialPosition( this, PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, xc, yc, zc, p, q, r )
     !
     CLASS(TSolidBody), INTENT(inout) :: this
+    TYPE(TGrid),       INTENT(in)    :: PGrid, UGrid, VGrid, WGrid
+    TYPE(TCell),       INTENT(inout) :: PCell, UCell, VCell, WCell
     REAL(dp),          INTENT(in)    :: xc, yc, zc, p, q, r
 
-    this%xc = xc
-    this%yc = yc
-    this%zc = zc
-    this%p = p
-    this%q = q
-    this%r = r
+    this%CMpoint (1) = xc
+    this%CMpoint (2) = yc
+    this%CMpoint (3) = zc
+    this%CMorient(1) = p
+    this%CMorient(2) = q
+    this%CMorient(3) = r
+    this%rotMatGtoL = this%calcRotationMatrix(this%CMorient)
+
+    ! Interpolate to global grids
+    CALL this%interpolateLvS( PGrid, PCell )
+    CALL this%interpolateLvS( UGrid, UCell )
+    CALL this%interpolateLvS( VGrid, VCell )
+    CALL this%interpolateLvS( WGrid, WCell )
 
   END SUBROUTINE setInitialPosition
 
 
+  !! Calculate the rotation matrix to express a vector defined in main grid coordinates
+  !! in terms of local grid coordinates
+  !
+  FUNCTION calcRotationMatrix( this, angles ) RESULT( Mat )
+    !
+    CLASS(TSolidBody), INTENT(in)    :: this
+    REAL(dp),          INTENT(in)    :: angles(3)
+    REAL(dp)                         :: Mat(3,3)
+    !
+    REAL(dp) :: cosP, cosQ, cosR, sinP, sinQ, sinR
+
+    cosP = cos(angles(1))
+    cosQ = cos(angles(2))
+    cosR = cos(angles(3))
+    sinP = sin(angles(1))
+    sinQ = sin(angles(2))
+    sinR = sin(angles(3))
+
+    Mat(1,:) = (/cosR*cosQ,                        sinR*cosQ,             -sinQ  /)
+    Mat(2,:) = (/-sinR*cosP+sinP*sinQ*cosR,  cosR*cosP+sinP*sinQ*sinR, sinP*cosQ /)
+    Mat(3,:) = (/ sinQ*sinR+cosP*sinQ*cosR, -sinP*cosR+cosP*sinQ*sinR, cosQ*cosP /)
+
+  END FUNCTION calcRotationMatrix
+
+
+  !! Find coordinates in solid mesh of a point in the main mesh
+  !
+  SUBROUTINE transferMeshGtoL( this, pointG, pointL )
+    !
+    CLASS(TSolidBody), INTENT(in)    :: this
+    REAL(dp),          INTENT(in)    :: pointG(3)      ! Coordinates of the point in global reference frame
+    REAL(dp),          INTENT(inout) :: pointL(3)      ! Coordinates of the point in local  reference frame
+
+    ! Translate point to origin of local mesh, then rotate
+    pointL = MATMUL(this%rotMatGtoL, pointG - this%CMpoint)
+
+  END SUBROUTINE
+
+
   !! Interpolate the level set function onto global grid
+  !
   SUBROUTINE interpolateLvS( this, grid, cell )
     !
     CLASS(TSolidBody), INTENT(in)    :: this
-    TYPE(TGrid),       INTENT(in)    :: grid
-    TYPE(TCell),       INTENT(inout) :: cell
+    TYPE(TGrid),       INTENT(in)    :: grid    ! Global grid
+    TYPE(TCell),       INTENT(inout) :: cell    ! Cell values on global grid
     !
-!    ! Matrix of angular transformation
-!    M = 
-!
-!    DO i = 1, SIZE(grid%x, 1)
-!       DO j = 1, SIZE(grid%y, 2)
-!          DO k = 1, SIZE(grid%z, 3)
-!             ! Find coordinates of global cell center in local grid
-!             grid%x(i,j,k)
-!          END DO
-!       END DO
-!    END DO
+    INTEGER  :: i, j, k, iL, jL, kL, ii, jj, kk
+    REAL(dp) :: coeff, pointL(3)
+
+    ! Remove any solid from grid
+    cell%phi = 1.0e4_dp
+    cell%vof = 1.0_dp
+
+    DO i = 1, SIZE(grid%x, 1)
+       DO j = 1, SIZE(grid%y, 2)
+          DO k = 1, SIZE(grid%z, 3)
+             ! Find coordinates of global cell center in local grid
+             CALL this%transferMeshGtoL((/grid%x(i,j,k),grid%y(i,j,k),grid%z(i,j,k)/), pointL)
+
+             ! Find a first node (i,j,k) in local grid in the cube of nodes around the point
+             iL = CEILING((pointL(1) - this%x(1))/this%dx)
+             jL = CEILING((pointL(2) - this%y(1))/this%dy)
+             kL = CEILING((pointL(3) - this%z(1))/this%dz)
+
+             ! If it ends up outside of the local mesh, there is no solid
+             IF( iL < 1 .OR. iL > this%Imax-1 .OR. jL < 1 .OR. jL > this%Jmax-1 .OR. kL < 1 .OR. kL > this%Kmax-1 ) CYCLE
+
+             ! Interpolate in local grid and store value in global cell i,j,k
+             cell%phi(i,j,k) = 0.0_dp
+             cell%nx (i,j,k) = 0.0_dp
+             cell%ny (i,j,k) = 0.0_dp
+             cell%nz (i,j,k) = 0.0_dp
+             cell%vof(i,j,k) = 0.0_dp
+             DO ii = 0, 1
+                DO jj = 0, 1
+                   DO kk = 0, 1
+                      coeff = (this%dx-ABS(pointL(1)-this%x(iL+ii)))/this%dx *              &
+                        &     (this%dy-ABS(pointL(2)-this%y(jL+jj)))/this%dy *              &
+                        &     (this%dz-ABS(pointL(3)-this%z(kL+kk)))/this%dz
+                      cell%phi(i,j,k) = cell%phi(i,j,k) + coeff * this%phi(iL+ii,jL+jj,kL+kk)
+                      cell%nx (i,j,k) = cell%nx (i,j,k) + coeff * this%nx (iL+ii,jL+jj,kL+kk)
+                      cell%ny (i,j,k) = cell%ny (i,j,k) + coeff * this%ny (iL+ii,jL+jj,kL+kk)
+                      cell%nz (i,j,k) = cell%nz (i,j,k) + coeff * this%nz (iL+ii,jL+jj,kL+kk)
+                      cell%vof(i,j,k) = cell%vof(i,j,k) + coeff * this%vof(iL+ii,jL+jj,kL+kk)
+                   END DO
+                END DO
+             END DO
+          END DO
+       END DO
+    END DO
 
   END SUBROUTINE interpolateLvS
 
@@ -566,8 +680,11 @@ CONTAINS
     ! Move the solid
     !TODO
 
-    ! Interpolate to global grid
+    ! Interpolate to global grids
+    CALL this%interpolateLvS( PGrid, PCell )
     CALL this%interpolateLvS( UGrid, UCell )
+    CALL this%interpolateLvS( VGrid, VCell )
+    CALL this%interpolateLvS( WGrid, WCell )
 
   END SUBROUTINE advance
 

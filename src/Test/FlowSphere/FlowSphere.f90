@@ -226,8 +226,11 @@ Program Main
     maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
     print*, 'minp1,maxp1',minp1,maxp1
-    sphere = TSolidBody(10, 10, 10)
+    sphere = TSolidBody(20, 20, 20)
     call sphere%setUpSolid( ComSTL )
+    Call sphere%setInitialPosition( PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, &
+                                    CentPoint%p(1), CentPoint%p(2), CentPoint%p(3),         &
+                                    0.0_dp, 0.0_dp, 0.0_dp )
 
     !do k=1,kmax
     !do j=1,jmax
@@ -272,8 +275,6 @@ Program Main
     Call NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
-
-    Call sphere%setInitialPosition( 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp, 0.0_dp )
 
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
                           BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,sphere)
