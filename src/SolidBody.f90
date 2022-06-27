@@ -27,7 +27,8 @@ MODULE SolidBody
   TYPE, PUBLIC :: TSolidBody
     REAL(dp)              :: CMpoint(3)       ! Coordinates of the center of mass
     REAL(dp)              :: CMorient(3)      ! Orientation angles of solid at the center of mass
-    REAL(dp)              :: rotMatGtoL(3,3)  ! Rotation matrix to express a vector defined in main grid coordinates
+                                              ! (Roll, Pitch, Yaw), (p, q, r), (Phi, Theta, Psi)
+    REAL(dp)              :: rotMatLtoG(3,3)  ! Rotation matrix to express a vector defined in main grid coordinates
                                               ! in terms of local grid coordinates
     INTEGER               :: Imax, Jmax, Kmax ! Size of local mesh
     REAL(dp)              :: dx, dy, dz       ! Sizes of the cells (Uniform mesh)
@@ -46,6 +47,7 @@ MODULE SolidBody
     PROCEDURE, PASS(this), PRIVATE :: LvsObject
     PROCEDURE, PASS(this), PRIVATE :: calcRotationMatrix
     PROCEDURE, PASS(this), PRIVATE :: transferMeshGtoL
+    PROCEDURE, PASS(this), PRIVATE :: transferMeshLtoG
   END TYPE TSolidBody
 
   INTERFACE TSolidBody
@@ -547,7 +549,6 @@ CONTAINS
   END SUBROUTINE ComputeGridIndexObject
 
 
-
   SUBROUTINE setInitialPosition( this, PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, xc, yc, zc, p, q, r )
     !
     CLASS(TSolidBody), INTENT(inout) :: this
@@ -561,7 +562,7 @@ CONTAINS
     this%CMorient(1) = p
     this%CMorient(2) = q
     this%CMorient(3) = r
-    this%rotMatGtoL = this%calcRotationMatrix(this%CMorient)
+    this%rotMatLtoG = this%calcRotationMatrix(this%CMorient)
 
     ! Interpolate to global grids
     CALL this%interpolateLvS( PGrid, PCell )
@@ -581,34 +582,52 @@ CONTAINS
     REAL(dp),          INTENT(in)    :: angles(3)
     REAL(dp)                         :: Mat(3,3)
     !
-    REAL(dp) :: cosP, cosQ, cosR, sinP, sinQ, sinR
+    REAL(dp) :: cosPsi, cosThe, cosPhi, sinPsi, sinThe, sinPhi
 
-    cosP = cos(angles(1))
-    cosQ = cos(angles(2))
-    cosR = cos(angles(3))
-    sinP = sin(angles(1))
-    sinQ = sin(angles(2))
-    sinR = sin(angles(3))
+    cosPsi = COS(angles(1))
+    cosThe = COS(angles(2))
+    cosPhi = COS(angles(3))
+    sinPsi = SIN(angles(1))
+    sinThe = SIN(angles(2))
+    sinPhi = SIN(angles(3))
 
-    Mat(1,:) = (/cosR*cosQ,                        sinR*cosQ,             -sinQ  /)
-    Mat(2,:) = (/-sinR*cosP+sinP*sinQ*cosR,  cosR*cosP+sinP*sinQ*sinR, sinP*cosQ /)
-    Mat(3,:) = (/ sinQ*sinR+cosP*sinQ*cosR, -sinP*cosR+cosP*sinQ*sinR, cosQ*cosP /)
+    ! Wikipedia, Tait-Bryan angles, 
+    ! Order: Roll-Pitch-Yaw from ship's to global referential (Phi-Theta-Psi, X-Y-Z)
+    !        Yaw-Picth-Roll from global to ship's referential
+    Mat(1,:) = (/cosPhi*cosThe, cosPhi*sinThe*sinPsi - cosPsi*sinPhi, sinPhi*sinPsi + cosPhi*cosPsi*sinThe/)
+    Mat(2,:) = (/cosThe*sinPhi, cosPhi*cosPsi + sinPhi*sinThe*sinPsi, cosPsi*sinPhi*sinThe - cosPhi*sinPsi/)
+    Mat(3,:) = (/-sinThe      , cosThe*sinPsi                       , cosThe*cosPsi                       /)
+
 
   END FUNCTION calcRotationMatrix
 
 
   !! Find coordinates in solid mesh of a point in the main mesh
   !
-  SUBROUTINE transferMeshGtoL( this, pointG, pointL )
+  PURE SUBROUTINE transferMeshGtoL( this, pointG, pointL )
     !
     CLASS(TSolidBody), INTENT(in)    :: this
     REAL(dp),          INTENT(in)    :: pointG(3)      ! Coordinates of the point in global reference frame
     REAL(dp),          INTENT(inout) :: pointL(3)      ! Coordinates of the point in local  reference frame
 
     ! Translate point to origin of local mesh, then rotate
-    pointL = MATMUL(this%rotMatGtoL, pointG - this%CMpoint)
+    pointL = MATMUL(TRANSPOSE(this%rotMatLtoG), pointG - this%CMpoint)
 
-  END SUBROUTINE
+  END SUBROUTINE transferMeshGtoL
+
+
+  !! Find coordinates in solid mesh of a point in the main mesh
+  !
+  PURE SUBROUTINE transferMeshLtoG( this, pointL, pointG )
+    !
+    CLASS(TSolidBody), INTENT(in)    :: this
+    REAL(dp),          INTENT(in)    :: pointL(3)      ! Coordinates of the point in local  reference frame
+    REAL(dp),          INTENT(inout) :: pointG(3)      ! Coordinates of the point in global reference frame
+
+    ! Rotate back to global mesh orientation, the translate point to origin of global mesh
+    pointG = MATMUL(this%rotMatLtoG, pointL) + this%CMpoint
+
+  END SUBROUTINE transferMeshLtoG
 
 
   !! Interpolate the level set function onto global grid
@@ -620,7 +639,7 @@ CONTAINS
     TYPE(TCell),       INTENT(inout) :: cell    ! Cell values on global grid
     !
     INTEGER  :: i, j, k, iL, jL, kL, ii, jj, kk
-    REAL(dp) :: coeff, pointL(3)
+    REAL(dp) :: coeff, pointL(3), normV(3)
 
     ! Remove any solid from grid
     cell%phi = 1.0e4_dp
@@ -642,10 +661,8 @@ CONTAINS
 
              ! Interpolate in local grid and store value in global cell i,j,k
              cell%phi(i,j,k) = 0.0_dp
-             cell%nx (i,j,k) = 0.0_dp
-             cell%ny (i,j,k) = 0.0_dp
-             cell%nz (i,j,k) = 0.0_dp
              cell%vof(i,j,k) = 0.0_dp
+             normV           = 0.0_dp
              DO ii = 0, 1
                 DO jj = 0, 1
                    DO kk = 0, 1
@@ -653,13 +670,18 @@ CONTAINS
                         &     (this%dy-ABS(pointL(2)-this%y(jL+jj)))/this%dy *              &
                         &     (this%dz-ABS(pointL(3)-this%z(kL+kk)))/this%dz
                       cell%phi(i,j,k) = cell%phi(i,j,k) + coeff * this%phi(iL+ii,jL+jj,kL+kk)
-                      cell%nx (i,j,k) = cell%nx (i,j,k) + coeff * this%nx (iL+ii,jL+jj,kL+kk)
-                      cell%ny (i,j,k) = cell%ny (i,j,k) + coeff * this%ny (iL+ii,jL+jj,kL+kk)
-                      cell%nz (i,j,k) = cell%nz (i,j,k) + coeff * this%nz (iL+ii,jL+jj,kL+kk)
+                      normV(1)        = normV(1)        + coeff * this%nx (iL+ii,jL+jj,kL+kk)
+                      normV(2)        = normV(2)        + coeff * this%ny (iL+ii,jL+jj,kL+kk)
+                      normV(3)        = normV(3)        + coeff * this%nz (iL+ii,jL+jj,kL+kk)
                       cell%vof(i,j,k) = cell%vof(i,j,k) + coeff * this%vof(iL+ii,jL+jj,kL+kk)
                    END DO
                 END DO
              END DO
+             normV = MATMUL(this%rotMatLtoG, normV)
+             ! The normal was interpolated in the local reference frame. Turn it to global reference frame
+             cell%nx (i,j,k) = normV(1)
+             cell%ny (i,j,k) = normV(2)
+             cell%nz (i,j,k) = normV(3)
           END DO
        END DO
     END DO
