@@ -460,11 +460,12 @@ CONTAINS
 
     call cpu_time(start)
     !per debug
-    do i=1,this%Imax
+    do i=1,this%Imax-1
       do j=1,this%Jmax
         do k=1,this%Kmax
         if(this%phi(i,j,k).lt.0.d0.and.this%phi(i+1,j,k).eq.1d4)then
                 this%phi(i+1,j,k)=-1d4
+                this%vof(i+1,j,k)=0.0_dp
         endif
         end do
       end do
