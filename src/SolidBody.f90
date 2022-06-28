@@ -7,7 +7,8 @@ MODULE SolidBody
   USE Geometry,        ONLY : TGpoint => Gpoint, TVector => vector, CenterPoint, CheckPointTriangle, Distance, CheckPointLine, &
                               RayCutTriangle
   USE Mesh,            ONLY : TGrid => Grid
-  USE CutCell,         ONLY : TCell => Cell
+  USE CutCell,         ONLY : TCell => Cell, GridPreProcess, NumberExternalCell, DefineMomentumExchangeCell, &
+                              NewCellFace
   USE StateVariables,  ONLY : TSolverTime => SolverTime
   USE Clsvof,          ONLY : Volume_Fraction_Calc
   USE STL,             ONLY : TsimcoSTL => simcoSTL
@@ -16,7 +17,7 @@ MODULE SolidBody
 
   PRIVATE
 
-  REAL(KIND=dp), PARAMETER :: tolpar = 1.d-14
+  REAL(KIND=dp), PARAMETER :: tolpar = 1.d-14, pi=4.0_dp*DATAN(1.0_dp)
 
 !  ! Static class variable
 !  LOGICAL, PUBLIC :: solidBodyActive = .FALSE.
@@ -702,12 +703,28 @@ CONTAINS
 
     ! Move the solid
     !TODO
+    ! Apply given movement for now
+    this%CMpoint(1) = 0.01_dp * SIN(MAX(Time%PhysT-3600.0,0.0)/3600.0_dp*2.0_dp*pi)
+    this%CMorient(3) = pi/6.0_dp * SIN(MAX(Time%PhysT-3600.0,0.0)/3600.0_dp*2.0_dp*pi)
+    
+    this%rotMatLtoG = this%calcRotationMatrix(this%CMorient)
 
     ! Interpolate to global grids
     CALL this%interpolateLvS( PGrid, PCell )
     CALL this%interpolateLvS( UGrid, UCell )
     CALL this%interpolateLvS( VGrid, VCell )
     CALL this%interpolateLvS( WGrid, WCell )
+
+    CALL GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
+
+    CALL DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
+
+    CALL NumberExternalCell(0,0,0, PCell)
+    CALL NumberExternalCell(1,0,0, UCell)
+    CALL NumberExternalCell(0,1,0, VCell)
+    CALL NumberExternalCell(0,0,1, WCell)
+
+    CALL NewCellFace(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
   END SUBROUTINE advance
 
