@@ -263,10 +263,11 @@ Program Main
     !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
+    ! Amongst other, set right cell type so cells where vof becomes non-zero are treated in the solver
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
-    !
+
     Call NumberExternalCell(0,0,0, PCell)
     Call NumberExternalCell(1,0,0, UCell)
     Call NumberExternalCell(0,1,0, VCell)

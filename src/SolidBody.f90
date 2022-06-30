@@ -10,7 +10,7 @@ MODULE SolidBody
   USE CutCell,         ONLY : TCell => Cell, GridPreProcess, NumberExternalCell, DefineMomentumExchangeCell, &
                               NewCellFace
   USE StateVariables,  ONLY : TSolverTime => SolverTime
-  USE Clsvof,          ONLY : Volume_Fraction_Calc
+  USE Clsvof,          ONLY : Volume_Fraction_Calc, Normal_Vector_Irre
   USE STL,             ONLY : TsimcoSTL => simcoSTL
 
   IMPLICIT NONE
@@ -640,16 +640,20 @@ CONTAINS
     TYPE(TGrid),       INTENT(in)    :: grid    ! Global grid
     TYPE(TCell),       INTENT(inout) :: cell    ! Cell values on global grid
     !
-    INTEGER  :: i, j, k, iL, jL, kL, ii, jj, kk
-    REAL(dp) :: coeff, pointL(3), normV(3)
+    INTEGER  :: i, j, k, iL, jL, kL, ii, jj, kk, ImaxG, JmaxG, KmaxG
+    REAL(dp) :: coeff, pointL(3), vol, s, temp
+
+    ImaxG = SIZE(grid%x, 1)
+    JmaxG = SIZE(grid%x, 2)
+    KmaxG = SIZE(grid%x, 3)
 
     ! Remove any solid from grid
     cell%phi = 1.0e4_dp
     cell%vof = 1.0_dp
 
-    DO i = 1, SIZE(grid%x, 1)
-       DO j = 1, SIZE(grid%y, 2)
-          DO k = 1, SIZE(grid%z, 3)
+    DO i = 1, ImaxG
+       DO j = 1, JmaxG
+          DO k = 1, KmaxG
              ! Find coordinates of global cell center in local grid
              CALL this%transferMeshGtoL((/grid%x(i,j,k),grid%y(i,j,k),grid%z(i,j,k)/), pointL)
 
@@ -663,8 +667,6 @@ CONTAINS
 
              ! Interpolate in local grid and store value in global cell i,j,k
              cell%phi(i,j,k) = 0.0_dp
-             cell%vof(i,j,k) = 0.0_dp
-             normV           = 0.0_dp
              DO ii = 0, 1
                 DO jj = 0, 1
                    DO kk = 0, 1
@@ -672,18 +674,58 @@ CONTAINS
                         &     (this%dy-ABS(pointL(2)-this%y(jL+jj)))/this%dy *              &
                         &     (this%dz-ABS(pointL(3)-this%z(kL+kk)))/this%dz
                       cell%phi(i,j,k) = cell%phi(i,j,k) + coeff * this%phi(iL+ii,jL+jj,kL+kk)
-                      normV(1)        = normV(1)        + coeff * this%nx (iL+ii,jL+jj,kL+kk)
-                      normV(2)        = normV(2)        + coeff * this%ny (iL+ii,jL+jj,kL+kk)
-                      normV(3)        = normV(3)        + coeff * this%nz (iL+ii,jL+jj,kL+kk)
-                      cell%vof(i,j,k) = cell%vof(i,j,k) + coeff * this%vof(iL+ii,jL+jj,kL+kk)
                    END DO
                 END DO
              END DO
-             normV = MATMUL(this%rotMatLtoG, normV)
-             ! The normal was interpolated in the local reference frame. Turn it to global reference frame
-             cell%nx (i,j,k) = normV(1)
-             cell%ny (i,j,k) = normV(2)
-             cell%nz (i,j,k) = normV(3)
+          END DO
+       END DO
+    END DO
+
+    ! We need to have all interpolated phi to move on to calculate normal vectors
+    ! After calculating normal vectors, we can recalculate more accurate vof. vof far from surface
+    ! (either inside or outside of solid) should be ok from interpolation in previous loop.
+    DO i = 1, ImaxG
+       DO j = 1, JmaxG
+          DO k = 1, KmaxG
+             IF( ABS(cell%phi(i,j,k)) > 4.0_dp ) CYCLE
+
+             ! Calculate normal vector from interpolated phi
+             ! Note that vof is sent as argument, but actually unused
+             IF(i>1.AND.i<ImaxG.AND.j>1.AND.j<jmaxG.AND.k>1.AND.k<kmaxG) THEN
+                CALL Normal_Vector_Irre(grid, cell%vof, cell%phi, i, j, k,                 &
+                                        cell%nx(i,j,k), cell%ny(i,j,k), cell%nz(i,j,k))
+             ELSE
+               ! For boundary cell                
+               cell%nx(i,j,k)=(cell%phi(min(ImaxG,i+1),j,k)-cell%phi(max(1,i-1),j,k))/             &
+                         (grid%x(min(ImaxG,i+1),j,k)-grid%x(max(1,i-1),j,k))
+               cell%ny(i,j,k)=(cell%phi(i,min(JmaxG,j+1),k)-cell%phi(i,max(1,j-1),k))/             &
+                         (grid%y(i,min(JmaxG,j+1),k)-grid%y(i,max(1,j-1),k))
+               cell%nz(i,j,k)=(cell%phi(i,j,min(KmaxG,k+1))-cell%phi(i,j,max(1,k-1)))/             &
+                         (grid%z(i,j,min(KmaxG,k+1))-grid%z(i,j,max(1,k-1)))
+             END IF
+
+             ! Recompute the normal vector such that summation of the square of all its component is 1
+             temp = SQRT(cell%nx(i,j,k)**2+cell%ny(i,j,k)**2+cell%nz(i,j,k)**2)
+             IF(temp<1.d-14) THEN
+               cell%nx(i,j,k) = 0.0_dp
+               cell%ny(i,j,k) = 0.0_dp
+               cell%nz(i,j,k) = 1.0_dp
+             ELSE
+               cell%nx(i,j,k) = cell%nx(i,j,k)/temp
+               cell%ny(i,j,k) = cell%ny(i,j,k)/temp
+               cell%nz(i,j,k) = cell%nz(i,j,k)/temp
+             END IF
+
+             ! Recalculate accurate vof based on interpolated phi and normal
+             s = cell%phi(i,j,k)+0.5_dp*(DABS(cell%nx(i,j,k))*grid%dx(i,j,k) + &
+                                         DABS(cell%ny(i,j,k))*grid%dy(i,j,k) + &
+                                         DABS(cell%nz(i,j,k))*grid%dz(i,j,k)   )
+
+             CALL Volume_Fraction_Calc(grid%dx(i,j,k),grid%dy(i,j,k),         &
+                  grid%dz(i,j,k),cell%nx(i,j,k),cell%ny(i,j,k),cell%nz(i,j,k),s,vol)
+
+             cell%vof(i,j,k)=vol/(grid%dx(i,j,k)*grid%dy(i,j,k)*grid%dz(i,j,k))
+
           END DO
        END DO
     END DO

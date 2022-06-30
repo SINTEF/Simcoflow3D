@@ -36,7 +36,7 @@ Module Clsvof
 
     public:: InitialClsvofFluidField,InitialClsvofLiquidField,Clsvof_Scheme,   &
              ComputeUVWLiquidField,volume_fraction_calc,ConvertTheCoordinateSystem, &
-             BoundaryConditionLvsVof, BoundaryConditionLvsVofFluid
+             BoundaryConditionLvsVof, BoundaryConditionLvsVofFluid, Normal_Vector_Irre
 
     interface InitialClsvofFluidField
       module procedure InitialClsvofFluidField
