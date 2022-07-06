@@ -19,20 +19,21 @@ MODULE SolidBody
 
   REAL(KIND=dp), PARAMETER :: tolpar = 1.d-14, pi=4.0_dp*DATAN(1.0_dp)
 
-!  ! Static class variable
-!  LOGICAL, PUBLIC :: solidBodyActive = .FALSE.
-!
   !! Solid body type. It has its own uniform mesh, with cells containing level set, normal and vof.
   !  TODO: This could use generic grid and cell objects instead of redefining everything
   !
   TYPE, PUBLIC :: TSolidBody
     REAL(dp)              :: CMpoint(3)       ! Coordinates of the center of mass
+    REAL(dp)              :: CMpoint0(3)      ! Value at start of time step
     REAL(dp)              :: CMorient(3)      ! Orientation angles of solid at the center of mass
                                               ! (Roll, Pitch, Yaw), (p, q, r), (Phi, Theta, Psi)
+    REAL(dp)              :: CMorient0(3)     ! Value at start of time step
     REAL(dp)              :: rotMatLtoG(3,3)  ! Rotation matrix to express a vector defined in main grid coordinates
                                               ! in terms of local grid coordinates
+    REAL(dp)              :: rotMatLtoG0(3,3) ! Matrix at start of time step
     INTEGER               :: Imax, Jmax, Kmax ! Size of local mesh
     REAL(dp)              :: dx, dy, dz       ! Sizes of the cells (Uniform mesh)
+    REAL(dp)              :: dt               ! Time step
     REAL(dp), ALLOCATABLE :: x(:), y(:), z(:) ! Coordinates of the cell centers
     REAL(dp), ALLOCATABLE :: phi(:,:,:)       ! Level set function on local mesh
     REAL(dp), ALLOCATABLE :: nx (:,:,:)       ! x-component of normal to surface on local mesh
@@ -43,6 +44,7 @@ MODULE SolidBody
   CONTAINS
     PROCEDURE, PASS(this), PUBLIC  :: setInitialPosition
     PROCEDURE, PASS(this), PUBLIC  :: setUpSolid
+    PROCEDURE, PASS(this), PUBLIC  :: solidVelocity
     PROCEDURE, PASS(this), PUBLIC  :: advance
     PROCEDURE, PASS(this), PRIVATE :: interpolateLvS
     PROCEDURE, PASS(this), PRIVATE :: LvsObject
@@ -64,8 +66,6 @@ CONTAINS
     !
     INTEGER, INTENT(in) :: Imax, Jmax, Kmax        ! Size of the local mesh
     !
-!    solidBodyActive = .TRUE.
-!
     IF( MOD(Imax,2) == 1 .OR. MOD(Jmax,2) == 1 .OR. MOD(Kmax,2) == 1 ) THEN
        WRITE(*,*) "SolidBody was written for even grid sizes"
        WRITE(*,*) "This restriction can be removed when center of mass is properly calculated"
@@ -733,12 +733,52 @@ CONTAINS
   END SUBROUTINE interpolateLvS
 
 
+  !! Calculate one component of solid velocity on global grid
+  !
+  SUBROUTINE solidVelocity( this, pointG, vels, us, vs, ws )
+    !
+    CLASS(TSolidBody),  INTENT(in)    :: this
+    REAL(dp),           INTENT(in)    :: pointG(3)  ! Coordinates of point where to calculate velocity
+    REAL(dp), OPTIONAL, INTENT(out)   :: vels(3)    ! Solid velocity
+    REAL(dp), OPTIONAL, INTENT(out)   :: us         ! Solid velocity - u component
+    REAL(dp), OPTIONAL, INTENT(out)   :: vs         ! Solid velocity - v component
+    REAL(dp), OPTIONAL, INTENT(out)   :: ws         ! Solid velocity - w component
+    !
+    REAL(dp) :: tmp(3), pointL0(3)
+
+    ! Find coordinates of global point on local grid
+    CALL this%transferMeshGtoL(pointG, tmp)
+
+    ! Find coordinates of global point on local grid at the start of the time step
+    ! Translate point to origin of local mesh, then rotate
+    pointL0 = MATMUL(TRANSPOSE(this%rotMatLtoG0), pointG - this%CMpoint0)
+
+    tmp = MATMUL(this%rotMatLtoG, (pointL0 - tmp)/this%dt)
+
+    IF( PRESENT( vels ) ) THEN
+       vels(1) = tmp(1)
+       vels(2) = tmp(2)
+       vels(3) = tmp(3)
+    END IF
+    
+    IF( PRESENT( us ) ) us = tmp(1)
+    IF( PRESENT( vs ) ) vs = tmp(2)
+    IF( PRESENT( ws ) ) ws = tmp(3)
+
+  END SUBROUTINE solidVelocity
+
+
   SUBROUTINE advance( this, PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, Time )
     !
     CLASS(TSolidBody), INTENT(inout) :: this
     TYPE(TGrid),       INTENT(in)    :: PGrid, UGrid, VGrid, WGrid
     TYPE(TCell),       INTENT(inout) :: PCell, UCell, VCell, WCell
     TYPE(TSolverTime), INTENT(inout) :: Time
+
+    this%dt          = Time%dt
+    this%CMpoint0    = this%CMpoint
+    this%CMorient0   = this%CMorient
+    this%rotMatLtoG0 = this%rotMatLtoG
 
     ! Collect forces on the solid
     !TODO
