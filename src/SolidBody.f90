@@ -120,13 +120,13 @@ CONTAINS
        END DO
        SELECT CASE( id )
        CASE( 1 ) 
-          this%dx = (maxDim - minDim)/(this%Imax-8)  ! Keep 4 cells margin around shape
+          this%dx = (maxDim - minDim)/(this%Imax-20)     ! Keep 10 cells margin around shape
           this%x(this%Imax/2) = -0.5_dp * this%dx    ! Assume even grid size
        CASE( 2 ) 
-          this%dy = (maxDim - minDim)/(this%Jmax-8)  ! Keep 4 cells margin around shape
+          this%dy = (maxDim - minDim)/(this%Jmax-20)     ! Keep 10 cells margin around shape
           this%y(this%Jmax/2) = -0.5_dp * this%dy    ! Assume even grid size
        CASE( 3 ) 
-          this%dz = (maxDim - minDim)/(this%Kmax-8)  ! Keep 4 cells margin around shape
+          this%dz = (maxDim - minDim)/(this%Kmax-20)     ! Keep 10 cells margin around shape
           this%z(this%Kmax/2) = -0.5_dp * this%dz    ! Assume even grid size
        END SELECT
     END DO
@@ -183,7 +183,7 @@ CONTAINS
     TYPE(TGpoint)                     :: TriCenter
     REAL(dp) :: start,finish
 
-    bw = 4
+    bw = 12
     maxLvs=1.d4
 
     ! Compute the level set function for a box with certain size
@@ -275,13 +275,13 @@ CONTAINS
                       (ComSTL%tri(i)%pTr(2)%p(3)-TriCenter%p(3)),        &
                       (ComSTL%tri(i)%pTr(3)%p(3)-TriCenter%p(3)))
 
-      BoxSizePos(i,1) = max(4,int(MaxObjX/this%dx)+4)    !(Imax/2,1,1)
-      BoxSizePos(i,2) = max(4,int(MaxObjY/this%dy)+4)    !(1,Jmax/2,1)
-      BoxSizePos(i,3) = max(4,int(MaxObjZ/this%dz)+4)    !(1,1,Kmax/2)
+      BoxSizePos(i,1) = max(bw,int(MaxObjX/this%dx)+bw)    !(Imax/2,1,1)
+      BoxSizePos(i,2) = max(bw,int(MaxObjY/this%dy)+bw)    !(1,Jmax/2,1)
+      BoxSizePos(i,3) = max(bw,int(MaxObjZ/this%dz)+bw)    !(1,1,Kmax/2)
 
-      BoxSizeNeg(i,1) = min(-4,int(MinObjX/this%dx)-4)   !(Imax/2,1,1)
-      BoxSizeNeg(i,2) = min(-4,int(MinObjY/this%dy)-4)   !(1,Jmax/2,1)
-      BoxSizeNeg(i,3) = min(-4,int(MinObjZ/this%dz)-4)   !(1,1,Kmax/2)
+      BoxSizeNeg(i,1) = min(-bw,int(MinObjX/this%dx)-bw)   !(Imax/2,1,1)
+      BoxSizeNeg(i,2) = min(-bw,int(MinObjY/this%dy)-bw)   !(1,Jmax/2,1)
+      BoxSizeNeg(i,3) = min(-bw,int(MinObjZ/this%dz)-bw)   !(1,1,Kmax/2)
     end do
 
     call cpu_time(finish)
@@ -291,6 +291,7 @@ CONTAINS
 
     call cpu_time(start)
     do i=1,ComSTL%ntri
+      if(mod(i,10000)==0) write(*,*) "Triangle",i,"/",ComSTL%ntri
       do ii=BoxSizeNeg(i,1),BoxSizePos(i,1)
         do jj=BoxSizeNeg(i,2),BoxSizePos(i,2)
           do kk=BoxSizeNeg(i,3),BoxSizePos(i,3)
@@ -407,6 +408,7 @@ CONTAINS
     call cpu_time(start)
     ! Using ray casting method to check whether the point inside or outside object
     do i = 1, this%Imax
+      if(mod(i,10)==0) write(*,*) "Row",i,"/",this%Imax
       do j = 1, this%Jmax
         do k = 1, this%Kmax
           if(dabs(this%phi(i,j,k))<0.9d0*maxLvs) then
@@ -436,23 +438,29 @@ CONTAINS
           nx = this%nx(i,j,k)
           ny = this%ny(i,j,k)
           nz = this%nz(i,j,k)
-          s=this%phi(i,j,k)+0.5*(dabs(nx)*this%dx+               &     !(i,j,k)
-                                 dabs(ny)*this%dy+               &     !(i,j,k)
-                                 dabs(nz)*this%dz)                     !(i,j,k)
-          call Volume_Fraction_Calc(this%dx,this%dy,      &            !(i,j,k)
-                                    this%dz,nx,ny,nz,s,vol)
-          this%vof(i,j,k)=vol/(this%dx*this%dy*this%dz)
-          ! per debug 13.05
-          if(this%vof(i,j,k)<tolpar) this%vof(i,j,k)      = 0.d0
-          if(this%vof(i,j,k)>1.d0-tolpar) this%vof(i,j,k) = 1.d0
-          !if(isnan(this%vof(i,j,k))) then
-          !  print*, 'Clsvof.f90 341'
-          !  print*, this%phi(i,j,k)
-          !  print*, vol
-          !  print*, i,j,k
-          !  print*, this%phi(i,j,k)
-          !end if
-          !write(5,*) this%vof(i,j,k)
+          if( this%phi(i,j,k) > 4.0_dp * MAX(this%dx, this%dy, this%dz) ) then
+             this%vof(i,j,k) = 1.0_dp
+          else if( this%phi(i,j,k) < -4.0_dp * MAX(this%dx, this%dy, this%dz) ) then
+             this%vof(i,j,k) = 0.0_dp
+          else
+             s=this%phi(i,j,k)+0.5*(dabs(nx)*this%dx+               &     !(i,j,k)
+                                    dabs(ny)*this%dy+               &     !(i,j,k)
+                                    dabs(nz)*this%dz)                     !(i,j,k)
+             call Volume_Fraction_Calc(this%dx,this%dy,      &            !(i,j,k)
+                                       this%dz,nx,ny,nz,s,vol)
+             this%vof(i,j,k)=vol/(this%dx*this%dy*this%dz)
+             ! per debug 13.05
+             if(this%vof(i,j,k)<tolpar) this%vof(i,j,k)      = 0.d0
+             if(this%vof(i,j,k)>1.d0-tolpar) this%vof(i,j,k) = 1.d0
+             !if(isnan(this%vof(i,j,k))) then
+             !  print*, 'Clsvof.f90 341'
+             !  print*, this%phi(i,j,k)
+             !  print*, vol
+             !  print*, i,j,k
+             !  print*, this%phi(i,j,k)
+             !end if
+             !write(5,*) this%vof(i,j,k)
+          end if
         end do
       end do
     end do
@@ -687,11 +695,11 @@ CONTAINS
     DO i = 1, ImaxG
        DO j = 1, JmaxG
           DO k = 1, KmaxG
-             IF( ABS(cell%phi(i,j,k)) > 4.0_dp ) CYCLE
+             IF( ABS(cell%phi(i,j,k)) > 4.0_dp * MAX(grid%dx(i,j,k), grid%dy(i,j,k), grid%dz(i,j,k)) ) CYCLE
 
              ! Calculate normal vector from interpolated phi
-             ! Note that vof is sent as argument, but actually unused
              IF(i>1.AND.i<ImaxG.AND.j>1.AND.j<jmaxG.AND.k>1.AND.k<kmaxG) THEN
+                ! Note that vof is sent as argument, but actually unused
                 CALL Normal_Vector_Irre(grid, cell%vof, cell%phi, i, j, k,                 &
                                         cell%nx(i,j,k), cell%ny(i,j,k), cell%nz(i,j,k))
              ELSE
@@ -786,9 +794,15 @@ CONTAINS
     ! Move the solid
     !TODO
     ! Apply given movement for now
-    this%CMpoint(1) = 0.01_dp * SIN(MAX(Time%PhysT-3600.0,0.0)/3600.0_dp*2.0_dp*pi)
-    this%CMorient(3) = pi/6.0_dp * SIN(MAX(Time%PhysT-3600.0,0.0)/3600.0_dp*2.0_dp*pi)
-    
+    !                Max ampl.                    Max v/Max ampl
+    this%CMpoint(1) = 1.0_dp     * SIN(Time%PhysT*1.0e-4_dp)
+    this%CMpoint(2) = 0.2_dp     * SIN(Time%PhysT*1.0e-4_dp)
+    this%CMpoint(3) = 0.1_dp     * COS(Time%PhysT*1.0e-4_dp) - 0.1_dp
+    this%CMorient(1) = pi/6.0_dp * SIN(Time%PhysT/3600.0_dp*2.0_dp*pi)
+    this%CMorient(2) = pi/4.0_dp * SIN(Time%PhysT/7200.0_dp*2.0_dp*pi)
+    !                                         Velocity at 1m from CM
+    this%CMorient(3) = this%CMorient(3) + SIN(1.0e-5_dp * Time%PhysT/Time%NonDiT*Time%dt)
+
     this%rotMatLtoG = this%calcRotationMatrix(this%CMorient)
 
     ! Interpolate to global grids

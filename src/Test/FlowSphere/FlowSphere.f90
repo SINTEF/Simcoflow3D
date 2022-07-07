@@ -226,7 +226,7 @@ Program Main
     maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
     print*, 'minp1,maxp1',minp1,maxp1
-    sphere = TSolidBody(20, 20, 20)
+    sphere = TSolidBody(28, 28, 28)
     call sphere%setUpSolid( ComSTL )
     Call sphere%setInitialPosition( PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, &
                                     CentPoint%p(1), CentPoint%p(2), CentPoint%p(3),         &
