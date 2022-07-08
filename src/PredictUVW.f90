@@ -1400,20 +1400,22 @@ Module PredictorUVW
                          UCell%Cell_Cent(i-1,j+1,k,3)*UCell%nz(i-1,j+1,k)+     &
                          UCell%phi(i-1,j+1,k))
                     uw = un12(i-1,j+1,k)
-                  End if
-                  If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
+                  Else If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j+1,k))then
                     delh = dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+  &
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
                     uw = un12(i-1,j,k)
+                  Else
+                    delh=delhec
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sy = UCell%SyN(i-1,j,k)
                   eta = dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,2))/Sy
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j+1,k)
                 End if
                 eta = VCell%EtaE(i-1,j,k)
@@ -1451,20 +1453,22 @@ Module PredictorUVW
                          UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+     &
                          UCell%phi(i-1,j,k+1))
                     uw = un12(i-1,j,k+1)
-                  End if
-                  If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
+                  Else If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
                            /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j,k+1))then
                     delh = dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+  &
                         UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
                         UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
                         UCell%phi(i-1,j,k))
                     uw = un12(i-1,j,k)
+                  Else
+                    delh=delhec
                   End if
                   uw = uw*delhec/(delh+epsi)
                 Else
                   Sz = UCell%SzT(i-1,j,k)
                   eta = dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,3))/Sz
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
                 End if
                 uwp=0.5d0*(uw+dabs(uw))
@@ -1503,20 +1507,29 @@ Module PredictorUVW
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
                     vs = vn12(i,j-1,k)
-                  End if
-                  If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
+                  Else If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
                           /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) then
                     delh=dabs(VCell%Cell_Cent(i+1,j-1,k,1)*VCell%nx(i+1,j-1,k) &
                           +VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+   &
                            VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+   &
                            VCell%phi(i+1,j-1,k))
                     vs=vn12(i+1,j-1,k)
+!FIX:
+                  Else
+                    delh=delhec
                   End if
+!if(.not.(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
+!                         /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k)) .and. &
+!   .not.(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
+!                          /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) ) then
+! write(*,*) "delh undefined",i,j,k,VCell%MoExCell(i,j-1,k)/=1,VCell%Cell_Type(i,j-1,k)/=2,VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k),",",VCell%MoExCell(i+1,j-1,k)/=1,VCell%Cell_Type(i+1,j-1,k)/=2,VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k),",",vn12(i,j-1,k),vn12(i+1,j-1,k)
+!end if
                   vs=vs*delhec/(delh+epsi)
                 Else
                   Sx=VCell%SxE(i,j-1,k)
                   eta=dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-       &
                                             VCell%Cell_Cent(i,j-1,k,1))/Sx
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                 End if
                 eta=UCell%EtaN(i,j-1,k)
@@ -1568,20 +1581,22 @@ Module PredictorUVW
                       VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
                       VCell%phi(i,j-1,k))
                     vs = vn12(i,j-1,k)
-                  End if
-                  If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
+                  Else If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
                           /=2.and.VCell%vof(i,j-1,k+1)>VCell%vof(i,j-1,k)) then
                     delh = dabs(VCell%Cell_Cent(i,j-1,k+1,1)*VCell%nx(i,j-1,k+1)&
                           +VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+   &
                            VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+   &
                            VCell%phi(i,j-1,k+1))
                     vs = vn12(i,j-1,k+1)
+                  Else
+                    delh=delhec
                   End if
                   vs = vs*delhec/(delh+epsi)
                 Else
                   Sz = VCell%SzT(i,j-1,k)
                   eta = dabs(WCell%FCN(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-     &
                                             WCell%Cell_Cent(i,j-1,k,3))/Sz
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j-1,k+1)
                 End if
                 vsp = 0.5d0*(vs+dabs(vs))
@@ -1621,20 +1636,22 @@ Module PredictorUVW
                                 WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+  &
                                 WCell%phi(i,j,k-1))
                     wb = wn12(i,j,k-1)
-                  End if
-                  If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
+                  Else If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
                           /=2.and.WCell%vof(i+1,j,k-1)>WCell%vof(i,j,k-1)) then
                     delh = dabs(WCell%Cell_Cent(i+1,j,k-1,1)*WCell%nx(i+1,j,k-1)&
                           +WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+   &
                            WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+   &
                            WCell%phi(i+1,j,k-1))
                     wb = wn12(i+1,j,k-1)
+                  Else
+                    delh=delhec
                   End if
                   wb = wb*delhec/(delh+epsi)
                 Else
                   Sx = WCell%SxE(i,j,k-1)
                   eta = dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-     &
                                             WCell%Cell_Cent(i,j,k-1,1))/Sx
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                 End if
                 wbp=0.5d0*(wb+dabs(wb))
@@ -1672,6 +1689,7 @@ Module PredictorUVW
                       VCell%nx(i,j,k)+VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k)+    &
                       VCell%FCT(i,j,k-1,3)*VCell%nz(i,j,k)+VCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
+!This is actually the same fix as for the other blocks above...
                   delh = delhec
                   If(WCell%MoExCell(i,j+1,k-1)/=1.and.WCell%Cell_Type(i,j+1,k-1)&
                           /=2.and.WCell%vof(i,j+1,k-1)>=WCell%vof(i,j,k-1))then
@@ -1694,6 +1712,7 @@ Module PredictorUVW
                   Sy = WCell%SyN(i,j,k-1)
                   eta = dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-     &
                                                 WCell%Cell_Cent(i,j,k-1,2))/Sy
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j+1,k-1)
                 End if
                 wbp=0.5d0*(wb+dabs(wb))
@@ -2281,6 +2300,7 @@ Module PredictorUVW
                   Sy = UCell%SyN(i-1,j,k)
                   eta = dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,2))/Sy
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j+1,k)
                 End if
                 eta = VCell%EtaE(i-1,j,k)
@@ -2331,6 +2351,7 @@ Module PredictorUVW
                   Sz = UCell%SzT(i-1,j,k)
                   eta = dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-      &
                              UCell%Cell_Cent(i-1,j,k,3))/Sz
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   uw = (1.d0-eta)*un12(i-1,j,k)+eta*un12(i-1,j,k+1)
                 End if
                 eta = WCell%EtaE(i-1,j,k)
@@ -2380,6 +2401,7 @@ Module PredictorUVW
                   Sx = VCell%SxE(i,j-1,k)
                   eta = dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-     &
                                             VCell%Cell_Cent(i,j-1,k,1))/Sx
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i+1,j-1,k)
                 End if
                 eta = UCell%EtaN(i,j-1,k)
@@ -2441,6 +2463,7 @@ Module PredictorUVW
                   Sz = VCell%SzT(i,j-1,k)
                   eta = dabs(WCell%FCN(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-     &
                                             WCell%Cell_Cent(i,j-1,k,3))/Sz
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   vs = (1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j-1,k+1)
                 End if
                 eta = WCell%EtaN(i,j-1,k)
@@ -2490,6 +2513,7 @@ Module PredictorUVW
                   Sx = WCell%SxE(i,j,k-1)
                   eta = dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-     &
                                             WCell%Cell_Cent(i,j,k-1,1))/Sx
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i+1,j,k-1)
                 End if
                 eta = UCell%EtaT(i,j,k-1)
@@ -2545,6 +2569,7 @@ Module PredictorUVW
                   Sy = WCell%SyN(i,j,k-1)
                   eta = dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-     &
                                                 WCell%Cell_Cent(i,j,k-1,2))/Sy
+                  if(dabs(eta)>=1.d0) eta=0.5d0
                   wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j+1,k-1)
                 End if
                 eta = VCell%EtaT(i,j,k-1)
