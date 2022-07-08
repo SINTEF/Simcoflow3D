@@ -93,6 +93,12 @@ Module Solver
         !
         do itt = 1,Tvar%Time%iter
           !
+          ! Compute the previous cell configuration 
+          !
+          call CopyOldCellNewCell(PCell, PCellO)
+          call CopyOldCellNewCell(Ucell, UCellO)
+          call CopyOldCellNewCell(VCell, VCellO)
+          call CopyOldCellNewCell(WCell, WCellO)
 
           Call ComputeTimeStep(itt,PGrid,UGrid,VGrid,WGrid,TVar)
 
@@ -196,13 +202,6 @@ Module Solver
           TVar_n%w(:,:,:) = TVar%w(:,:,:)
           TVar_n%Time     = TVar%Time
         end if  
-        !
-        ! Compute the previous cell configuration 
-        !
-        call CopyOldCellNewCell(PCell, PCellO)
-        call CopyOldCellNewCell(Ucell, UCellO)
-        call CopyOldCellNewCell(VCell, VCellO)
-        call CopyOldCellNewCell(WCell, WCellO)
         !
         ! if(itt>1) then
         !   call Clsvof_Scheme(PGrid,PCell,TVar,BCu,BCv,BCw,BCLvs,BCvof,         &

@@ -125,7 +125,7 @@ Module ComputePUVW
       ! Solve the Poisson equation
       !
       call PoissonEquationSolver(PGrid, UGrid, VGrid, WGrid,                   &
-                                PCell, UCell, VCell, WCell,                    &
+                                PCell, UCell, VCell, WCell, PCellO%vof,        &
                                 TVar, Pred, PU, PV, PW, BCp, PoCoef, Proj, dt)
       !debug per
       !intermVar(:,:,:) = PoCoef(:,:,:,1)

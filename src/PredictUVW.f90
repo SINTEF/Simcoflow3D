@@ -678,7 +678,7 @@ Module PredictorUVW
     ! Call SetBasicSolver(solver=solver,ierr=ierr)
       call SetMatrix(A,parcsr_A,UGrid,UCell,BCu,DFEW,DFNS,DFTB,                &
               EDFEW,EDFNS,EDFTB,UFric,PU,UWE,USN,UBT,dt,1,0,0,RhoARef,RhoWRef)
-      call SetVectors(b,x,par_b,par_x,UGrid,UCell,BCu,PU,UWE,USN,UBT,          &
+      call SetVectors(b,x,par_b,par_x,UGrid,UCell,UCellO%vof,BCu,PU,UWE,USN,UBT,  &
                                       FluxDiv(:,:,:,1),TVar,dt,1,0,0)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
@@ -703,7 +703,7 @@ Module PredictorUVW
       call SetBasicSolver(solver,precond)
       call SetMatrix(A,parcsr_A,VGrid,VCell,BCv,DFEW,DFNS,DFTB,                &
               EDFEW,EDFNS,EDFTB,VFric,PV,VWE,VSN,VBT,dt,0,1,0,RhoAref,RhoWRef)
-      call SetVectors(b,x,par_b,par_x,VGrid,VCell,BCv,PV,VWE,VSN,VBT,          &
+      call SetVectors(b,x,par_b,par_x,VGrid,VCell,VCellO%vof,BCv,PV,VWE,VSN,VBT,  &
                                       FluxDiv(:,:,:,2),TVar,dt,0,1,0)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
       call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
@@ -727,7 +727,7 @@ Module PredictorUVW
       call SetMatrix(A,parcsr_A,WGrid,WCell,BCw,DFEW,DFNS,DFTB,                &
               EDFEW,EDFNS,EDFTB,WFric,PW,WWE,WSN,WBT,dt,0,0,1,RhoAref,RhoWRef)
       !
-      call SetVectors(b,x,par_b,par_x,WGrid,WCell,BCw,PW,WWE,WSN,WBT,          &
+      call SetVectors(b,x,par_b,par_x,WGrid,WCell,WCellO%vof,BCw,PW,WWE,WSN,WBT,  &
                                       FluxDiv(:,:,:,3),TVar,dt,0,0,1)
       call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr) 
     !  print*,'Before error happens PredictPUVW 457'
@@ -1148,7 +1148,7 @@ Module PredictorUVW
         call HYPRE_IJMatrixGetObject(A,parcsr_A,ierr)
     end subroutine SetMatrix
 
-    Subroutine SetVectors(b,x,par_b,par_x,TGrid,TCell,BC,PUVW,CWE,CSN,CBT,IJKFlux,&
+    Subroutine SetVectors(b,x,par_b,par_x,TGrid,TCell,vofO,BC,PUVW,CWE,CSN,CBT,IJKFlux,&
                                                             TVar,dt,iu,iv,iw)
         !! The subroutine is used to compute the right hand side vector for HYPRE matrix
         Integer*8:: b,x,par_b,par_x
@@ -1158,6 +1158,8 @@ Module PredictorUVW
         Type(Grid),                           intent(in)    :: TGrid
         !! The corresponding grid
         Type(Cell),                           intent(in)    :: TCell
+        ! Value of (solid) vof at start of time step
+        real(dp),                             intent(in)    :: vofO(0:,0:,0:)
         !! The corresponding cell
         type(BCBase),                         intent(in)    :: BC
         !! The input boundary condition
@@ -1201,8 +1203,11 @@ Module PredictorUVW
                 !
                 rhs(ictr)=(iu*TVar%u(i,j,k)+iv*TVar%v(i,j,k)+                  &
                            iw*TVar%w(i,j,k))*TCell%vof(i,j,k)*                 &
-                           TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt+ &
-                           1.d0/Fr**2.d0*TCell%vof(i,j,k)*                     &
+                           TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt  & ! u.vof.dV/dt
+                         -(iu*TVar%u(i,j,k)+iv*TVar%v(i,j,k)+                  &
+                           iw*TVar%w(i,j,k))*(TCell%vof(i,j,k)-vofO(i,j,k))*   &
+                           TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)/dt  & ! u.dV.deltaVof/dt
+                          +1.d0/Fr**2.d0*TCell%vof(i,j,k)*                     &
                            TGrid%dx(i,j,k)*TGrid%dy(i,j,k)*TGrid%dz(i,j,k)*    &
                            (gx*dble(iu)+gy*dble(iv)+gz*dble(iw))/g        
                 !
