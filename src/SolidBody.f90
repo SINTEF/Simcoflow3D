@@ -28,8 +28,8 @@ MODULE SolidBody
     REAL(dp)              :: CMorient(3)      ! Orientation angles of solid at the center of mass
                                               ! (Roll, Pitch, Yaw), (p, q, r), (Phi, Theta, Psi)
     REAL(dp)              :: CMorient0(3)     ! Value at start of time step
-    REAL(dp)              :: rotMatLtoG(3,3)  ! Rotation matrix to express a vector defined in main grid coordinates
-                                              ! in terms of local grid coordinates
+    REAL(dp)              :: rotMatLtoG(3,3)  ! Rotation matrix to express a vector defined in local grid coordinates
+                                              ! in terms of global grid coordinates
     REAL(dp)              :: rotMatLtoG0(3,3) ! Matrix at start of time step
     INTEGER               :: Imax, Jmax, Kmax ! Size of local mesh
     REAL(dp)              :: dx, dy, dz       ! Sizes of the cells (Uniform mesh)
@@ -583,30 +583,31 @@ CONTAINS
   END SUBROUTINE setInitialPosition
 
 
-  !! Calculate the rotation matrix to express a vector defined in main grid coordinates
-  !! in terms of local grid coordinates
+  !! Calculate the rotation matrix to express a vector defined in local grid coordinates
+  !! in terms of global grid coordinates
   !
   FUNCTION calcRotationMatrix( this, angles ) RESULT( Mat )
     !
     CLASS(TSolidBody), INTENT(in)    :: this
     REAL(dp),          INTENT(in)    :: angles(3)
+    !
     REAL(dp)                         :: Mat(3,3)
     !
-    REAL(dp) :: cosPsi, cosThe, cosPhi, sinPsi, sinThe, sinPhi
+    REAL(dp) :: cosPhi, cosThe, cosPsi, sinPhi, sinThe, sinPsi
 
-    cosPsi = COS(angles(1))
+    cosPhi = COS(angles(1))
     cosThe = COS(angles(2))
-    cosPhi = COS(angles(3))
-    sinPsi = SIN(angles(1))
+    cosPsi = COS(angles(3))
+    sinPhi = SIN(angles(1))
     sinThe = SIN(angles(2))
-    sinPhi = SIN(angles(3))
+    sinPsi = SIN(angles(3))
 
     ! Wikipedia, Tait-Bryan angles, 
     ! Order: Roll-Pitch-Yaw from ship's to global referential (Phi-Theta-Psi, X-Y-Z)
     !        Yaw-Picth-Roll from global to ship's referential
-    Mat(1,:) = (/cosPhi*cosThe, cosPhi*sinThe*sinPsi - cosPsi*sinPhi, sinPhi*sinPsi + cosPhi*cosPsi*sinThe/)
-    Mat(2,:) = (/cosThe*sinPhi, cosPhi*cosPsi + sinPhi*sinThe*sinPsi, cosPsi*sinPhi*sinThe - cosPhi*sinPsi/)
-    Mat(3,:) = (/-sinThe      , cosThe*sinPsi                       , cosThe*cosPsi                       /)
+    Mat(1,:) = (/cosPsi*cosThe, cosPsi*sinThe*sinPhi - cosPhi*sinPsi, sinPsi*sinPhi + cosPsi*cosPhi*sinThe/)
+    Mat(2,:) = (/cosThe*sinPsi, cosPsi*cosPhi + sinPsi*sinThe*sinPhi, cosPhi*sinPsi*sinThe - cosPsi*sinPhi/)
+    Mat(3,:) = (/-sinThe      , cosThe*sinPhi                       , cosThe*cosPhi                       /)
 
 
   END FUNCTION calcRotationMatrix
@@ -626,7 +627,7 @@ CONTAINS
   END SUBROUTINE transferMeshGtoL
 
 
-  !! Find coordinates in solid mesh of a point in the main mesh
+  !! Find coordinates in main mesh of a point in the solid mesh
   !
   PURE SUBROUTINE transferMeshLtoG( this, pointL, pointG )
     !
