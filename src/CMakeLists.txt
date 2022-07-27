@@ -45,7 +45,7 @@ set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_Fortran
 # The paths here are platform dependent. Please edit
 set(Fortran_COMPILER_FLAGS "")
 ##########################
-#set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -f2008")
+set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ")
 #set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -g -mtrace=all -nan -gline -kind=byte")
 set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wextra -g -O -O0 -Wall -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -fbounds-check -ffpe-trap=invalid,zero,underflow,overflow -finit-real=nan -ffpe-summary=underflow")
 ###########################
