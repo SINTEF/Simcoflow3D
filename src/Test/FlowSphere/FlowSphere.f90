@@ -44,7 +44,7 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
     real(dp) :: ScaleFactor,minp1,maxp1
-    character(len=200) :: STLfilename
+    character(len=400) :: STLfilename
     real(dp), dimension(:), allocatable :: intermVar
     allocate(intermVar(5852)) 
     allocate(Constin(6))
