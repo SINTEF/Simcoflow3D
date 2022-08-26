@@ -1429,7 +1429,7 @@ Module PredictorUVW
               uw = 0.5d0*(un12(i-1,j,k+1)+un12(i-1,j,k))
               uwp=0.5d0*(uw+dabs(uw))
               uwn=0.5d0*(uw-dabs(uw))
-              If(i>Imax) then
+              If(i.ge.Imax) then
                 Flux(i,j,k,3)=uw*BCw%VarE(j,k)*WCell%EEArea(i-1,j,k)*          &
                               WGrid%dy(i-1,j,k)*WGrid%dz(i-1,j,k)
               Elseif(i==1) then
@@ -1446,20 +1446,24 @@ Module PredictorUVW
                     WCell%nx(i,j,k)+WCell%FCE(i-1,j,k,2)*WCell%ny(i,j,k)+      &
                       WCell%FCE(i-1,j,k,3)*WCell%nz(i,j,k)+WCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
-                  If(UCell%MoExCell(i-1,j,k+1)/=1.and.UCell%Cell_Type(i-1,j,k+1)&
-                          /=2.and.UCell%vof(i-1,j,k+1)>=UCell%vof(i-1,j,k))then
-                    delh = dabs(UCell%Cell_Cent(i-1,j,k+1,1)*UCell%nx(i-1,j,k+1)&
-                        +UCell%Cell_Cent(i-1,j,k+1,2)*UCell%ny(i-1,j,k+1)+     &
-                         UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+     &
-                         UCell%phi(i-1,j,k+1))
-                    uw = un12(i-1,j,k+1)
-                  Else If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
-                           /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j,k+1))then
-                    delh = dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+  &
-                        UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
-                        UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
-                        UCell%phi(i-1,j,k))
-                    uw = un12(i-1,j,k)
+                  If(k.lt.kmax) then
+                    If(UCell%MoExCell(i-1,j,k+1)/=1.and.UCell%Cell_Type(i-1,j,k+1)&
+                            /=2.and.UCell%vof(i-1,j,k+1)>=UCell%vof(i-1,j,k))then
+                      delh = dabs(UCell%Cell_Cent(i-1,j,k+1,1)*UCell%nx(i-1,j,k+1)&
+                          +UCell%Cell_Cent(i-1,j,k+1,2)*UCell%ny(i-1,j,k+1)+     &
+                           UCell%Cell_Cent(i-1,j,k+1,3)*UCell%nz(i-1,j,k+1)+     &
+                           UCell%phi(i-1,j,k+1))
+                      uw = un12(i-1,j,k+1)
+                    Else If(UCell%MoExCell(i-1,j,k)/=1.and.UCell%Cell_Type(i-1,j,k)   &
+                             /=2.and.UCell%vof(i-1,j,k)>UCell%vof(i-1,j,k+1))then
+                      delh = dabs(UCell%Cell_Cent(i-1,j,k,1)*UCell%nx(i-1,j,k)+  &
+                          UCell%Cell_Cent(i-1,j,k,2)*UCell%ny(i-1,j,k)+          &
+                          UCell%Cell_Cent(i-1,j,k,3)*UCell%nz(i-1,j,k)+          &
+                          UCell%phi(i-1,j,k))
+                      uw = un12(i-1,j,k)
+                    Else
+                      delh=delhec
+                    End if
                   Else
                     delh=delhec
                   End if
@@ -1483,7 +1487,7 @@ Module PredictorUVW
               vs = 0.5d0*(vn12(i,j-1,k)+vn12(i+1,j-1,k))
               vsp = 0.5d0*(vs+dabs(vs))
               vsn = 0.5d0*(vs-dabs(vs))
-              If(j>Jmax) then
+              If(j.ge.Jmax) then
                 Flux(i,j,k,1)=vs*BCu%VarN(i,k)*UCell%NEArea(i,j-1,k)*          &
                                   UGrid%dx(i,j-1,k)*UGrid%dz(i,j-1,k)
               Elseif(j==1) then
@@ -1500,30 +1504,28 @@ Module PredictorUVW
                    (UCell%FCN(i,j-1,k,2)-VGrid%dy(i,j-1,k))*UCell%ny(i,j,k)+   &
                       UCell%FCN(i,j-1,k,3)*UCell%nz(i,j,k)+UCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
-                  If(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
-                         /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k)) then
-                    delh = dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+  &
-                      VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
-                      VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
-                      VCell%phi(i,j-1,k))
-                    vs = vn12(i,j-1,k)
-                  Else If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
-                          /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) then
-                    delh=dabs(VCell%Cell_Cent(i+1,j-1,k,1)*VCell%nx(i+1,j-1,k) &
-                          +VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+   &
-                           VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+   &
-                           VCell%phi(i+1,j-1,k))
-                    vs=vn12(i+1,j-1,k)
-!FIX:
+                  If(i.lt.imax) then
+                    If(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
+                           /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k)) then
+                      delh = dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+  &
+                        VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
+                        VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
+                        VCell%phi(i,j-1,k))
+                      vs = vn12(i,j-1,k)
+                    Else If(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
+                            /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) then
+                      delh=dabs(VCell%Cell_Cent(i+1,j-1,k,1)*VCell%nx(i+1,j-1,k) &
+                            +VCell%Cell_Cent(i+1,j-1,k,2)*VCell%ny(i+1,j-1,k)+   &
+                             VCell%Cell_Cent(i+1,j-1,k,3)*VCell%nz(i+1,j-1,k)+   &
+                             VCell%phi(i+1,j-1,k))
+                      vs=vn12(i+1,j-1,k)
+                    Else
+                      delh=delhec
+                    End if
                   Else
                     delh=delhec
                   End if
-!if(.not.(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
-!                         /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k)) .and. &
-!   .not.(VCell%MoExCell(i+1,j-1,k)/=1.and.VCell%Cell_Type(i+1,j-1,k)&
-!                          /=2.and.VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k)) ) then
-! write(*,*) "delh undefined",i,j,k,VCell%MoExCell(i,j-1,k)/=1,VCell%Cell_Type(i,j-1,k)/=2,VCell%vof(i,j-1,k)>=VCell%vof(i+1,j-1,k),",",VCell%MoExCell(i+1,j-1,k)/=1,VCell%Cell_Type(i+1,j-1,k)/=2,VCell%vof(i+1,j-1,k)>VCell%vof(i,j-1,k),",",vn12(i,j-1,k),vn12(i+1,j-1,k)
-!end if
+
                   vs=vs*delhec/(delh+epsi)
                 Else
                   Sx=VCell%SxE(i,j-1,k)
@@ -1557,7 +1559,7 @@ Module PredictorUVW
               End if
             ! Convective velocity: v, scalar advective: w
               vs=0.5d0*(vn12(i,j-1,k)+vn12(i,j-1,k+1))
-              If(j>Jmax) then
+              If(j.ge.Jmax) then
                 Flux(i,j,k,3)=vs*BCw%VarN(i,k)*WCell%NEArea(i,j-1,k)*          &
                                   WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               Elseif(j==1) then
@@ -1574,20 +1576,24 @@ Module PredictorUVW
                    (WCell%FCN(i,j-1,k,2)-WGrid%dy(i,j-1,k))*WCell%ny(i,j,k)+   &
                     WCell%FCN(i,j-1,k,3)*WCell%nz(i,j,k)+WCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
-                  If(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
-                         /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i,j-1,k+1)) then
-                    delh = dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+  &
-                      VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
-                      VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
-                      VCell%phi(i,j-1,k))
-                    vs = vn12(i,j-1,k)
-                  Else If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
-                          /=2.and.VCell%vof(i,j-1,k+1)>VCell%vof(i,j-1,k)) then
-                    delh = dabs(VCell%Cell_Cent(i,j-1,k+1,1)*VCell%nx(i,j-1,k+1)&
-                          +VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+   &
-                           VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+   &
-                           VCell%phi(i,j-1,k+1))
-                    vs = vn12(i,j-1,k+1)
+                  If(k.lt.kmax) then
+                    If(VCell%MoExCell(i,j-1,k)/=1.and.VCell%Cell_Type(i,j-1,k)   &
+                           /=2.and.VCell%vof(i,j-1,k)>=VCell%vof(i,j-1,k+1)) then
+                      delh = dabs(VCell%Cell_Cent(i,j-1,k,1)*VCell%nx(i,j-1,k)+  &
+                        VCell%Cell_Cent(i,j-1,k,2)*VCell%ny(i,j-1,k)+            &
+                        VCell%Cell_Cent(i,j-1,k,3)*VCell%nz(i,j-1,k)+            &
+                        VCell%phi(i,j-1,k))
+                      vs = vn12(i,j-1,k)
+                    Else If(VCell%MoExCell(i,j-1,k+1)/=1.and.VCell%Cell_Type(i,j-1,k+1)&
+                            /=2.and.VCell%vof(i,j-1,k+1)>VCell%vof(i,j-1,k)) then
+                      delh = dabs(VCell%Cell_Cent(i,j-1,k+1,1)*VCell%nx(i,j-1,k+1)&
+                            +VCell%Cell_Cent(i,j-1,k+1,2)*VCell%ny(i,j-1,k+1)+   &
+                             VCell%Cell_Cent(i,j-1,k+1,3)*VCell%nz(i,j-1,k+1)+   &
+                             VCell%phi(i,j-1,k+1))
+                      vs = vn12(i,j-1,k+1)
+                    Else
+                      delh=delhec
+                    End if
                   Else
                     delh=delhec
                   End if
@@ -1612,11 +1618,11 @@ Module PredictorUVW
               wb = 0.5d0*(wn12(i,j,k-1)+vn12(i+1,j,k-1))
               wbp=0.5d0*(wb+dabs(wb))
               wbn=0.5d0*(wb-dabs(wb))
-              If(k>Kmax) then
+              If(k.ge.Kmax) then
                 Flux(i,j,k,1)=wb*BCu%VarT(i,j)*UCell%TEArea(i,j,k-1)*          &
                                   UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
               Elseif(k==1) then
-                Flux(i,j,k,1)=wb*BCu%VarB(i,j)*UCell%TEArea(i,j,k)*            &
+                Flux(i,j,k,1)=wb*BCu%VarT(i,j)*UCell%TEArea(i,j,k)*            &
                                   UGrid%dx(i,j,k)*UGrid%dy(i,j,k)
               Else
                 Flux(i,j,k,1) = 0.d0
@@ -1629,20 +1635,24 @@ Module PredictorUVW
                    (UCell%FCT(i,j,k-1,2)-WGrid%dz(i,j,k-1))*UCell%ny(i,j,k)+   &
                       UCell%FCT(i,j,k-1,3)*UCell%nz(i,j,k)+UCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
-                  If(WCell%MoExCell(i,j,k-1)/=1.and.WCell%Cell_Type(i,j,k-1)   &
-                         /=2.and.WCell%vof(i,j,k-1)>=WCell%vof(i+1,j,k-1)) then
-                    delh = dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+  &
-                                WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+  &
-                                WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+  &
-                                WCell%phi(i,j,k-1))
-                    wb = wn12(i,j,k-1)
-                  Else If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
-                          /=2.and.WCell%vof(i+1,j,k-1)>WCell%vof(i,j,k-1)) then
-                    delh = dabs(WCell%Cell_Cent(i+1,j,k-1,1)*WCell%nx(i+1,j,k-1)&
-                          +WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+   &
-                           WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+   &
-                           WCell%phi(i+1,j,k-1))
-                    wb = wn12(i+1,j,k-1)
+                  If(i.lt.imax) then
+                    If(WCell%MoExCell(i,j,k-1)/=1.and.WCell%Cell_Type(i,j,k-1)   &
+                           /=2.and.WCell%vof(i,j,k-1)>=WCell%vof(i+1,j,k-1)) then
+                      delh = dabs(WCell%Cell_Cent(i,j,k-1,1)*WCell%nx(i,j,k-1)+  &
+                                  WCell%Cell_Cent(i,j,k-1,2)*WCell%ny(i,j,k-1)+  &
+                                  WCell%Cell_Cent(i,j,k-1,3)*WCell%nz(i,j,k-1)+  &
+                                  WCell%phi(i,j,k-1))
+                      wb = wn12(i,j,k-1)
+                    Else If(WCell%MoExCell(i+1,j,k-1)/=1.and.WCell%Cell_Type(i+1,j,k-1)&
+                            /=2.and.WCell%vof(i+1,j,k-1)>WCell%vof(i,j,k-1)) then
+                      delh = dabs(WCell%Cell_Cent(i+1,j,k-1,1)*WCell%nx(i+1,j,k-1)&
+                            +WCell%Cell_Cent(i+1,j,k-1,2)*WCell%ny(i+1,j,k-1)+   &
+                             WCell%Cell_Cent(i+1,j,k-1,3)*WCell%nz(i+1,j,k-1)+   &
+                             WCell%phi(i+1,j,k-1))
+                      wb = wn12(i+1,j,k-1)
+                    Else
+                      delh=delhec
+                    End if
                   Else
                     delh=delhec
                   End if
@@ -1672,7 +1682,7 @@ Module PredictorUVW
               wb = 0.5d0*(wn12(i,j+1,k-1)+wn12(i,j,k-1))
               wbp=0.5d0*(wb+dabs(wb))
               wbn=0.5d0*(wb-dabs(wb))
-              If(k>Kmax) then
+              If(k.ge.Kmax) then
                 Flux(i,j,k,2)=wb*BCv%VarT(i,j)*VCell%TEArea(i,j,k-1)*          &
                                   VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
               Elseif(k==1) then
@@ -1689,15 +1699,16 @@ Module PredictorUVW
                       VCell%nx(i,j,k)+VCell%FCT(i,j,k-1,2)*VCell%ny(i,j,k)+    &
                       VCell%FCT(i,j,k-1,3)*VCell%nz(i,j,k)+VCell%phi(i,j,k)
                   delhec = 0.5d0*(delhec1+delhec2)
-!This is actually the same fix as for the other blocks above...
                   delh = delhec
-                  If(WCell%MoExCell(i,j+1,k-1)/=1.and.WCell%Cell_Type(i,j+1,k-1)&
+                  If(j.lt.jmax)then
+                    if(WCell%MoExCell(i,j+1,k-1)/=1.and.WCell%Cell_Type(i,j+1,k-1)&
                           /=2.and.WCell%vof(i,j+1,k-1)>=WCell%vof(i,j,k-1))then
                     delh = dabs(WCell%Cell_Cent(i,j+1,k-1,1)*WCell%nx(i,j+1,k-1)&
                         +WCell%Cell_Cent(i,j+1,k-1,2)*WCell%ny(i,j+1,k-1)+     &
                          WCell%Cell_Cent(i,j+1,k-1,3)*WCell%nz(i,j+1,k-1)+     &
                          WCell%phi(i,j+1,k-1))
                     wb = wn12(i,j+1,k-1)
+                    endif
                   End if
                   If(WCell%MoExCell(i,j,k-1)/=1.and.WCell%Cell_Type(i,j,k-1)   &
                            /=2.and.WCell%vof(i,j,k-1)>WCell%vof(i,j+1,k-1))then

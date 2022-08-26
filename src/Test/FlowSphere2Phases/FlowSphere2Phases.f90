@@ -24,19 +24,18 @@ Program Main
     USE BoundaryInterface
     USE BoundaryFunction
     USE STL
-    USE SolidBody,         ONLY : TSolidBody
     USE Geometry
+    USE InitialVof
     
     Implicit none
     
-    Type(Grid)       :: UGrid,VGrid,WGrid,PGrid
-    Type(Cell)       :: UCell,VCell,WCell,PCell
-    Type(Point)      :: SPoint,EPoint,ReS,ReE
-    Type(Variables)  :: Var
-    Type(BCBase)     :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
-    Type(simcoSTL)   :: ComSTL
-    Type(Gpoint)     :: CentPoint
-    Type(TSolidBody) :: sphere
+    Type(Grid)      :: UGrid,VGrid,WGrid,PGrid
+    Type(Cell)      :: UCell,VCell,WCell,PCell
+    Type(Point)     :: SPoint,EPoint,ReS,ReE
+    Type(Variables) :: Var
+    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
+    Type(simcoSTL)  :: ComSTL
+    Type(Gpoint)    :: CentPoint
     
     integer(it8b) :: itt
     integer(it4b) :: i,j,k
@@ -46,18 +45,18 @@ Program Main
     real(kind=dp), dimension(:), allocatable :: Constin
     real(dp) :: Uref,Roref,Tref,Uint,Vint,Wint,Pint,Tint
     real(dp) :: ScaleFactor,minp1,maxp1
-    character(len=400) :: STLfilename
+    character(len=200) :: STLfilename
     real(dp), dimension(:), allocatable :: intermVar
     allocate(intermVar(5852)) 
     allocate(Constin(6))
-    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/input.dat',action='read')
+    Open(unit=5,file='/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere2Phases/input.dat',action='read')
     Read(5,*)
     Read(5,*) Imax, Jmax, Kmax, Irec, Jrec, Krec, Rey, Lref, iprint
     Read(5,*)
     Read(5,*) TimeOrder, SpaceOrder
     close(5)
    
-    STLfilename=trim('/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/sphere.stl')
+    !STLfilename=trim('/home/elena-roxanap/Documents/Iceload/simco3d/src/Test/FlowSphere/sphere.stl')
 
     itt=0 ! iteration number
 
@@ -77,7 +76,6 @@ Program Main
     vel = dble(Rey*muw/Lref/row)
     print*, "vel", vel, Rey, muw,Lref, row
     
-    NI = Imax+1
     Uref=vel
     Tref=0.d0
     Roref=row
@@ -88,6 +86,7 @@ Program Main
     Pint=0.d0
     Tint=300.d0
 
+    NI = Imax+1
     NJ = Jmax+1
     NK = Kmax+1
     
@@ -214,24 +213,22 @@ Program Main
 
     Call HYPRE_CreateGrid(PGrid)
     
-    call ComSTL%ReadSTLFile(STLfilename)
-    minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
-    maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
+    !call ComSTL%ReadSTLFile(STLfilename)
+    !minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
+    !maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
-    print*, 'minp1,maxp1',minp1,maxp1
-    scalefactor=(maxp1-minp1)/lRef
+    !print*, 'minp1,maxp1',minp1,maxp1
+    !scalefactor=(maxp1-minp1)/lRef
 
-    call ComSTL%ModifySTLFile(ScaleFactor, CentPoint, Lref)
-    minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
-    maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
+    !call ComSTL%ModifySTLFile(ScaleFactor, CentPoint, Lref)
+    !minp1= minval(COmSTL%tri(:)%ptr(3)%p(1))
+    !maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
-    print*, 'minp1,maxp1',minp1,maxp1
-    sphere = TSolidBody(28, 28, 28)
-    call sphere%setUpSolid( ComSTL )
-    Call sphere%setInitialPosition( PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, &
-                                    CentPoint%p(1), CentPoint%p(2), CentPoint%p(3),         &
-                                    0.0_dp, 0.0_dp, 0.0_dp )
-
+    !print*, 'minp1,maxp1',minp1,maxp1
+    !call LvsObject(Pcell,ComSTL,Pgrid)
+    !call LvsObject(Ucell,ComSTL,Ugrid)
+    !call LvsObject(Vcell,ComSTL,Vgrid)
+    !call LvsObject(Wcell,ComSTL,Wgrid)
     !do k=1,kmax
     !do j=1,jmax
     !do i=1,imax
@@ -240,15 +237,15 @@ Program Main
     !enddo
     !enddo
 
-    !Call InitialClsvofFluidField(PGrid,PCell)
-    !Call InitialClsvofFluidField(UGrid,UCell)
-    !Call InitialClsvofFluidField(VGrid,VCell)
-    !Call InitialClsvofFluidField(WGrid,WCell)
+    Call InitialClsvofFluidField(PGrid,PCell)
+    Call InitialClsvofFluidField(UGrid,UCell)
+    Call InitialClsvofFluidField(VGrid,VCell)
+    Call InitialClsvofFluidField(WGrid,WCell)
     
-    Call InitialClsvofLiquidField(PGrid,PCell)
-    Call InitialClsvofLiquidField(UGrid,UCell)
-    Call InitialClsvofLiquidField(VGrid,VCell)
-    Call InitialClsvofLiquidField(WGrid,WCell)
+    Call InitialClsvofLiquidFieldPersonal(PGrid,PCell)
+    Call InitialClsvofLiquidFieldPersonal(UGrid,UCell)
+    Call InitialClsvofLiquidFieldPersonal(VGrid,VCell)
+    Call InitialClsvofLiquidFieldPersonal(WGrid,WCell)
 
     call BoundaryConditionLvsVof(PGrid, PCell, Var, BCLvs, BCVof, 0.d0)
     call BoundaryConditionLvsVofFluid(PGrid, PCell, Var, BCLvsF,BCVofF, 0.d0)
@@ -263,11 +260,10 @@ Program Main
     !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
-    ! Amongst other, set right cell type so cells where vof becomes non-zero are treated in the solver
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
-
+    !
     Call NumberExternalCell(0,0,0, PCell)
     Call NumberExternalCell(1,0,0, UCell)
     Call NumberExternalCell(0,1,0, VCell)
@@ -278,7 +274,7 @@ Program Main
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
-                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,sphere)
+                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
  
     Pause
 End program main
