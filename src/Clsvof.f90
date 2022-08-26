@@ -837,7 +837,7 @@ Module Clsvof
            do i = 1,imax-1
              if(ue(i,j,k)>0.d0) then
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps) then
-                 flux = vfl(i,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
+                 flux = vfl(i,j,k)*ue(i,j,k)*dtv
                else
                  call East_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),              &
                          diss(i,j,k),vfl(i,j,k),PGrid%dx(i,j,k),               &
@@ -845,7 +845,7 @@ Module Clsvof
                end if
              else
                if(vfl(i+1,j,k)>=(1.d0-vofeps).or.vfl(i+1,j,k)<=vofeps) then
-                 flux=vfl(i+1,j,k)*ue(i,j,k)*dtv/PGrid%dx(i,j,k)
+                 flux=vfl(i+1,j,k)*ue(i,j,k)*dtv
                else
                  call West_Flux(nxx(i+1,j,k),nyy(i+1,j,k),nzz(i+1,j,k),        &
                        diss(i+1,j,k),vfl(i+1,j,k),PGrid%dx(i+1,j,k),           &
@@ -854,8 +854,8 @@ Module Clsvof
                end if
              end if
          
-             temvf(i,j,k) = temvf(i,j,k)-flux
-             if(i<imax) temvf(i+1,j,k) = temvf(i+1,j,k)+flux
+             temvf(i,j,k) = temvf(i,j,k)-flux/PGrid%dx(i,j,k)
+             if(i<imax) temvf(i+1,j,k) = temvf(i+1,j,k)+flux/PGrid%dx(i+1,j,k)
              ! if((i==24.or.i+1==24).and.j==32.and.k==32) then
              !    print*, 'Inside do loop test the flux X_Sweep xxxxxxx'
              !    print*, flux
@@ -869,12 +869,12 @@ Module Clsvof
            end do
            ! for i=1
            ! flux=BCVof%VarW(j,k)*BCu%VarW(j,k)*dtv/PGrid%dx(1,j,k)
-           flux=vfl(1,j,k)*ue(0,j,k)*dtv/PGrid%dx(1,j,k)
-           temvf(1,j,k)=temvf(1,j,k)+flux
+           flux=vfl(1,j,k)*ue(0,j,k)*dtv
+           temvf(1,j,k)=temvf(1,j,k)+flux/PGrid%dx(1,j,k)
            ! for i=imax
            ! flux=BCVof%VarE(j,k)*BCu%VarE(j,k)*dtv/PGrid%dx(imax,j,k)
-           flux=vfl(imax,j,k)*ue(imax,j,k)*dtv/PGrid%dx(imax,j,k)
-           temvf(imax,j,k)=temvf(imax,j,k)-flux
+           flux=vfl(imax,j,k)*ue(imax,j,k)*dtv
+           temvf(imax,j,k)=temvf(imax,j,k)-flux/PGrid%dx(imax,j,k)
          end do
        end do
        ! level set
@@ -898,9 +898,9 @@ Module Clsvof
                      (PGrid%dx(i,j,k))
                end if
              end if
-             flux = ue(i,j,k)*lse*dtv/PGrid%dx(i,j,k)
-             if(i>1) temls(i,j,k) = temls(i,j,k)-flux
-             if(i<imax) temls(i+1,j,k) = temls(i+1,j,k)+flux
+             flux = ue(i,j,k)*lse*dtv
+             if(i>1) temls(i,j,k) = temls(i,j,k)-flux/PGrid%dx(i,j,k)
+             if(i<imax) temls(i+1,j,k) = temls(i+1,j,k)+flux/PGrid%dx(i+1,j,k)
              !if(isnan(temls(i,j,k)).or.isnan(temls(i+1,j,k))) then
              !  print*, PGrid%dx(i,j,k)/2.d0*(1.d0-ue(i,j,k)*            &
              !      dtv/PGrid%dx(i,j,k))*(phi(i+1,j,k)-phi(i-1,j,k))/           &
@@ -927,8 +927,8 @@ Module Clsvof
            temls(1,j,k)=temls(1,j,k)-flux/PGrid%dx(1,j,k)
            temls(2,j,k)=temls(2,j,k)+flux/PGRid%dx(2,j,k)
            ! For boundary value
-           flux=BCu%VarW(j,k)*BCLvs%VarW(j,k)*dtv/PGrid%dx(1,j,k)
-           temls(1,j,k)=temls(1,j,k)+flux
+           flux=BCu%VarW(j,k)*BCLvs%VarW(j,k)*dtv
+           temls(1,j,k)=temls(1,j,k)+flux/PGrid%dx(1,j,k)
            ! For i=kmax
            if(ue(Imax,j,k)>0.d0) then
              lse=phi(Imax,j,k)+PGrid%dx(Imax,j,k)/2.d0*                        &
@@ -941,8 +941,8 @@ Module Clsvof
                  (phi(Imax,j,k)-phi(Imax-1,j,k))/                              &
                  (PGrid%x(Imax,j,k)-PGrid%x(Imax-1,j,k))
            end if
-           flux=lse*ue(Imax,j,k)*dtv/PGrid%dx(Imax,j,k)
-           temls(Imax,j,k)=temls(Imax,j,k)-flux
+           flux=lse*ue(Imax,j,k)*dtv
+           temls(Imax,j,k)=temls(Imax,j,k)-flux/PGrid%dx(Imax,j,k)
          end do
        end do
     end subroutine X_Sweep
@@ -968,7 +968,7 @@ Module Clsvof
              if(ve(i,j,k)>0.d0) then
                ! The condition for applying flux computation
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps) then
-                 flux = vfl(i,j,k)*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
+                 flux = vfl(i,j,k)*ve(i,j,k)*dtv
                else
                  ! For interface cell
                  call North_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),diss(i,j,k), &
@@ -977,7 +977,7 @@ Module Clsvof
                end if
              else
                if(vfl(i,j+1,k)>=(1.d0-vofeps).or.vfl(i,j+1,k)<=vofeps) then
-                 flux = vfl(i,j+1,k)*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
+                 flux = vfl(i,j+1,k)*ve(i,j,k)*dtv
                else
                  call South_Flux(nxx(i,j+1,k),nyy(i,j+1,k),nzz(i,j+1,k),       &
                                diss(i,j+1,k),vfl(i,j+1,k),PGrid%dx(i,j+1,k),   &
@@ -985,8 +985,8 @@ Module Clsvof
                  flux = -flux
                end if
              end if
-             temvf(i,j,k) = temvf(i,j,k)-flux
-             if(j<jmax) temvf(i,j+1,k) = temvf(i,j+1,k)+flux
+             temvf(i,j,k) = temvf(i,j,k)-flux/PGrid%dy(i,j,k)
+             if(j<jmax) temvf(i,j+1,k) = temvf(i,j+1,k)+flux/PGrid%dy(i,j+1,k)
               ! if((i==24.or.i+1==24).and.j==32.and.k==32) then
               !   print*, 'Inside do loop test the flux'
               !   print*, flux
@@ -999,12 +999,12 @@ Module Clsvof
            end do
            ! for j = 1
            ! flux=BCVof%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
-           flux=vfl(i,1,k)*ve(i,0,k)*dtv/PGrid%dy(i,1,k)
-           temvf(i,1,k)=temvf(i,1,k)+flux
+           flux=vfl(i,1,k)*ve(i,0,k)*dtv
+           temvf(i,1,k)=temvf(i,1,k)+flux/PGrid%dy(i,1,k)
            ! for j = jmax
            ! flux=BCVof%VarN(i,k)*BCv%VarN(i,k)*dtv/PGrid%dy(i,jmax,k)
-           flux=vfl(i,jmax,k)*ve(i,jmax,k)*dtv/PGrid%dy(i,jmax,k)
-           temvf(i,jmax,k)=temvf(i,jmax,k)-flux 
+           flux=vfl(i,jmax,k)*ve(i,jmax,k)*dtv
+           temvf(i,jmax,k)=temvf(i,jmax,k)-flux/PGrid%dy(i,jmax,k) 
          end do
        end do
          ! print*, 'Inside Y_Sweep Clsvof 895'
@@ -1034,11 +1034,11 @@ Module Clsvof
                end if
              end if
              !
-             flux=lsn*ve(i,j,k)*dtv/PGrid%dy(i,j,k)
+             flux=lsn*ve(i,j,k)*dtv
              !
-             if(j>=2) temls(i,j,k) = temls(i,j,k)-flux
+             if(j>=2) temls(i,j,k) = temls(i,j,k)-flux/PGrid%dy(i,j,k)
              !
-             if(j<jmax) temls(i,j+1,k) = temls(i,j+1,k)+flux
+             if(j<jmax) temls(i,j+1,k) = temls(i,j+1,k)+flux/PGrid%dy(i,j+1,k)
              !
            end do
            !
@@ -1059,9 +1059,9 @@ Module Clsvof
            !
            ! for j=1
            !
-           flux=BCLvs%VarS(i,k)*BCv%VarS(i,k)*dtv/PGrid%dy(i,1,k)
+           flux=BCLvs%VarS(i,k)*BCv%VarS(i,k)*dtv
            !
-           temls(i,1,k)=temls(i,1,k)+flux
+           temls(i,1,k)=temls(i,1,k)+flux/PGrid%dy(i,1,k)
            !
            if(ve(i,jmax,k)>0.d0) then
              lsn=phi(i,jmax,k)+PGrid%dy(i,jmax,k)/2.d0*(1.d0-ve(i,jmax,k)*dtv/ &
@@ -1102,7 +1102,7 @@ Module Clsvof
            do k = 1,kmax-1
              if(we(i,j,k)>=0.d0) then
                if(vfl(i,j,k)>=(1.d0-vofeps).or.vfl(i,j,k)<=vofeps)then
-                 flux = vfl(i,j,k)*we(i,j,k)*dtv/PGrid%dz(i,j,k)
+                 flux = vfl(i,j,k)*we(i,j,k)*dtv
                else
                  call Top_Flux(nxx(i,j,k),nyy(i,j,k),nzz(i,j,k),diss(i,j,k),   &
                                vfl(i,j,k),PGrid%dx(i,j,k),PGrid%dy(i,j,k),     &
@@ -1110,7 +1110,7 @@ Module Clsvof
                end if
              else
                if(vfl(i,j,k+1)>=(1.d0-vofeps).or.vfl(i,j,k+1)<=vofeps) then
-                 flux = vfl(i,j,k+1)*we(i,j,k)*dtv/PGrid%dz(i,j,k)
+                 flux = vfl(i,j,k+1)*we(i,j,k)*dtv
                else
                  call Bottom_Flux(nxx(i,j,k+1),nyy(i,j,k+1),nzz(i,j,k+1),      &
                             diss(i,j,k+1),vfl(i,j,k+1),PGrid%dx(i,j,k+1),      &
@@ -1118,8 +1118,8 @@ Module Clsvof
                  flux = -flux
                end if
              end if
-             temvf(i,j,k) = temvf(i,j,k)-flux
-             if(k<kmax) temvf(i,j,k+1) = temvf(i,j,k+1)+flux
+             temvf(i,j,k) = temvf(i,j,k)-flux/PGrid%dz(i,j,k)
+             if(k<kmax) temvf(i,j,k+1) = temvf(i,j,k+1)+flux/PGrid%dz(i,j,k+1)
              !if(isnan(flux)) then 
              !  print*, i,j,k
              !  print*, flux, vfl(i,j,k)
@@ -1136,12 +1136,12 @@ Module Clsvof
            end do
            ! for k=1 at bottom boundary
            ! flux = BCVof%VarB(i,j)*BCw%VarB(i,j)*dtv/PGrid%dz(i,j,1)
-           flux=vfl(i,j,1)*we(i,j,0)*dtv/PGrid%dz(i,j,1)
-           temvf(i,j,1)=temvf(i,j,1)+flux
+           flux=vfl(i,j,1)*we(i,j,0)*dtv
+           temvf(i,j,1)=temvf(i,j,1)+flux/PGrid%dz(i,j,1)
            ! fro k=kmax at top boundary
            ! flux = BCVof%VarT(i,j)*BCw%VarT(i,j)*dtv/PGrid%dz(i,j,kmax)
-           flux=vfl(i,j,kmax)*we(i,j,kmax)*dtv/PGrid%dz(i,j,kmax)
-           temvf(i,j,kmax)=temvf(i,j,kmax)-flux
+           flux=vfl(i,j,kmax)*we(i,j,kmax)*dtv
+           temvf(i,j,kmax)=temvf(i,j,kmax)-flux/PGrid%dz(i,j,kmax)
          end do
        end do
        ! level set
@@ -1162,9 +1162,9 @@ Module Clsvof
                      PGrid%dz(i,j,k))*(phi(i,j,k+1)-phi(i,j,k))/PGrid%dz(i,j,k)
                end if
              end if
-             flux = lst*we(i,j,k)*dtv/PGrid%dz(i,j,k)
-             if(k>=2) temls(i,j,k) = temls(i,j,k)-flux
-             if(k<=kmax-1) temls(i,j,k+1) = temls(i,j,k+1)+flux
+             flux = lst*we(i,j,k)*dtv
+             if(k>=2) temls(i,j,k) = temls(i,j,k)-flux/PGrid%dz(i,j,k)
+             if(k<=kmax-1) temls(i,j,k+1) = temls(i,j,k+1)+flux/PGrid%dz(i,j,k+1)
            end do
            ! For k=1 and k=2
            if(we(i,j,1)>=0.d0) then
@@ -1180,8 +1180,8 @@ Module Clsvof
            temls(i,j,1)=temls(i,j,1)-flux/PGrid%dz(i,j,1)
            temls(i,j,2)=temls(i,j,2)+flux/PGrid%dz(i,j,2)
            ! For boundary cell
-           flux=BCw%VarB(i,j)*BCLvs%VarB(i,j)*dtv/PGrid%dz(i,j,1)
-           temls(i,j,1)=temls(i,j,1)+flux
+           flux=BCw%VarB(i,j)*BCLvs%VarB(i,j)*dtv
+           temls(i,j,1)=temls(i,j,1)+flux/PGrid%dz(i,j,1)
            ! For boundary cell k=kmax
            if(we(i,j,kmax)>0.d0) then
              lst=phi(i,j,kmax)+PGrid%dz(i,j,kmax)/2.d0*(1.d0-we(i,j,kmax)*dtv/ &
@@ -1570,7 +1570,7 @@ Module Clsvof
        !if(isnan(flux)) then
        !   pause 'east flux 1178'
        !end if
-       flux  = flux*udt/dx
+       flux  = flux*udt
     end subroutine East_Flux
 
     ! calculate flux throught the west of cell
@@ -1594,7 +1594,7 @@ Module Clsvof
        !if(isnan(flux)) then
        !   pause 'west flux 778'
        !end if
-       flux  = flux*udt/dx
+       flux  = flux*udt
     end subroutine West_Flux
 
     ! calculate flux through the north side of cell
@@ -1615,7 +1615,7 @@ Module Clsvof
           call Volume_Fraction_Calc(dx,dy-vdt,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*vdt*dz)
        end if
-       flux = flux*vdt/dy
+       flux = flux*vdt
     end subroutine North_Flux
 
     ! calculate flux throght the south side of cell
@@ -1640,7 +1640,7 @@ Module Clsvof
           call Volume_Fraction_Calc(dx,dy-vdt,dz,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*vdt*dz)
        end if
-       flux = flux*vdt/dy
+       flux = flux*vdt
     end subroutine South_Flux
 
     ! calculate the flux through top of cell
@@ -1661,7 +1661,7 @@ Module Clsvof
           call Volume_Fraction_Calc(dx,dy,dz-wdt,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*dy*wdt)
        end if
-       flux = flux*wdt/dz
+       flux = flux*wdt
     end subroutine Top_Flux
 
     ! calculate the flux through bottom of cell
@@ -1682,7 +1682,7 @@ Module Clsvof
           call Volume_Fraction_Calc(dx,dy,dz-wdt,nxx,nyy,nzz,diss,vol)
           flux = (volf*dx*dy*dz-vol)/(dx*dy*wdt)
        end if
-       flux = flux*wdt/dz
+       flux = flux*wdt
     end subroutine Bottom_Flux
 
     ! Redistance from vof to level set
