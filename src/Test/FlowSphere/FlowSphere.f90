@@ -24,17 +24,19 @@ Program Main
     USE BoundaryInterface
     USE BoundaryFunction
     USE STL
+    USE SolidBody,         ONLY : TSolidBody
     USE Geometry
     
     Implicit none
     
-    Type(Grid)      :: UGrid,VGrid,WGrid,PGrid
-    Type(Cell)      :: UCell,VCell,WCell,PCell
-    Type(Point)     :: SPoint,EPoint,ReS,ReE
-    Type(Variables) :: Var
-    Type(BCBase)    :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
-    Type(simcoSTL)  :: ComSTL
-    Type(Gpoint)    :: CentPoint
+    Type(Grid)       :: UGrid,VGrid,WGrid,PGrid
+    Type(Cell)       :: UCell,VCell,WCell,PCell
+    Type(Point)      :: SPoint,EPoint,ReS,ReE
+    Type(Variables)  :: Var
+    Type(BCBase)     :: BCp, BCu, BCv, BCw, BCVof, BCLvs, BCVofF, BCLvsF
+    Type(simcoSTL)   :: ComSTL
+    Type(Gpoint)     :: CentPoint
+    Type(TSolidBody) :: sphere
     
     integer(it8b) :: itt
     integer(it4b) :: i,j,k
@@ -224,10 +226,12 @@ Program Main
     maxp1= maxval(COmSTL%tri(:)%ptr(3)%p(1))
 
     print*, 'minp1,maxp1',minp1,maxp1
-    call LvsObject(Pcell,ComSTL,Pgrid)
-    call LvsObject(Ucell,ComSTL,Ugrid)
-    call LvsObject(Vcell,ComSTL,Vgrid)
-    call LvsObject(Wcell,ComSTL,Wgrid)
+    sphere = TSolidBody(28, 28, 28)
+    call sphere%setUpSolid( ComSTL )
+    Call sphere%setInitialPosition( PGrid, UGrid, VGrid, WGrid, PCell, UCell, VCell, WCell, &
+                                    CentPoint%p(1), CentPoint%p(2), CentPoint%p(3),         &
+                                    0.0_dp, 0.0_dp, 0.0_dp )
+
     !do k=1,kmax
     !do j=1,jmax
     !do i=1,imax
@@ -259,10 +263,11 @@ Program Main
     !Call PrintResultVTR3D(PGrid,Var,PCell,"FlowField",INT8(0))
     !<per -nag
 
+    ! Amongst other, set right cell type so cells where vof becomes non-zero are treated in the solver
     Call GridPreProcess(PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell)
 
     Call DefineMomentumExchangeCell(PCell, UCell,VCell,WCell)
-    !
+
     Call NumberExternalCell(0,0,0, PCell)
     Call NumberExternalCell(1,0,0, UCell)
     Call NumberExternalCell(0,1,0, VCell)
@@ -273,7 +278,7 @@ Program Main
     call BoundaryConditionVarNew(0.d0,PGrid, PCell, Var, BCp, BCu, BCv, BCw)
 
     Call IterationSolution(1,PGrid,UGrid,VGrid,WGrid, PCell,UCell,VCell,WCell,    &
-                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var)
+                          BCu,BCv,BCw,BCp,BCVof,BCLvs,Var,sphere)
  
     Pause
 End program main

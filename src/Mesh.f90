@@ -73,7 +73,7 @@ Module Mesh
         IJKsize = (NK-Krec)/2
         !
         dz = (ReE%z-ReS%z)/dble(Krec-1)
-        dl = EPoint%z-ReE%z
+        dl = ReS%z-SPoint%z
         !
         call NewtonRaphson(IJKsize,dl,dz, beta)
         !
@@ -86,6 +86,10 @@ Module Mesh
         do k = 2+IJKsize,IJKsize+Krec
           z(k) = z(k-1)+dz
         end do
+        !
+        dl = EPoint%z-ReE%z
+        !
+        call NewtonRaphson(IJKsize,dl,dz, beta)
         !
         do k = 1+IJKsize+Krec,NK
           z(k) = z(k-1)+dz*beta**(k-IJKsize-Krec)

@@ -31,10 +31,11 @@ Module ProjectionP
     Contains
     
     subroutine PoissonEquationSolver(PGrid,UGrid,VGrid,WGrid,PCell,UCell,      &
-                               VCell,WCell,TVar,TPred,PU,PV,PW,BCp,PoCoef,Proj,dt)
+                               VCell,WCell,vofO, TVar,TPred,PU,PV,PW,BCp,PoCoef,Proj,dt)
         implicit none
         type(Grid),intent(in)		      :: PGrid,UGrid,VGrid,WGrid
         type(Cell),intent(in)		      :: PCell,UCell,VCell,WCell
+        real(dp), intent(in)          :: vofO(0:,0:,0:)              ! Value of (solid) vof at start of time step
         type(Variables),intent(in),target     :: TVar
         type(Predictor),intent(in),target     :: TPred
         type(PoissonCoefficient),intent(in)   :: PU,PV,PW
@@ -97,7 +98,7 @@ Module ProjectionP
                                                  BCp%flag(1),BCp%flag(2),      &
                                                  BCp%flag(3),BCp%flag(4),      &
                                                  BCp%flag(5),BCp%flag(6))
-        Call SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt)
+        Call SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt,vofO)
         Call HYPRE_ParCSRPCGSetup(solver,parcsr_A,par_b,par_x,ierr)
         Call HYPRE_ParCSRPCGSolve(solver,parcsr_A,par_b,par_x,ierr)
     !    Run info - Needed logging turned on
@@ -480,13 +481,14 @@ Module ProjectionP
         Call HYPRE_IJMatrixGetObject(A,parcsr_A,ierr)
     End subroutine SetPoissonMatrix
 
-    Subroutine SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt)
+    Subroutine SetPoissonVectors(b,x,par_b,par_x,PGrid,PCell,BCp,PoCoef,dt,vofO)
         Integer*8:: b,x,par_b,par_x
         Type(Grid),intent(in)   				:: PGrid
         Type(Cell),intent(in)   				:: PCell
         type(BCBase),intent(in) 				:: BCp
         real(kind=dp),dimension(:,:,:,:),allocatable,intent(in) :: PoCoef
         Real(kind=dp),intent(in)				:: dt
+        real(dp), intent(in)          :: vofO(0:,0:,0:)              ! Value of (solid) vof at start of time step
         Integer(kind=it4b)					:: i,j,k
         Integer							:: ilower,iupper,ictr,local_size
         Real(kind=dp)						:: dx,dy,dz
@@ -522,6 +524,7 @@ Module ProjectionP
                                     PCell%NEArea(i,j-1,k)*v(i,j-1,k))         &
                             -dx*dy*(PCell%TEArea(i,j,k)*w(i,j,k)-             &
                                     PCell%TEArea(i,j,k-1)*w(i,j,k-1))
+                rhs(ictr) = rhs(ictr) + (Pcell%vof(i,j,k)-vofO(i,j,k))*dx*dy*dz/dt
                                     
                 if(BCp%flag(1)==0.and.i==1) then
                   rhs(ictr)=rhs(ictr)+PoCoef(i,j,k,1)*BCp%VarW(j,k)
