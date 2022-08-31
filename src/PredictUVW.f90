@@ -99,6 +99,9 @@ Module PredictorUVW
       !! The boundary velues for solving w-velocity
       real(kind=dp),dimension(:,:,:),allocatable   :: un12, vn12, wn12
       !! The velocities at time step n+1/2
+
+      ! solid body vel
+      real(kind=dp) :: uSolid,vSolid,wSolid
       real(kind=dp),dimension(:,:,:),allocatable   :: pn12
       real(kind=dp),dimension(:,:,:,:),allocatable :: GradP
       integer(kind=it4b)		       :: num_iterations
@@ -162,26 +165,38 @@ Module PredictorUVW
       muARef=mua/muref
     ! The water density regarding to the reference vicosity    
       muWRef=muw/muref
+    ! Test solid body velocity
+      uSolid = 0.d0
+      vSolid = 0.d0
+      wSolid = 0.d0
     ! Step 1: Calculate the convective coefficient
       if(itt==1) then
         Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
                                               PCellO, UCellO, VCellO, WCellO,  &
-                                              BCu, BCv, BCw, un12, vn12, wn12, CFEW,1,0,0)
-        Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCellO,   &
-                        UCellO,VCellO,WCellO,BCu,BCv,BCw,un12,vn12,wn12,CFNS,0,1,0)
-        Call ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCellO,   &
-                        UCellO,VCellO,WCellO,BCu,BCv,BCw,un12,vn12,wn12,CFTB,0,0,1)
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFEW,1,0,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
+                                              PCellO, UCellO, VCellO, WCellO,  &
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFNS,0,1,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
+                                              PCellO, UCellO, VCellO, WCellO,  &
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFTB,0,0,1)
       else
         if(SpaceOrder==1) then
-          Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,    &
-                                                PCellO, UCellO, VCellO, WCellO,&
-                                BCu, BCv, BCw, un12, vn12, wn12, CFEW, 1, 0, 0)
-          Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,    &
-                                                PCellO, UCellO, VCellO, WCellO,&
-                                BCu, BCv, BCw, un12, vn12, wn12, CFNS, 0, 1, 0)
-          Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,    &
-                                                PCellO, UCellO, VCellO, WCellO,&
-                                BCu, BCv, BCw, un12, vn12, wn12, CFTB, 0, 0, 1)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
+                                              PCellO, UCellO, VCellO, WCellO,  &
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFEW,1,0,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
+                                              PCellO, UCellO, VCellO, WCellO,  &
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFNS,0,1,0)
+        Call ModifiedConvectiveFluxFirstOrder(PGrid, UGrid, VGrid, WGrid,      &
+                                              PCellO, UCellO, VCellO, WCellO,  &
+                                              BCu, BCv, BCw, un12, vn12, wn12, &
+                                              uSolid, vSolid, wSolid, CFTB,0,0,1)
         elseif(SpaceOrder==2) then
           Call ModifiedConvectiveFlux(PGrid,UGrid,VGrid,WGrid,PCellO,          &
                       UCellO,VCellO,WCellO,BCu,BCv,BCw,un12,vn12,wn12,CFEW,1,0,0)
@@ -1316,7 +1331,8 @@ Module PredictorUVW
     End subroutine DeltaGetValues
     
     Subroutine ModifiedConvectiveFluxFirstOrder(PGrid,UGrid,VGrid,WGrid,PCell,UCell,     &
-                                      VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12,flux,iu,iv,iw)
+                                      VCell,WCell,BCu,BCv,BCw,un12,vn12,wn12, &
+                                      uSolid,vSolid,wSolid, flux,iu,iv,iw)
       !! The subroutine is used to compute the convective flux.
       !! The scheme is first order upwind
       Implicit none
@@ -1330,6 +1346,8 @@ Module PredictorUVW
       !! The input boundary function
       real(kind=dp),dimension(:,:,:),allocatable,intent(in)      :: un12, vn12, wn12
       !! The velocities at n+1/2
+      real(kind=dp), intent(in)      :: uSolid,vSolid,wSolid
+      !! Solid body velocity components
       Real(kind=dp),dimension(:,:,:,:),allocatable,intent(inout) :: flux
       !! The output convective fluxes
       Integer(kind=it4b) :: i,j,k
@@ -1358,11 +1376,13 @@ Module PredictorUVW
               Else
                 eta=UCell%EtaE(i-1,j,k)
                 uw=(1.d0-eta)*un12(i-1,j,k)+eta*un12(i,j,k)
+                ! non zero solid body vel
+                uw=(uw-uSolid)*UCell%AlE(i-1,j,k)+uSolid
               ! central second order
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
                 
-                Flux(i,j,k,1)=(uwn*un12(i,j,k)+uwp*un12(i-1,j,k))*UCell%AlE(i-1,j,k)*&
+                Flux(i,j,k,1)=(uwn*un12(i,j,k)+uwp*un12(i-1,j,k))*&
                       UCell%EEArea(i-1,j,k)*UGrid%dy(i-1,j,k)*UGrid%dz(i-1,j,k)
               End if
               !
@@ -1404,7 +1424,9 @@ Module PredictorUVW
                         UCell%phi(i-1,j,k))
                     uw = un12(i-1,j,k)
                   End if
-                  uw = uw*delhec/(delh+epsi)
+                  !uw = uw*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  uw = (uw-uSolid)*delhec/(delh+epsi)+uSolid
                 Else
                   Sy = UCell%SyN(i-1,j,k)
                   eta = dabs(VCell%FCE(i-1,j,k,2)+VGrid%dy(i-1,j,k)/2.d0-      &
@@ -1414,7 +1436,7 @@ Module PredictorUVW
                 eta = VCell%EtaE(i-1,j,k)
                 uwp=0.5d0*(uw+dabs(uw))
                 uwn=0.5d0*(uw-dabs(uw))
-                vw = (1.d0-eta)*vn12(i-1,j,k)+eta*vn12(i,j,k)
+                vw = (1.d0-eta)*vn12(i-1,j,k)+eta*vn12(i,j,k) ! unused
                 Flux(i,j,k,2)=(uwp*vn12(i-1,j,k)+uwn*vn12(i,j,k))*		       &
                      VCell%EEArea(i-1,j,k)*VGrid%dy(i-1,j,k)*VGrid%dz(i-1,j,k)
               End if
@@ -1458,6 +1480,8 @@ Module PredictorUVW
                     uw = un12(i-1,j,k)
                   End if
                   uw = uw*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  uw = (uw-uSolid)*delhec/(delh+epsi)+uSolid
                 Else
                   Sz = UCell%SzT(i-1,j,k)
                   eta = dabs(WCell%FCE(i-1,j,k,3)+WGrid%dz(i-1,j,k)/2.d0-      &
@@ -1511,7 +1535,9 @@ Module PredictorUVW
                     vs=vn12(i+1,j-1,k)
                     End if
                   endif
-                  vs=vs*delhec/(delh+epsi)
+                  !vs=vs*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  vs=(vs-vSolid)*delhec/(delh+epsi)+vSolid
                 Else
                   Sx=VCell%SxE(i,j-1,k)
                   eta=dabs(UCell%FCN(i,j-1,k,1)+0.5d0*UGrid%dx(i,j-1,k)-       &
@@ -1538,7 +1564,9 @@ Module PredictorUVW
               Else
                 eta=VCell%EtaN(i,j-1,k)
                 vs=(1.d0-eta)*vn12(i,j-1,k)+eta*vn12(i,j,k)
-                Flux(i,j,k,2)=(vsn*vn12(i,j,k)+vsp*vn12(i,j-1,k))*VCell%AlN(i,j-1,k)*&
+                ! non zero solid body vel
+                vs = (vs-vSolid)*VCell%AlN(i,j-1,k)+vSolid
+                Flux(i,j,k,2)=(vsn*vn12(i,j,k)+vsp*vn12(i,j-1,k))*&
                        VCell%NEArea(i,j-1,k)*VGrid%dx(i,j-1,k)*VGrid%dz(i,j-1,k)
               End if
             ! Convective velocity: v, scalar advective: w
@@ -1578,7 +1606,9 @@ Module PredictorUVW
                     vs = vn12(i,j-1,k+1)
                       End if
                   End if
-                  vs = vs*delhec/(delh+epsi)
+                  !vs = vs*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  vs = (vs-vSolid)*delhec/(delh+epsi)+vSolid
                 Else
                   Sz = VCell%SzT(i,j-1,k)
                   eta = dabs(WCell%FCN(i,j-1,k,3)+0.5d0*WGrid%dz(i,j-1,k)-     &
@@ -1588,7 +1618,7 @@ Module PredictorUVW
                 vsp = 0.5d0*(vs+dabs(vs))
                 vsn = 0.5d0*(vs-dabs(vs))
                 eta = WCell%EtaN(i,j-1,k)
-                ws = (1.d0-eta)*wn12(i,j-1,k)+eta*wn12(i,j,k)
+                ws = (1.d0-eta)*wn12(i,j-1,k)+eta*wn12(i,j,k) ! not used
                 Flux(i,j,k,3)=(vsp*wn12(i,j-1,k)+vsn*wn12(i,j,k))*			&
                    WCell%NEArea(i,j-1,k)*WGrid%dx(i,j-1,k)*WGrid%dz(i,j-1,k)
               End if
@@ -1633,7 +1663,9 @@ Module PredictorUVW
                     wb = wn12(i+1,j,k-1)
                       End if
                   End if
-                  wb = wb*delhec/(delh+epsi)
+                  !wb = wb*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  wb = (wb-wSolid)*delhec/(delh+epsi)+wSolid
                 Else
                   Sx = WCell%SxE(i,j,k-1)
                   eta = dabs(UCell%FCT(i,j,k-1,1)+0.5d0*UGrid%dx(i,j,k-1)-     &
@@ -1643,7 +1675,7 @@ Module PredictorUVW
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
                 eta = UCell%EtaT(i,j,k-1)
-                ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k)
+                ub = (1.d0-eta)*un12(i,j,k-1)+eta*un12(i,j,k) ! not used
                 Flux(i,j,k,1)=(wbp*un12(i,j,k-1)+wbn*un12(i,j,k))*UCell%TEArea(i,j,k-1)*&
                                       UGrid%dx(i,j,k-1)*UGrid%dy(i,j,k-1)
                 !If(isnan(flux(i,j,k,1))) then
@@ -1694,7 +1726,9 @@ Module PredictorUVW
                         WCell%phi(i,j,k-1))
                     wb = wn12(i,j,k-1)
                   End if
-                  wb = wb*delhec/(delh+epsi)
+                  !wb = wb*delhec/(delh+epsi)
+                  ! non zero solid body vel
+                  wb = (wb-wSolid)*delhec/(delh+epsi)+wSolid
                 Else
                   Sy = WCell%SyN(i,j,k-1)
                   eta = dabs(VCell%FCT(i,j,k-1,2)+0.5d0*VGrid%dy(i,j,k-1)-     &
@@ -1704,7 +1738,7 @@ Module PredictorUVW
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
                 eta = VCell%EtaT(i,j,k-1)
-                vb = (1.d0-eta)*vn12(i,j,k-1)+eta*vn12(i,j,k)
+                vb = (1.d0-eta)*vn12(i,j,k-1)+eta*vn12(i,j,k) ! not used
                 Flux(i,j,k,2)=(wbp*vn12(i,j,k-1)+wbn*vn12(i,j,k))*             &
                     VCell%TEArea(i,j,k-1)*VGrid%dx(i,j,k-1)*VGrid%dy(i,j,k-1)
              ! Convective velocity: w, scalar advective: w
@@ -1721,10 +1755,12 @@ Module PredictorUVW
               Else
                 eta = WCell%EtaT(i,j,k-1)
                 wb = (1.d0-eta)*wn12(i,j,k-1)+eta*wn12(i,j,k)
+                ! non zero solid body vel
+                wb=(wb-wSolid)*WCell%AlT(i,j,k-1)+wSolid
                 wbp=0.5d0*(wb+dabs(wb))
                 wbn=0.5d0*(wb-dabs(wb))
-                Flux(i,j,k,3)=((wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*            &
-                      WCell%AlT(i,j,k-1))*WCell%TEArea(i,j,k-1)*               &
+                Flux(i,j,k,3)=(wbp*wn12(i,j,k-1)+wbn*wn12(i,j,k))*            &
+                      WCell%TEArea(i,j,k-1)*               &
                       WGrid%dx(i,j,k-1)*WGrid%dy(i,j,k-1)
               End if
             End if
