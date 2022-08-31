@@ -1646,7 +1646,7 @@ Module Clsvof
                 ! Compute the normal vector using the scheme in my thesis 
                 ! "A Cartesian Cut-Cell Methodology, applied to large scale interface 
                 ! dynamics and wave impacts spray formation"
-                call Normal_Vector_Irre(PGrid,vfl,phi,i,j,k,nxx1,nyy1,nzz1)
+                call Normal_Vector_Irre(PGrid,phi,i,j,k,nxx1,nyy1,nzz1)
               else
                 ! For boundary cell
                 nxx1=(phi(min(imax,i+1),j,k)-phi(max(1,i-1),j,k))/             &
@@ -2760,10 +2760,10 @@ Module Clsvof
       !
     end subroutine BoundaryConditionLvsVofFluid
 
-    subroutine Normal_Vector_Irre(PGrid,vfl,phi,i,j,k,nxx,nyy,nzz)
+    subroutine Normal_Vector_Irre(PGrid,phi,i,j,k,nxx,nyy,nzz)
        implicit none
        type(Grid),                        intent(in)  :: PGrid
-       real(kind=dp),dimension(0:,0:,0:), intent(in)  :: vfl,phi
+       real(kind=dp),dimension(0:,0:,0:), intent(in)  :: phi
        integer,                           intent(in)  :: i,j,k
        real(dp),                          intent(out) :: nxx,nyy,nzz
        integer                                     :: case_deri,dx,dy,dz
