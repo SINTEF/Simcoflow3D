@@ -1,0 +1,16 @@
+------------------------------------------
+--INPUT FILE FOR THE SIMULATION OF WAVES--
+------------------------------------------
+! Domain dimensions and grid: 
+! length --- width
+100.d0 100.d0
+! N --- M
+200 200
+! Weather conditions
+! U10 [m/s] --- F [km] --- gamma --- thetaW [rad]
+10.d0  100.d0 3.3d0 0.d0
+
+
+    
+
+
