@@ -3,16 +3,21 @@ project(Simcoflow Fortran)
 # Fixes for NAG
 # Change-fPIC to PIC
 set(CMAKE_SHARED_LIBRARY_Fortran_FLAGS "-PIC")
+
 # Set -rdynamic to Bdynamic
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS "-Bdynamic")
 set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "-Bdynamic")
 
 
-set(MPI_Fortran_LIBRARIES /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempif08.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempi_ignore_tkr.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_mpifh.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so)
-set(MPI_Fortran_ADDITIONAL_INCLUDE_DIRS "")
-set(MPI_Fortran_INCLUDE_DIRS /usr/lib/x86_64-linux-gnu/openmpi/include /usr/lib/x86_64-linux-gnu/openmpi/lib)
-set(MPI_Fortran_F77_HEADER_DIR "/usr/lib/x86_64-linux-gnu/openmpi/include")
-set(MPI_Fortran_MODULE_DIR "/usr/lib/x86_64-linux-gnu/openmpi/bin")
+#set(MPI_Fortran_LIBRARIES /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempif08.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempi_ignore_tkr.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_mpifh.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so)
+
+#set(MPI_Fortran_ADDITIONAL_INCLUDE_DIRS "")
+
+#set(MPI_Fortran_INCLUDE_DIRS /usr/lib/x86_64-linux-gnu/openmpi/include /usr/lib/x86_64-linux-gnu/openmpi/lib)
+
+#set(MPI_Fortran_F77_HEADER_DIR "/usr/lib/x86_64-linux-gnu/openmpi/include")
+
+#set(MPI_Fortran_MODULE_DIR "/usr/lib/x86_64-linux-gnu/openmpi/bin")
 
 find_package(MPI REQUIRED)
 #message("MPI_Fortran_LIBRARIES " ${MPI_Fortran_LIBRARIES})
@@ -33,11 +38,12 @@ find_package(MPI REQUIRED)
 #endforeach()
 
 set(MPI_Fortran_INCLUDE_PATH "/usr/lib/x86_64-linux-gnu/openmpi/include")
+
 set(MPI_Fortran_LIBRARIES /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempif08.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_usempi_ignore_tkr.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_mpifh.so /usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so)
 
 
 # Because there is no mpi wrapper for compiler
-set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS} -I/usr/local/lib -L/usr/local/lib -lmpi_f90 -lmpi_f77 -lmpi")# -lrt -lnsl -lutil -ldl")
+set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS} -I/usr/local/lib -L/usr/local/lib -lmpi_f90 -lmpi_f77 -lmpi -lfftw3_threads -lfftw3 -lm")# -lrt -lnsl -lutil -ldl")
 
 # add_definitions(${MPI_Fortran_COMPILE_FLAGS})
 # Hypre,
@@ -45,8 +51,7 @@ set(CMAKE_SHARED_LIBRARY_LINK_Fortran_FLAGS "${CMAKE_SHARED_LIBRARY_LINK_Fortran
 # The paths here are platform dependent. Please edit
 set(Fortran_COMPILER_FLAGS "")
 ##########################
-set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ")
-#set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -g -mtrace=all -nan -gline -kind=byte")
+#set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ")
 set(CMAKE_Fortran_FLAGS_DEBUG "${CMAKE_Fortran_FLAGS_DEBUG} -Wextra -g -O -O0 -Wall -Warray-temporaries -Wconversion -fimplicit-none -fbacktrace -ffree-line-length-0 -fcheck=all -fbounds-check -ffpe-trap=invalid,zero,underflow,overflow -finit-real=nan -ffpe-summary=underflow")
 ###########################
 # Using ccmake .. and set up the flage CMAKE_BUILD_TYPE=Debug
@@ -55,19 +60,26 @@ set(CMAKE_BUILD_TYPE "Debug")
 # Hypre,
 # This should be ectracted out to a FindHYPRE.cmake
 # The paths here are platform dependent. Please edit
-set(HYPRE_INCLUDE_DIR /usr/include/hypre)
-set(${PROJECT_NAME}_INCLUDE_DIR)
-set(HYPRE_LIBRARIES /usr/lib/libHYPRE.so /usr/lib/libHYPRE_FEI.so /usr/lib/libHYPRE_struct_mv.so /usr/lib/libHYPRE_IJ_mv.so /usr/lib/libHYPRE_parcsr_ls.so)
-set(HYPRE_LIBRARIES /usr/lib/x86_64-linux-gnu/libHYPRE_core.so /usr/lib/x86_64-linux-gnu/libHYPRE.so /usr/lib/x86_64-linux-gnu/libHYPRE_FEI.so)
-include_directories(${MPI_Fortran_INCLUDE_PATH} ${HYPRE_INCLUDE_DIR} ${Simcoflow_INCLUDE_DIR})
-link_directories(${MPI_Fortran_LIBRARIES})
 
+#----------------------------------------------------
 set(HYPRE_INCLUDE_DIR /usr/include/hypre)
+
+set(FFTW3_INCLUDE_DIR /usr/local/include)
+
 set(${PROJECT_NAME}_INCLUDE_DIR)
-set(HYPRE_LIBRARIES /usr/lib/libHYPRE.so /usr/lib/libHYPRE_FEI.so /usr/lib/libHYPRE_struct_mv.so /usr/lib/libHYPRE_IJ_mv.so /usr/lib/libHYPRE_parcsr_ls.so)
+
+#set(HYPRE_LIBRARIES /usr/lib/libHYPRE.so /usr/lib/libHYPRE_FEI.so /usr/lib/libHYPRE_struct_mv.so /usr/lib/libHYPRE_IJ_mv.so /usr/lib/libHYPRE_parcsr_ls.so)
+
 set(HYPRE_LIBRARIES /usr/lib/x86_64-linux-gnu/libHYPRE_core.so /usr/lib/x86_64-linux-gnu/libHYPRE.so /usr/lib/x86_64-linux-gnu/libHYPRE_FEI.so)
-include_directories(${MPI_Fortran_INCLUDE_PATH} ${HYPRE_INCLUDE_DIR} ${Simcoflow_INCLUDE_DIR})
-link_directories(${MPI_Fortran_LIBRARIES})
+
+set(FFTW3_LIBRARIES /usr/lib/x86_64-linux-gnu/libfftw3.so.3 /usr/lib/x86_64-linux-gnu/libfftw3f.so.3 /usr/lib/x86_64-linux-gnu/libfftw3l.so.3 /usr/lib/x86_64-linux-gnu/libfftw3_threads.so.3)
+
+include_directories(${MPI_Fortran_INCLUDE_PATH} ${HYPRE_INCLUDE_DIR} ${FFTW3_INCLUDE_DIR} ${Simcoflow_INCLUDE_DIR})
+#include_directories(${MPI_Fortran_INCLUDE_PATH} ${HYPRE_INCLUDE_DIR} ${Simcoflow_INCLUDE_DIR})
+
+link_directories(${MPI_Fortran_LIBRARIES} ${HYPRE_LIBRARIES} ${FFTW3_LIBRARIES})
+#----------------------------------------------------
+
 
 #aux_source_directory(. SRC_LIST)
 list(APPEND SRC_LIST
@@ -111,11 +123,13 @@ list(APPEND SRC_LIST
    ${CMAKE_CURRENT_LIST_DIR}/STL.f90
    ${CMAKE_CURRENT_LIST_DIR}/VTK_mod.f90
    ${CMAKE_CURRENT_LIST_DIR}/VTR_mod.f90
+   ${CMAKE_CURRENT_LIST_DIR}/WaveGeneration.f90
    )
 
 set (LINK_LIBS ${LINK_LIBS} 
     ${MPI_Fortran_LIBRARIES}
     ${HYPRE_LIBRARIES}
+    ${FFTW3_LIBRARIES}
     )
 list(APPEND SRC_LIST_MAIN
     ${SRC_LIST}
