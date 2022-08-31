@@ -52,3 +52,28 @@ list(APPEND FLOWSPHERELIST
 add_executable(FlowSphere ${FLOWSPHERELIST})
 target_link_libraries(FlowSphere ${LINK_LIBS})
 my_add_test(testflowsphere)
+
+list(APPEND VESSELLIST
+    ${SRC_LIST}
+    Vessel/Vessel.f90
+    Vessel/InitializationVessel.f90)
+add_executable(Vessel ${VESSELLIST})
+target_link_libraries(Vessel ${LINK_LIBS})
+my_add_test(testvessel)
+
+list(APPEND FLOWSPHERE2PHASESLIST
+    ${SRC_LIST}
+    FlowSphere2Phases/FlowSphere2Phases.f90
+    FlowSphere2Phases/InitialVof.f90)
+add_executable(FlowSphere2Phases ${FLOWSPHERE2PHASESLIST})
+target_link_libraries(FlowSphere2Phases ${LINK_LIBS})
+my_add_test(testflowsphere2phases)
+
+list(APPEND WAVELIST
+    ${SRC_LIST}
+    WavesSimulation/WavesMain.f90
+    WavesSimulation/InitialVof.f90)
+    add_executable(WavesSimulation ${WAVELIST})
+    target_link_libraries(WavesSimulation ${LINK_LIBS})
+my_add_test(testwave)
+
