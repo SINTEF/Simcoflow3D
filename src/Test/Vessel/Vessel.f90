@@ -24,6 +24,7 @@ Program Main
     USE BoundaryInterface
     USE BoundaryFunction
     USE STL
+    USE SolidBody
     USE Geometry
     USE PrintResult
     use InitializationVessel

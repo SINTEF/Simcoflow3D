@@ -701,7 +701,7 @@ CONTAINS
              ! Calculate normal vector from interpolated phi
              IF(i>1.AND.i<ImaxG.AND.j>1.AND.j<jmaxG.AND.k>1.AND.k<kmaxG) THEN
                 ! Note that vof is sent as argument, but actually unused
-                CALL Normal_Vector_Irre(grid, cell%vof, cell%phi, i, j, k,                 &
+                CALL Normal_Vector_Irre(grid, cell%phi, i, j, k,                 &
                                         cell%nx(i,j,k), cell%ny(i,j,k), cell%nz(i,j,k))
              ELSE
                ! For boundary cell                

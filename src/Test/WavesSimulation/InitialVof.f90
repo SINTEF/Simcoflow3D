@@ -116,102 +116,102 @@ MODULE InitialVof
 
   END SUBROUTINE InitialClsvofLiquidFieldWaves
 
-  SUBROUTINE ANormal_Vector_Irre(PGrid,phi,i,j,k,nxx,nyy,nzz)
-    implicit none
-    type(Grid),                        intent(in)  :: PGrid
-    real(kind=dp),dimension(0:,0:,0:), intent(in)  :: phi
-    integer,                           intent(in)  :: i,j,k
-    real(dp),                          intent(out) :: nxx,nyy,nzz
-    integer                                     :: case_deri,dx,dy,dz
-    real(dp)                                    :: qi(-1:1),qj(-1:1),qk(-1:1)
-    real(dp)                                    :: vx,vy,vz
-       ! define qi for Dx
-       if(i>=3) then
-       ! for qi(-1)
-         vx=(phi(i,j,k)-phi(i-2,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-2,j,k))
-       else
-         vx=(phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
-       end if
-       vy=(phi(i-1,j+1,k)-phi(i-1,j-1,k))/(PGrid%y(i-1,j+1,k)-PGrid%y(i-1,j-1,k))
-       vz=(phi(i-1,j,k+1)-phi(i-1,j,k-1))/(PGrid%z(i-1,j,k+1)-PGrid%z(i-1,j,k-1))
-       qi(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       ! for qi(1)
-       if(i<=imax-2) then
-         vx=(phi(i+2,j,k)-phi(i,j,k))/(PGrid%x(i+2,j,k)-PGrid%x(i,j,k))
-       else
-         vx=(phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
-       end if
-       vy=(phi(i+1,j+1,k)-phi(i+1,j-1,k))/(PGrid%y(i+1,j+1,k)-PGrid%y(i+1,j-1,k))
-       vz=(phi(i+1,j,k+1)-phi(i+1,j,k-1))/(PGrid%z(i+1,j,k+1)-PGrid%z(i+1,j,k-1))
-       qi(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       if(qi(-1)<eta.and.qi(1)>=eta) then
-         dx=-1
-       elseif(qi(-1)>=eta.and.qi(1)<eta) then
-         dx=1
-       else
-         dx=0
-       end if
-! define qj for Dy
-       if(j>=3) then
-         vy=(phi(i,j,k)-phi(i,j-2,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-2,k))
-       else
-         vy=(phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
-       end if
-       vx=(phi(i+1,j-1,k)-phi(i-1,j-1,k))/(PGrid%x(i+1,j-1,k)-PGrid%x(i-1,j-1,k))
-       vz=(phi(i,j-1,k+1)-phi(i,j-1,k-1))/(PGrid%z(i,j-1,k+1)-PGrid%z(i,j-1,k-1))
-       qj(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       ! define qj(1)
-       vx=(phi(i+1,j+1,k)-phi(i-1,j+1,k))/(PGrid%x(i+1,j+1,k)-PGrid%x(i-1,j+1,k))
-       if(j<=jmax-2) then
-         vy=(phi(i,j+2,k)-phi(i,j,k))/(PGrid%y(i,j+2,k)-PGrid%y(i,j,k))
-       else
-         vy=(phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
-       end if
-       vz=(phi(i,j+1,k+1)-phi(i,j+1,k-1))/(PGrid%z(i,j+1,k+1)-PGrid%z(i,j+1,k-1))
-       qj(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       if(qj(-1)<eta.and.qj(1)>=eta) then
-         dy=-1
-       elseif(qj(-1)>=eta.and.qj(1)<eta) then
-         dy=1
-       else
-         dy=0
-       end if
-! define qk for dz
-       ! qk(-1)
-       vx=(phi(i+1,j,k-1)-phi(i-1,j,k-1))/(PGrid%x(i+1,j,k-1)-PGrid%x(i-1,j,k-1))
-       vy=(phi(i,j+1,k-1)-phi(i,j-1,k-1))/(PGrid%y(i,j+1,k-1)-PGrid%y(i,j-1,k-1))
-       if(k>=3) then
-         vz=(phi(i,j,k)-phi(i,j,k-2))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-2))
-       else
-         vz=(phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
-       end if
-       qk(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       ! qk(1)
-       vx=(phi(i+1,j,k+1)-phi(i-1,j,k+1))/(PGrid%x(i+1,j,k+1)-PGrid%x(i-1,j,k+1))
-       vy=(phi(i,j+1,k+1)-phi(i,j-1,k+1))/(PGrid%y(i,j+1,k+1)-PGrid%y(i,j-1,k+1))
-       if(k<=kmax-2) then
-         vz=(phi(i,j,k+2)-phi(i,j,k))/(PGrid%z(i,j,k+2)-PGrid%z(i,j,k))
-       else
-         vz=(phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
-       end if
-       qk(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
-       if(qk(-1)<eta.and.qk(1)>=eta) then
-         dz=-1
-       elseif(qk(-1)>=eta.and.qk(1)<eta) then
-         dz=1
-       else
-         dz=0
-       end if
-       if(dx==-1) nxx = (phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
-       if(dx==1) nxx = (phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
-       if(dx==0) nxx = (phi(i+1,j,k)-phi(i-1,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i-1,j,k))
-       if(dy==-1) nyy = (phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
-       if(dy==1) nyy = (phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
-       if(dy==0) nyy = (phi(i,j+1,k)-phi(i,j-1,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j-1,k))
-       if(dz==-1) nzz = (phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
-       if(dz==1) nzz = (phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
-       if(dz==0) nzz = (phi(i,j,k+1)-phi(i,j,k-1))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k-1))
+  !SUBROUTINE Normal_Vector_Irre(PGrid,phi,i,j,k,nxx,nyy,nzz)
+  !  implicit none
+  !  type(Grid),                        intent(in)  :: PGrid
+  !  real(kind=dp),dimension(0:,0:,0:), intent(in)  :: phi
+  !  integer,                           intent(in)  :: i,j,k
+  !  real(dp),                          intent(out) :: nxx,nyy,nzz
+  !  integer                                     :: case_deri,dx,dy,dz
+  !  real(dp)                                    :: qi(-1:1),qj(-1:1),qk(-1:1)
+  !  real(dp)                                    :: vx,vy,vz
+  !     ! define qi for Dx
+  !     if(i>=3) then
+  !     ! for qi(-1)
+  !       vx=(phi(i,j,k)-phi(i-2,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-2,j,k))
+  !     else
+  !       vx=(phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
+  !     end if
+  !     vy=(phi(i-1,j+1,k)-phi(i-1,j-1,k))/(PGrid%y(i-1,j+1,k)-PGrid%y(i-1,j-1,k))
+  !     vz=(phi(i-1,j,k+1)-phi(i-1,j,k-1))/(PGrid%z(i-1,j,k+1)-PGrid%z(i-1,j,k-1))
+  !     qi(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     ! for qi(1)
+  !     if(i<=imax-2) then
+  !       vx=(phi(i+2,j,k)-phi(i,j,k))/(PGrid%x(i+2,j,k)-PGrid%x(i,j,k))
+  !     else
+  !       vx=(phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
+  !     end if
+  !     vy=(phi(i+1,j+1,k)-phi(i+1,j-1,k))/(PGrid%y(i+1,j+1,k)-PGrid%y(i+1,j-1,k))
+  !     vz=(phi(i+1,j,k+1)-phi(i+1,j,k-1))/(PGrid%z(i+1,j,k+1)-PGrid%z(i+1,j,k-1))
+  !     qi(1) = dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     if(qi(-1)<eta.and.qi(1)>=eta) then
+  !       dx=-1
+  !     elseif(qi(-1)>=eta.and.qi(1)<eta) then
+  !       dx=1
+  !     else
+  !       dx=0
+  !     end if
+! !define qj for Dy
+  !     if(j>=3) then
+  !       vy=(phi(i,j,k)-phi(i,j-2,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-2,k))
+  !     else
+  !       vy=(phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
+  !     end if
+  !     vx=(phi(i+1,j-1,k)-phi(i-1,j-1,k))/(PGrid%x(i+1,j-1,k)-PGrid%x(i-1,j-1,k))
+  !     vz=(phi(i,j-1,k+1)-phi(i,j-1,k-1))/(PGrid%z(i,j-1,k+1)-PGrid%z(i,j-1,k-1))
+  !     qj(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     ! define qj(1)
+  !     vx=(phi(i+1,j+1,k)-phi(i-1,j+1,k))/(PGrid%x(i+1,j+1,k)-PGrid%x(i-1,j+1,k))
+  !     if(j<=jmax-2) then
+  !       vy=(phi(i,j+2,k)-phi(i,j,k))/(PGrid%y(i,j+2,k)-PGrid%y(i,j,k))
+  !     else
+  !       vy=(phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
+  !     end if
+  !     vz=(phi(i,j+1,k+1)-phi(i,j+1,k-1))/(PGrid%z(i,j+1,k+1)-PGrid%z(i,j+1,k-1))
+  !     qj(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     if(qj(-1)<eta.and.qj(1)>=eta) then
+  !       dy=-1
+  !     elseif(qj(-1)>=eta.and.qj(1)<eta) then
+  !       dy=1
+  !     else
+  !       dy=0
+  !     end if
+! !define qk for dz
+  !     ! qk(-1)
+  !     vx=(phi(i+1,j,k-1)-phi(i-1,j,k-1))/(PGrid%x(i+1,j,k-1)-PGrid%x(i-1,j,k-1))
+  !     vy=(phi(i,j+1,k-1)-phi(i,j-1,k-1))/(PGrid%y(i,j+1,k-1)-PGrid%y(i,j-1,k-1))
+  !     if(k>=3) then
+  !       vz=(phi(i,j,k)-phi(i,j,k-2))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-2))
+  !     else
+  !       vz=(phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
+  !     end if
+  !     qk(-1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     ! qk(1)
+  !     vx=(phi(i+1,j,k+1)-phi(i-1,j,k+1))/(PGrid%x(i+1,j,k+1)-PGrid%x(i-1,j,k+1))
+  !     vy=(phi(i,j+1,k+1)-phi(i,j-1,k+1))/(PGrid%y(i,j+1,k+1)-PGrid%y(i,j-1,k+1))
+  !     if(k<=kmax-2) then
+  !       vz=(phi(i,j,k+2)-phi(i,j,k))/(PGrid%z(i,j,k+2)-PGrid%z(i,j,k))
+  !     else
+  !       vz=(phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
+  !     end if
+  !     qk(1)=dabs(1.d0-dsqrt(vx**2.d0+vy**2.d0+vz**2.d0))
+  !     if(qk(-1)<eta.and.qk(1)>=eta) then
+  !       dz=-1
+  !     elseif(qk(-1)>=eta.and.qk(1)<eta) then
+  !       dz=1
+  !     else
+  !       dz=0
+  !     end if
+  !     if(dx==-1) nxx = (phi(i,j,k)-phi(i-1,j,k))/(PGrid%x(i,j,k)-PGrid%x(i-1,j,k))
+  !     if(dx==1) nxx = (phi(i+1,j,k)-phi(i,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i,j,k))
+  !     if(dx==0) nxx = (phi(i+1,j,k)-phi(i-1,j,k))/(PGrid%x(i+1,j,k)-PGrid%x(i-1,j,k))
+  !     if(dy==-1) nyy = (phi(i,j,k)-phi(i,j-1,k))/(PGrid%y(i,j,k)-PGrid%y(i,j-1,k))
+  !     if(dy==1) nyy = (phi(i,j+1,k)-phi(i,j,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j,k))
+  !     if(dy==0) nyy = (phi(i,j+1,k)-phi(i,j-1,k))/(PGrid%y(i,j+1,k)-PGrid%y(i,j-1,k))
+  !     if(dz==-1) nzz = (phi(i,j,k)-phi(i,j,k-1))/(PGrid%z(i,j,k)-PGrid%z(i,j,k-1))
+  !     if(dz==1) nzz = (phi(i,j,k+1)-phi(i,j,k))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k))
+  !     if(dz==0) nzz = (phi(i,j,k+1)-phi(i,j,k-1))/(PGrid%z(i,j,k+1)-PGrid%z(i,j,k-1))
 
-    END SUBROUTINE ANormal_Vector_Irre
+  !  END SUBROUTINE ANormal_Vector_Irre
 
 END MODULE InitialVof

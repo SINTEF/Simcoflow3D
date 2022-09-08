@@ -53,13 +53,13 @@ add_executable(FlowSphere ${FLOWSPHERELIST})
 target_link_libraries(FlowSphere ${LINK_LIBS})
 my_add_test(testflowsphere)
 
-list(APPEND VESSELLIST
-    ${SRC_LIST}
-    Vessel/Vessel.f90
-    Vessel/InitializationVessel.f90)
-add_executable(Vessel ${VESSELLIST})
-target_link_libraries(Vessel ${LINK_LIBS})
-my_add_test(testvessel)
+#list(APPEND VESSELLIST
+#    ${SRC_LIST}
+#    Vessel/Vessel.f90
+#    Vessel/InitializationVessel.f90)
+#add_executable(Vessel ${VESSELLIST})
+#target_link_libraries(Vessel ${LINK_LIBS})
+#my_add_test(testvessel)
 
 list(APPEND FLOWSPHERE2PHASESLIST
     ${SRC_LIST}
